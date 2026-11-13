@@ -153,3 +153,40 @@ button.review-choice:hover:not(:disabled){border-color:#c8b282}
 @media(max-width:1000px){.slide-caption{grid-template-columns:1fr}.scene-navigation{justify-content:space-between}.chapter-nav{padding-top:5px}.slide-line{font-size:clamp(19px,2.3vw,27px)}}
 @media(max-width:720px){.top{padding:12px;align-items:flex-start}.top h1{font-size:24px}.top-actions{gap:5px}.top-actions button{font-size:12px;padding:4px 8px;min-height:40px}.map{min-height:570px}.event-card{top:auto;bottom:66px;left:12px;width:225px;transform:none}.event-preview{display:none}.event-copy{padding:9px}.event-copy h2{font-size:26px}.event-copy p{margin-bottom:10px;font-size:14px}.map-tools{bottom:12px;right:12px}.map-tools p{margin-top:0}.timeline{padding:0 5px 7px}.time-button{padding:6px}.time-button strong{font-size:15px}.time-button time{font-size:11px}.scene-head{padding:12px;align-items:flex-start;flex-wrap:wrap}.scene-head h1{font-size:29px}.scene-date{font-size:13px}.scene-actions button,.scene-navigation button{font-size:13px;padding:5px 8px}.scene-actions{gap:5px}.chapter-nav{gap:2px;flex-wrap:wrap}.chapter-nav button{font-size:12px;padding:3px 6px}.comparison .materials{grid-template-columns:1fr}.review-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.review-card:nth-child(2)::after{display:none}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+#presenter{background:#172119;border:1px solid var(--line);border-radius:8px;padding:clamp(16px,2vw,28px);line-height:1.65;min-width:0;overflow-wrap:anywhere}
+.presenter-mode{display:grid;grid-template-columns:minmax(0,1fr) minmax(275px,30vw);align-items:start;gap:12px;padding:12px}
+.presenter-mode #app{min-width:0;min-height:0}
+.presenter-mode #presenter{position:sticky;top:12px;max-height:calc(100dvh - 24px);overflow:auto}
+.presenter-mode .scene,.presenter-mode .shell{min-height:calc(100dvh - 24px)}
+.presenter-mode .scene-head{flex-wrap:wrap}
+.presenter-mode .scene-head h1{font-size:clamp(25px,3.3vw,52px)}
+.presenter-mode .slide-caption{grid-template-columns:1fr}
+.presenter-mode .slide-line{font-size:clamp(18px,1.75vw,28px)}
+.presenter-mode .scene-navigation{justify-content:flex-start}
+.presenter-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.presenter-status,.presenter-setup,.presenter-time{font-size:14px;color:var(--muted)}
+.presenter-setup{margin-top:10px}
+.presenter-notes{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+.presenter-notes h2{font-size:clamp(19px,1.7vw,26px);line-height:1.35}
+.presenter-notes h3{font-size:16px;color:var(--gold);margin:16px 0 3px}
+.presenter-time{margin:4px 0 10px}
+.presenter-question{color:var(--gold-soft)}
+.presenter-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.projection-mode #app button,.projection-mode #close-dialog,.projection-mode #dialog-content .dialog-split{display:none}
+.projection-mode #app button.pin,.projection-mode #app button.time-button,.projection-mode #app button.review-choice,.projection-mode #app button.hotspot[data-visited=true]{display:flex;pointer-events:none}
+.projection-mode #app button.review-choice{display:block}
+.projection-mode #app button:focus{outline:none}
+.projection-mode #app .pin,.projection-mode #app .time-button,.projection-mode #app .review-choice,.projection-mode #app .hotspot,.projection-mode .map{cursor:default}
+.projection-mode .slide-caption{grid-template-columns:1fr}
+.projection-mode .scene-navigation,.projection-mode .chapter-nav,.projection-mode .review-tools,.projection-mode .map-tools .zoom{display:none}
+.projection-mode .event-copy p{margin-bottom:0}
+.projection-mode .review-card::after{top:50%}
+.projection-mode .review-card{gap:0}
+@media(max-width:850px){.presenter-mode{display:block}.presenter-mode #presenter{position:static;max-height:none;margin-bottom:12px}.presenter-mode{display:flex;flex-direction:column-reverse}.presenter-mode #app,.presenter-mode #presenter{width:100%}}
+
+@media(min-width:851px){
+  .presenter-mode dialog{left:12px;right:calc(30vw + 24px);width:min(720px,calc(70vw - 60px))}
+  .presenter-mode dialog.comparison{width:min(1100px,calc(70vw - 60px))}
+  .presenter-mode dialog::backdrop{background:linear-gradient(to right,#070b09ba 0 calc(70vw - 24px),transparent calc(70vw - 24px))}
+}

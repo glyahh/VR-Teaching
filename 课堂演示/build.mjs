@@ -16,8 +16,9 @@ const readScript = async path => stripTypeScriptTypes(await read(path,'utf8')).r
 const content = (await readScript('./src/content.ts')).replace(/^export /gm,'');
 const terrain = await readScript('./src/terrain.ts');
 const script = await readScript('./src/app.ts');
+const presenter = await readScript('./src/presenter.ts');
 const css = await read('./src/style.css','utf8');
 const html = (await read('./src/index.html','utf8'))
   .replace('/* COURSE_STYLES */',()=>css)
-  .replace('/* COURSE_SCRIPT */',()=>'const mediaAssets = '+JSON.stringify(assets)+';\n'+content+'\n'+terrain+'\n'+script);
+  .replace('/* COURSE_SCRIPT */',()=>'const mediaAssets = '+JSON.stringify(assets)+';\n'+content+'\n'+terrain+'\n'+script+'\n'+presenter);
 await writeFile(new URL('./从于都到遵义-课堂演示.html',import.meta.url),html);

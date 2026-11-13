@@ -132,9 +132,13 @@ function modal(title: string, ...nodes: HTMLElement[]) {
   if (!dialog.open) dialog.showModal();
   closeDialog.focus();
 }
-closeDialog.onclick = () => dialog.close();
+closeDialog.onclick = () => closeMaterial();
 dialog.addEventListener('click', e => {
-  if (e.target === dialog) dialog.close();
+  if (!projectionMode && e.target === dialog) closeMaterial();
+});
+dialog.addEventListener('cancel',event=>{
+  event.preventDefault();
+  if (!projectionMode) closeMaterial();
 });
 dialog.addEventListener('close', () => {
   if (dialog.open) return;
@@ -172,7 +176,7 @@ function place(node: HTMLElement, point: Point) {
 }
 let pageButtons: {previous?: HTMLButtonElement; next?: HTMLButtonElement} = {};
 document.addEventListener('keydown', event => {
-  if (event.defaultPrevented || dialog.open || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if (projectionMode || event.defaultPrevented || dialog.open || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
   const button = ['ArrowLeft', 'PageUp'].includes(event.key) ? pageButtons.previous
     : ['ArrowRight', 'PageDown'].includes(event.key) ? pageButtons.next : undefined;
   if (!button?.isConnected) return;
@@ -184,7 +188,7 @@ function chapterNav(current: number, jump: (index: number) => void) {
   const nav = element('nav','chapter-nav');
   nav.setAttribute('aria-label','时间轴');
   events.forEach((event, index) => {
-    const button = control(event.name, () => jump(index));
+    const button = syncControl('chapter-'+index,event.name, () => jump(index));
     if (index === current) button.setAttribute('aria-current','step');
     nav.append(button);
   });
@@ -192,19 +196,20 @@ function chapterNav(current: number, jump: (index: number) => void) {
 }
 
 function openReview(conclusionPage = false) {
+  currentVideo = undefined;
   stopMotion();
   mapResize?.disconnect();
   const shell = element('section','shell review');
   const header = element('header','top');
   const actions = element('div','top-actions');
-  actions.append(fullscreenButton(),control('地图',()=>renderMap(true),'','arrowLeft'));
+  actions.append(fullscreenButton(),syncControl('map','地图',()=>renderMap(true),'','arrowLeft'));
   const title = element('h1','',conclusionPage ? '全课结论' : '课堂回顾');
   title.tabIndex = -1;
   header.append(title,actions);
 
   const lesson = element('section','review-body');
   const cards = element('div','review-cards');
-  const heading = element('h2','',conclusionPage ? reviewQuestion : '从出发到转折，四站发生了什么？');
+  const heading = element('h2','',conclusionPage ? '遵义会议的历史意义' : '从于都出发到遵义会议');
   const conclusion = element('p','review-conclusion',lessonConclusion);
   conclusion.hidden = !reviewAnswer;
   conclusion.setAttribute('aria-live','polite');
@@ -221,7 +226,7 @@ function openReview(conclusionPage = false) {
       summary.append(image,label);
       card.append(summary);
     } else {
-      const choice = control('',()=>{
+      const choice = syncControl('review-step-'+index,'',()=>{
         if (reviewSteps.has(index)) return;
         stopMotion();
         reviewSteps.add(index);
@@ -235,7 +240,7 @@ function openReview(conclusionPage = false) {
       choice.append(image,label);
       card.append(choice);
     }
-    const revisit = control('回看',()=>openChapter(index,'revisit',()=>{
+    const revisit = syncControl('revisit-'+index,'回看',()=>openChapter(index,'revisit',()=>{
       openReview(conclusionPage);
       app.querySelector<HTMLButtonElement>('[data-revisit="'+event.id+'"]')?.focus({preventScroll:true});
     }),'review-revisit','arrowRight',true);
@@ -244,13 +249,13 @@ function openReview(conclusionPage = false) {
     card.append(revisit);
     cards.append(card);
   });
-  const previous = control('上一页',()=>conclusionPage ? openReview() : openScene(chapterPages.length-1),'','arrowLeft');
+  const previous = syncControl('previous','上一页',()=>conclusionPage ? openReview() : openScene(chapterPages.length-1),'','arrowLeft');
   const footer = element('div','review-tools');
-  const next = conclusionPage ? undefined : control('下一页',()=>openReview(true),'primary','arrowRight',true);
+  const next = conclusionPage ? undefined : syncControl('next','下一页',()=>openReview(true),'primary','arrowRight',true);
   footer.append(previous);
   if (next) footer.append(next);
   if (conclusionPage) {
-    const reveal = control('揭示结论',()=>{
+    const reveal = syncControl('reveal-review','揭示结论',()=>{
       stopMotion();
       reviewAnswer = true;
       conclusion.hidden = false;
@@ -270,12 +275,14 @@ function openReview(conclusionPage = false) {
   lesson.append(footer);
   shell.append(header,lesson);
   app.replaceChildren(shell);
+  displayView({kind:'review',conclusionPage});
   pageButtons = {previous,next};
-  title.focus({preventScroll:true});
+  if (!projectionMode) title.focus({preventScroll:true});
   cards.querySelectorAll('.review-card').forEach((card,i)=>appear(card,100+i*75,320));
 }
 
 function openTeacher() {
+  if (projectionMode) return;
   const outline = element('ol','teacher-outline');
   const start = element('li');
   start.append(element('strong','','地图导入 · 3 分钟'),element('p','',lessonQuestion+' 依次点亮四站，请学员先预测哪一站调整方向、哪一站集中处理军事和组织问题。'));
@@ -283,13 +290,13 @@ function openTeacher() {
   events.forEach(event=>{
     const item = element('li');
     const notes = element('ul');
-    event.pages.forEach(page=>notes.append(element('li','',page.title+' · '+page.minutes+' 分钟。'+page.notes)));
+    event.pages.forEach(page=>notes.append(element('li','',page.title+' · '+page.minutes+' 分钟。'+page.notes+(page.question ? ' 可选提问「'+page.question+'」' : ''))));
     const duration = event.pages.reduce((sum,page)=>sum+page.minutes,0);
     item.append(element('strong','',event.name+' · '+duration+' 分钟'),notes);
     outline.append(item);
   });
   const end = element('li');
-  end.append(element('strong','','课堂回顾 · 4 分钟'),element('p','','前 2 分钟逐张揭示四站要点，后 2 分钟请学员引用材料回答，再揭示结论。'));
+  end.append(element('strong','','课堂回顾 · 4 分钟'),element('p','','前 2 分钟逐张揭示四站要点，后 2 分钟可请学员引用材料回答，再揭示结论。'+reviewQuestion));
   outline.append(end);
   const trialNotes = element('p','','遵义单讲 · 3 分钟。用 45 秒交代会前形势，90 秒对照两份材料，45 秒请学员回答并揭示结论。');
   const refs = element('div','dialog-split');
@@ -297,10 +304,10 @@ function openTeacher() {
     citation('中国共产党一百年大事记', chronology),citation('黎平会议',lipingSource),
     citation('猴场会议',houchangSource),citation('遵义会议',zunyiSource),citation('长征专题',history),citation('地形晕渲 · Mapzen / USGS / NOAA',terrainSource));
   modal('教师备课 · 42 分钟', control('开始遵义 3 分钟试讲', () => {
+    sendAction('trial');
     dialogOpener = null;
     dialog.close();
-    revealed.delete('trial-result');
-    openChapter(events.findIndex(event=>event.id==='zunyi'),'trial');
+    openTrial();
   }, 'primary', 'arrowRight', true), trialNotes, outline, refs);
 }
 let updateMapSelection: (focus?: 'pin'|'timeline') => void;
@@ -309,12 +316,15 @@ function select(index: number, focus?: 'pin'|'timeline') {
   updateMapSelection(focus);
 }
 function renderMap(restoreFocus = false) {
+  currentVideo = undefined;
   stopMotion();
   mapResize?.disconnect();
   const shell = element('section','shell');
   const header = element('header','top');
   const actions = element('div','top-actions');
-  actions.append(control('课堂回顾',()=>openReview()),control('教师备课',openTeacher),fullscreenButton());
+  actions.append(syncControl('review','课堂回顾',()=>openReview()));
+  if (!projectionMode) actions.append(control('教师备课',openTeacher), control('开始双屏授课',openProjection));
+  actions.append(fullscreenButton());
   header.append(element('h1','','从于都到遵义'),actions);
   const map = element('section','map');
   map.setAttribute('aria-label','长征阶段地图');
@@ -340,7 +350,7 @@ function renderMap(restoreFocus = false) {
   world.append(routeDiagram);
   let displayedRouteEnd = events[selected].routeEnd;
   const pins = events.map((e,i) => {
-    const node = control(e.name, () => select(i,'pin'), 'pin');
+    const node = syncControl('pin-'+i,e.name, () => select(i,'pin'), 'pin');
     place(node,[e.lon,e.lat]);
     world.append(node);
     return node;
@@ -350,16 +360,16 @@ function renderMap(restoreFocus = false) {
   const copy = element('div','event-copy');
   const date = element('time');
   const title = element('h2');
-  const question = element('p');
-  const enterScene = control('进入场景',()=>openChapter(selected),'','arrowRight',true);
-  const start = control('开始授课',()=>{
+  const summary = element('p');
+  const enterScene = syncControl('enter-scene','进入场景',()=>openChapter(selected),'','arrowRight',true);
+  const start = syncControl('start','开始授课',()=>{
     revealed.clear();
     reviewSteps.clear();
     reviewAnswer = false;
     lastViewed.clear();
     openScene(0);
   },'primary','arrowRight',true);
-  copy.append(date,title,question,start,enterScene);
+  copy.append(date,title,summary,start,enterScene);
   const preview = element('div','event-preview');
   preview.append(thumb,element('span','','情境示意'));
   card.append(preview,copy);
@@ -373,7 +383,7 @@ function renderMap(restoreFocus = false) {
   const resetView = control('重置视角',()=>{
     zoom=1;
     pan=[0,0];
-    moveCamera(true);
+    moveCamera(true,true);
   },'','reset');
   zoomOut.setAttribute('aria-label','缩小地图（快捷键 -）');
   zoomIn.setAttribute('aria-label','放大地图（快捷键 +）');
@@ -384,13 +394,14 @@ function renderMap(restoreFocus = false) {
   const timeline = element('nav','timeline');
   timeline.setAttribute('aria-label','时间轴');
   const times = events.map((e,i) => {
-    const node = control('',()=>select(i,'timeline'),'time-button');
+    const node = syncControl('time-'+i,'',()=>select(i,'timeline'),'time-button');
     node.append(element('time','',e.timeline),element('strong','',e.name));
     timeline.append(node);
     return node;
   });
   shell.append(header,map,timeline);
   app.replaceChildren(shell);
+  displayView({kind:'map'});
   let width = 0;
   let height = 0;
   let origin: Point = [0,0];
@@ -405,7 +416,7 @@ function renderMap(restoreFocus = false) {
     world.style.height = height+'px';
     moveCamera();
   }
-  function moveCamera(animate = false) {
+  function moveCamera(animate = false, broadcast = false) {
     const limitX = map.clientWidth*.28 + width*(zoom-1)/2;
     const limitY = map.clientHeight*.24 + height*(zoom-1)/2;
     pan = [Math.max(-limitX,Math.min(limitX,pan[0])), Math.max(-limitY,Math.min(limitY,pan[1]))];
@@ -415,25 +426,27 @@ function renderMap(restoreFocus = false) {
     zoomOut.disabled = zoom <= .85;
     zoomIn.disabled = zoom >= 2.5;
     zoomReadout.textContent = Math.round(zoom * 100) + '%';
+    cameraPosition = [zoom,pan[0]/Math.max(1,width),pan[1]/Math.max(1,height)];
+    if (broadcast) sendCamera(cameraPosition,animate);
   }
   function changeZoom(next: number, anchor: Point = [map.clientWidth*.65,map.clientHeight*.48], animate = false) {
     const newZoom = Math.max(.85,Math.min(2.5,next));
     const ratio = newZoom/zoom;
     pan = pan.map((offset,axis)=>offset+(anchor[axis]-origin[axis]-offset)*(1-ratio)) as Point;
     zoom = newZoom;
-    moveCamera(animate);
+    moveCamera(animate,true);
   }
   mapResize=new ResizeObserver(layout);
   mapResize.observe(map);
   let drag: {id:number;x:number;y:number;start:Point} | undefined;
   map.addEventListener('wheel', e => {
-    if ((e.target as Element).closest('.event-card,.map-tools')) return;
+    if (projectionMode || (e.target as Element).closest('.event-card,.map-tools')) return;
     e.preventDefault();
     const rect = map.getBoundingClientRect();
     changeZoom(zoom*Math.exp(-Math.sign(e.deltaY)*.12),[e.clientX-rect.left,e.clientY-rect.top],false);
   }, {passive:false});
   map.addEventListener('pointerdown', e => {
-    if (!e.isPrimary || e.button!==0 || (e.target as Element).closest('button,.event-card,.map-tools')) return;
+    if (projectionMode || !e.isPrimary || e.button!==0 || (e.target as Element).closest('button,.event-card,.map-tools')) return;
     drag={id:e.pointerId,x:e.clientX,y:e.clientY,start:[...pan]};
     map.setPointerCapture(e.pointerId);
     map.classList.add('dragging');
@@ -441,7 +454,7 @@ function renderMap(restoreFocus = false) {
   map.addEventListener('pointermove', e => {
     if (!drag || drag.id!==e.pointerId) return;
     pan=[drag.start[0]+e.clientX-drag.x, drag.start[1]+e.clientY-drag.y];
-    moveCamera();
+    moveCamera(false,true);
   });
   for (const type of ['pointerup','pointercancel','lostpointercapture']) {
     map.addEventListener(type,event=>{
@@ -451,7 +464,7 @@ function renderMap(restoreFocus = false) {
     });
   }
   shell.addEventListener('keydown', ev => {
-    if (dialog.open || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+    if (projectionMode || dialog.open || ev.altKey || ev.ctrlKey || ev.metaKey) return;
     if (ev.key === '+' || ev.key === '=') {
       ev.preventDefault();
       changeZoom(zoom * 1.25, undefined, true);
@@ -462,7 +475,7 @@ function renderMap(restoreFocus = false) {
       ev.preventDefault();
       zoom = 1;
       pan = [0,0];
-      moveCamera(true);
+      moveCamera(true,true);
     }
   });
   updateMapSelection = (focus) => {
@@ -474,7 +487,7 @@ function renderMap(restoreFocus = false) {
     thumb.alt=e.name+'情境缩略图';
     date.textContent=e.date;
     title.textContent=e.name;
-    question.textContent=lessonQuestion;
+    summary.textContent='这段路线从于都出发，经湘江、黎平，抵达遵义。';
     enterScene.setAttribute('aria-label','进入「'+e.name+'」场景');
     pins.forEach((node,i)=>node.setAttribute('aria-pressed',String(i===selected)));
     times.forEach((node,i)=>node.setAttribute('aria-current',String(i===selected)));
@@ -495,15 +508,21 @@ function renderMap(restoreFocus = false) {
       pan = [(targetX-origin[0]-width*zoom*x/100)*focusAmount,
         (targetY-origin[1]-height*zoom*y/100)*focusAmount];
       moveCamera(!reducedMotion.matches);
-      (focus==='pin'?pins:times)[selected].focus({preventScroll:true});
+      if (!projectionMode) (focus==='pin'?pins:times)[selected].focus({preventScroll:true});
     }
   };
   updateMapSelection();
   layout();
+  applyCamera = ([nextZoom,x,y],animate)=>{
+    zoom = nextZoom;
+    pan = [x*width,y*height];
+    moveCamera(animate);
+  };
   pageButtons = {next: start};
-  if (restoreFocus) times[selected].focus({preventScroll:true});
+  if (restoreFocus && !projectionMode) times[selected].focus({preventScroll:true});
 }
 function showZunyiMaterials(index?: number) {
+  activeMaterial = index === undefined ? 'comparison' : index === 0 ? 'material-before' : 'material-during';
   const columns = element('div','materials');
   const items = index === undefined ? zunyiMaterials : [zunyiMaterials[index]];
   for (const item of items) {
@@ -524,13 +543,13 @@ function showZunyiMaterials(index?: number) {
   }
   else {
     const footer = element('div','dialog-split');
-    footer.append(control('并排对照',()=>showZunyiMaterials(),'primary'));
+    footer.append(syncControl('compare','并排对照',()=>showZunyiMaterials(),'primary'));
     modal(items[0].title,columns,footer);
   }
 }
 
 function revealControl(key: string, label: string, output: HTMLElement, onReveal: () => void) {
-  const button = control(label,()=>{
+  const button = syncControl(key,label,()=>{
     if (revealed.has(key)) return;
     stopMotion();
     revealed.add(key);
@@ -547,6 +566,7 @@ function revealControl(key: string, label: string, output: HTMLElement, onReveal
 }
 
 function showTroops() {
+  activeMaterial = 'troops';
   const chart = element('div','troop-chart');
   const footer = element('div','dialog-split');
   const note = element('p','source','两数的差额涵盖这段行程中的多种减员。');
@@ -578,6 +598,7 @@ function showTroops() {
 }
 
 function showDirections() {
+  activeMaterial = 'directions';
   const diagram = element('div','directions');
   const lines = document.createElementNS(svgNamespace,'svg');
   lines.setAttribute('viewBox','0 0 100 100');
@@ -607,6 +628,7 @@ function showDirections() {
 }
 
 function showCrossing() {
+  activeMaterial = 'crossing';
   const firstVisit = !revealed.has('crossing-diagram');
   revealed.add('crossing-diagram');
   const chart = element('div','crossing-chart');
@@ -632,6 +654,7 @@ const issueSteps = {
 };
 
 function showIssue(issue: keyof typeof issueSteps) {
+  activeMaterial = issue;
   const firstVisit = !revealed.has(issue+'-diagram');
   revealed.add(issue+'-diagram');
   const flow = element('ol','issue-flow');
@@ -646,6 +669,7 @@ function openChapter(index: number, variant: LessonMode = 'lesson', returnToRevi
 }
 
 function openScene(position: number, variant: LessonMode = 'lesson', returnToReview?: () => void) {
+  currentVideo = undefined;
   stopMotion();
   const priorImage = app.querySelector<HTMLImageElement>('.scene-media > img');
   const priorChapter = app.querySelector<HTMLElement>('.classroom-slide')?.dataset.chapter;
@@ -680,7 +704,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   const location = page.title === '猴场会议' ? '贵州瓮安 · 1935 年 1 月 1 日'
     : page.image === 'wujiang' ? '贵州乌江 · 1935 年 1 月初' : event.place+' · '+event.date;
   identity.append(title,element('p','scene-date',location));
-  tools.append(fullscreenButton(),control(returnToReview ? '返回回顾' : '地图',leave,'','arrowLeft'));
+  tools.append(fullscreenButton(),syncControl('map',returnToReview ? '返回回顾' : '地图',leave,'','arrowLeft'));
   heading.append(identity,tools);
 
   const narration = element('p','slide-line',page.line);
@@ -733,17 +757,17 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   }
 
   const navigation = element('div','scene-navigation');
-  const previous = control('上一页',()=>turn(-1),'','arrowLeft');
+  const previous = syncControl('previous','上一页',()=>turn(-1),'','arrowLeft');
   const finalPage = position === chapterPages.length-1;
   const lastInChapter = chapterPages[position+1]?.chapter !== chapter;
   previous.disabled = variant !== 'lesson' && position === chapterStarts[chapter];
   const nextLabel = variant === 'trial' && finalPage ? '结束试讲'
     : variant === 'revisit' && lastInChapter ? '返回回顾'
     : finalPage ? '课堂回顾' : '下一页';
-  const next = control(nextLabel,()=>turn(1),'primary','arrowRight',true);
+  const next = syncControl('next',nextLabel,()=>turn(1),'primary','arrowRight',true);
   navigation.append(previous);
   if (page.activity === 'materials' || page.video === 'zunyi') {
-    navigation.append(control('并排对照',()=>{
+    navigation.append(syncControl('compare','并排对照',()=>{
       pauseVideo();
       showZunyiMaterials();
     }));
@@ -751,7 +775,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   if (page.activity === 'result') {
     const result = '会议集中解决军事和组织问题，事实上确立了毛泽东在党中央和红军的领导地位。';
     const resultKey = variant === 'trial' ? 'trial-result' : 'zunyi-result';
-    const revealResult = control('揭示结论',()=>{
+    const revealResult = syncControl('reveal-result','揭示结论',()=>{
       stopMotion();
       revealed.add(resultKey);
       displayResult();
@@ -779,6 +803,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   if (variant === 'lesson') bottom.append(chapterNav(chapter,jump));
   scene.append(stage,heading,bottom);
   app.replaceChildren(scene);
+  displayView({kind:'scene',position,variant});
   const sizeMedia = ()=>{
     media.style.width = Math.max(stage.clientWidth,stage.clientHeight*16/9)+'px';
   };
@@ -786,7 +811,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   mapResize.observe(stage);
   sizeMedia();
   pageButtons = {previous,next};
-  title.focus({preventScroll:true});
+  if (!projectionMode) title.focus({preventScroll:true});
   if (priorImage?.complete && priorImage.naturalWidth && priorImage.src !== picture.src && !reducedMotion.matches) {
     const old = element('img','outgoing-image');
     old.src = priorImage.src;
@@ -809,7 +834,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   }
 
   function addHotspot(label: string, key: string, [x,y]: Point, action: () => void) {
-    const spot = control(label,()=>{
+    const spot = syncControl(key,label,()=>{
       stopMotion();
       pauseVideo();
       revealed.add(key);
@@ -855,8 +880,22 @@ function attachVideo(key: string, media: HTMLElement, tools: HTMLElement) {
   video.loop = true;
   video.hidden = true;
   media.querySelector('.scene-shade')!.before(video);
-  const play = control('播放短片',async ()=>{
-    if (!video.paused) { video.pause(); return; }
+  const play = control('播放短片',()=>{
+    const state: VideoState = {mode: video.paused ? 'playing' : 'paused', time: video.currentTime};
+    setVideo(state);
+    sendProjection({type:'video',state});
+  },'','play');
+  async function setVideo(state: VideoState) {
+    if (state.mode === 'static') { showPoster(); return; }
+    if (Math.abs(video.currentTime-state.time) > .12) video.currentTime = state.time;
+    if (state.mode === 'paused') {
+      video.pause();
+      video.hidden = false;
+      video.classList.add('is-visible');
+      still.disabled = false;
+      setButtonContent(play,'继续播放','play');
+      return;
+    }
     video.hidden = false;
     try {
       await video.play();
@@ -865,8 +904,15 @@ function attachVideo(key: string, media: HTMLElement, tools: HTMLElement) {
     } catch {
       if (video.isConnected) showPoster();
     }
-  },'','play');
-  const still = control('静态画面',showPoster,'','image');
+  }
+  const still = control('静态画面',()=>{
+    showPoster();
+    sendProjection({type:'video',state:{mode:'static',time:0}});
+  },'','image');
+  currentVideo = {set: setVideo, read: ()=>({
+    mode: video.hidden ? 'static' : video.paused ? 'paused' : 'playing',
+    time: video.currentTime,
+  })};
   still.disabled = true;
   video.addEventListener('play',()=>{
     setButtonContent(play,'暂停短片','pause');
@@ -888,5 +934,3 @@ function attachVideo(key: string, media: HTMLElement, tools: HTMLElement) {
   }
   return ()=>video.pause();
 }
-
-renderMap();
