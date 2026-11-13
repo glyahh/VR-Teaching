@@ -9,8 +9,11 @@ for (const name of ['yudu','xiang','zunyi']) {
   assets[name] = 'data:image/png;base64,' + (await read('./assets/'+name+'.png')).toString('base64');
   assets[name+'-video'] = 'data:video/mp4;base64,' + (await read('./assets/'+name+'.mp4')).toString('base64');
 }
-const content = (await read('./src/content.ts','utf8')).replace(/^export /gm,'');
+for (const name of ['yudu-bank','yudu-bridge','xiang-ford','liping-street','liping-table','zunyi-documents','yudu-assembly','xiang-aftermath','wujiang','zunyi-dawn']) {
+  assets[name] = 'data:image/jpeg;base64,' + (await read('./assets/'+name+'.jpg')).toString('base64');
+}
 const readScript = async path => stripTypeScriptTypes(await read(path,'utf8')).replace(/[^\S\r\n]+$/gm,'');
+const content = (await readScript('./src/content.ts')).replace(/^export /gm,'');
 const terrain = await readScript('./src/terrain.ts');
 const script = await readScript('./src/app.ts');
 const css = await read('./src/style.css','utf8');

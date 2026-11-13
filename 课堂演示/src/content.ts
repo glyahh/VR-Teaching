@@ -1,82 +1,92 @@
 export const history = 'https://www.dswxyjy.org.cn/GB/427277/462086/index.html';
 export const chronology = 'https://www.dswxyjy.org.cn/n1/2021/0628/c423712-32142078.html';
-export const yuduSource = 'https://www.ccphistory.org.cn/shds/shhm/content/a617c479-b2d7-4bb0-a5bf-9d66a25d7b4d.html';
-export const xiangSource = 'https://m.chnmuseum.cn/Portals/0/web/zt/20160922longmarch/index.html';
+export const bridgeSource = 'https://www.yudu.gov.cn/yudu/ydly/202102/83a2c09d070f4bf6adf83d49e91e8b3d.shtml';
+export const xiangSource = 'https://www.dswxyjy.org.cn/n1/2020/0305/c219021-31618260.html';
+export const lipingSource = 'https://www.dswxyjy.org.cn/GB/434461/434473/434996/index.html';
+export const zunyiSource = 'https://www.dswxyjy.org.cn/GB/434461/434462/434832/index.html';
 export const terrainSource = 'https://github.com/tilezen/joerd/blob/master/docs/attribution.md';
-export const lipingSource = 'https://www.dswxyjy.org.cn/n1/2025/0205/c427167-40412848.html';
-export const bridgeSource = 'https://www.yudu.gov.cn/yudu/ydrw/202610/3daa15d476e643a689023db426c29b8d.shtml';
+
+export const lessonQuestion = '遵义会议为什么成为长征的转折点？';
+export const lessonConclusion = '长征初期严重受挫后，黎平会议调整进军方向，遵义会议集中解决军事和组织问题，开启了党独立自主解决中国革命实际问题的新阶段。';
+export const reviewQuestion = '选一份材料，说明遵义会议为什么成为转折点。';
 
 export const zunyiMaterials = [
-  {
-    title: '会前形势', spot: [44, 43],
-    lines: ['长征初期，中央红军在湘江战役中遭受重大损失。', '黎平会议决定改变原定计划，转向贵州北部。'],
-    source: '《中国共产党简史》· 中央红军开始长征',
-    url: 'https://www.dswxyjy.org.cn/n1/2026/1012/c462662-40812894.html',
-  },
-  {
-    title: '会议讨论', spot: [67, 44],
-    lines: ['会议总结第五次反“围剿”失败和长征初期受挫的经验教训。', '会议集中解决当时具有决定意义的军事和组织问题。'],
-    source: '中央党史和文献研究院 · 中央红军长征在贵州',
-    url: 'https://www.dswxyjy.org.cn/n1/2026/0722/c244516-40765893.html',
-  },
+  { title: '会前形势', lines: ['第五次反“围剿”失败，长征初期又遭严重挫折。', '湘江战役损失重大，黎平会议决定改变进军方向。'] },
+  { title: '会议讨论', lines: ['会议总结第五次反“围剿”失败和长征初期受挫的经验教训。', '会议集中解决当时具有决定意义的军事和组织问题。'] },
 ];
 
-export const events = [
+export const houchangSource = 'https://www.dswxyjy.org.cn/GB/434461/434462/434818/index.html';
+
+type LessonPage = {
+  image: string;
+  title: string;
+  line: string;
+  minutes: number;
+  notes: string;
+  activity?: 'bridge' | 'crossing' | 'troops' | 'directions' | 'military' | 'organization' | 'materials' | 'result';
+  video?: string;
+};
+
+export const events: {
+  id: string; name: string; place: string; date: string; timeline: string;
+  lon: number; lat: number; routeEnd: number; review: string; pages: LessonPage[];
+}[] = [
   {
-    id:'yudu', name:'于都出发', place:'江西于都', date:'1934 年 10 月', timeline:'1934.10',
-    lon:115.41, lat:25.95, hotspot:'浮桥', spot:[58,54],
-    card:['中央红军在于都一带集结。', '当地群众支援物资和渡河准备。', '10 月中旬，部队从于都河沿岸多个渡口渡河。'],
-    intro:'中央红军为什么先到于都集结？',
-    captions:[
-      '1934 年 10 月中旬，中央红军主力在于都一带集结，准备战略转移。',
-      '于都群众支援部队集结和渡河。画面中的浮桥，可以帮助我们理解渡河需要哪些准备。',
-      '中央红军从多个渡口渡过于都河，踏上长征路。',
+    id: 'yudu', name: '于都出发', place: '江西于都', date: '1934 年 10 月', timeline: '1934.10',
+    lon: 115.41, lat: 25.95, routeEnd: 0, review: '集结出发',
+    pages: [
+      { image: 'yudu-assembly', title: '于都集结', line: '第五次反“围剿”失败后，中央红军开始战略转移。', minutes: 2,
+        notes: '先让学员在地图上找到江西于都。交代中央根据地面临的局面和战略转移的背景。追问大部队从集结走到渡河，中间需要哪些准备。' },
+      { image: 'yudu-bank', title: '岸边备桥', line: '渡河前，于都群众送来了什么？', minutes: 2,
+        notes: '请一位学员指出画面里的木板与船，再请另一位补充人手和物资。结合纪念园讲解资料，讲当地群众出力架桥、送来木料的事例。' },
+      { image: 'yudu-bridge', title: '浮桥近景', line: '桥面靠什么托住？', minutes: 2, activity: 'bridge',
+        notes: '先给学员观察，再分两次点船体和桥板。请学员用一句话讲清两种材料各有什么作用，然后把画面与上一页的群众支援连起来。' },
+      { image: 'yudu', title: '夜渡于都河', line: '1934 年 10 月中旬，中央红军从于都河沿岸多个渡口踏上长征路。', minutes: 2, video: 'yudu',
+        notes: '可播放夜渡短片。请学员回顾集结、备桥、渡河三个步骤，并指出哪一步最能说明当地群众的作用。随后把问题转向长征初期遇到的困难。' },
     ],
-    notes:[
-      '约 1 分钟。指地图上江西于都的位置，说明第五次反“围剿”失败后，中央红军开始战略转移。',
-      '约 1 分钟。先请学员观察浮桥，再点「搭桥材料」让学员选出图中的两种材料。揭晓后追问材料从哪里来。',
-      '约 1 分钟。回顾集结、渡河、出发三个动作。返回地图，指向湘江方向。',
-    ],
-    source:'中央党史和文献研究院长征专题；中央红军长征出发纪念馆资料',
-    url:yuduSource,
-    review:'中央红军在于都集结，当地群众支援渡河准备。',
   },
   {
-    id:'xiang', name:'湘江战役', place:'广西湘江上游', date:'1934 年 11 月 27 日—12 月 1 日', timeline:'1934.11–12',
-    lon:110.73, lat:25.83, hotspot:'战役地点', spot:[42,43],
-    card:['战役发生在广西全州、兴安、灌阳一带。', '中央红军渡过湘江，突破第四道封锁线。'],
-    intro:'渡过湘江，为什么仍是长征初期的一次重大挫折？',
-    captions:[
-      '1934 年 11 月底，中央红军在广西湘江上游一带经历湘江战役。',
-      '中央红军突破第四道封锁线，也付出了重大代价。点开「战役地点」和「兵力对照」，读一读地点和两组数字。',
-      '渡江后的严峻形势，让调整行动方向和总结此前的经验教训更加紧迫。',
+    id: 'xiang', name: '湘江战役', place: '广西湘江上游', date: '1934 年 11 月 27 日—12 月 1 日', timeline: '1934.11–12',
+    lon: 110.73, lat: 25.83, routeEnd: 4, review: '渡江受挫',
+    pages: [
+      { image: 'xiang', title: '湘江河谷', line: '渡过湘江，为什么仍是一次重大挫折？', minutes: 2, video: 'xiang',
+        notes: '先让学员看河谷，交代战役发生在 11 月 27 日至 12 月 1 日。可手动播放短片。把“渡过湘江”和“遭受重大损失”作为接下来要解释的两个事实。' },
+      { image: 'xiang-ford', title: '湘江渡口', line: '中央红军在广西全州、兴安之间渡过湘江。', minutes: 2, activity: 'crossing',
+        notes: '打开渡江区域示意。指出全州、兴安之间的渡江区域，结合灌阳也在战役涉及范围内讲清区域与渡江点的区别。请学员先说突破的是第几道封锁线。' },
+      { image: 'xiang-ford', title: '兵力对照', line: '两组数字分别对应什么时点？', minutes: 3, activity: 'troops',
+        notes: '依次揭示长征出发时的 8.6 万余人和渡过湘江后的 3 万余人。让学员读出时点，再用图说明减员差额覆盖两个时点之间的行程。请学员用“结果”和“代价”各说一句。' },
+      { image: 'xiang-aftermath', title: '渡江之后', line: '突破封锁线后，中央红军面临重大损失。', minutes: 2,
+        notes: '复述结果与代价，请学员说说为什么渡江后还需要重新考虑进军方向。收束到军事形势变了，原来的计划需要重新讨论，转入黎平。' },
     ],
-    notes:[
-      '约 1 分钟。先定位广西湘江上游，交代战役时间为 11 月 27 日至 12 月 1 日。画面为河谷示意。',
-      '约 1 分钟。8.6 万余人是长征出发时口径，3 万余人是渡过湘江后的口径。提示两数之差不能直接等同于本次战役阵亡人数。',
-      '约 1 分钟。回到地图，补讲 12 月 18 日黎平会议通过改变进军方向的决定。再交代随后经猴场、乌江进入黔北，到达遵义。',
-    ],
-    source:'中央党史和文献研究院长征专题；中国国家博物馆长征文物展',
-    url:xiangSource,
-    review:'中央红军渡过湘江，突破第四道封锁线，遭受重大损失。',
   },
   {
-    id:'zunyi', name:'遵义会议', place:'贵州遵义', date:'1935 年 1 月 15 日—17 日', timeline:'1935.01',
-    lon:106.93, lat:27.69,
-    card:['中共中央政治局在遵义召开扩大会议。', '会议集中解决当时具有决定意义的军事和组织问题。', '会议事实上确立了毛泽东在党中央和红军的领导地位。'],
-    intro:'经历湘江战役后的严峻局面，为什么要召开遵义会议？',
-    captions:[
-      '先想一想：经历长征初期的严重挫折，最需要总结什么、解决什么？',
-      '1935 年 1 月 15 日至 17 日，遵义会议集中解决当时具有决定意义的军事和组织问题。',
-      '会议事实上确立了毛泽东在党中央和红军的领导地位，成为党的历史上一个生死攸关的转折点。',
+    id: 'liping', name: '黎平会议', place: '贵州黎平', date: '1934 年 12 月 18 日', timeline: '1934.12.18',
+    lon: 109.14, lat: 26.23, routeEnd: 6, review: '改变方向',
+    pages: [
+      { image: 'liping-street', title: '黎平翘街', line: '渡过湘江后，中央红军下一步往哪里走？', minutes: 2,
+        notes: '交代中共中央政治局于 12 月 18 日在黎平召开会议。联系上一站的损失，让学员说出进军方向为何成为此时要讨论的问题。' },
+      { image: 'liping-table', title: '进军方向', line: '黎平会议怎样调整了进军方向？', minutes: 2, activity: 'directions',
+        notes: '先揭示原计划赴湘西北与红二、红六军团会合，再揭示会议决定改向贵州北部。请学员对着示意图复述变化，再问这个决定怎样落实。' },
+      { image: 'liping-table', title: '猴场会议', line: '猴场会议重申黎平会议的战略方针。', minutes: 2,
+        notes: '时间来到 1935 年 1 月 1 日，地点为贵州瓮安猴场。会议重申战略方针，并要求抢渡乌江、攻占遵义。让学员用“决定方向、重申方针”区分两次会议。桌面画面为教学示意。' },
+      { image: 'wujiang', title: '渡过乌江', line: '1935 年 1 月初，中央红军渡过乌江，进入黔北。', minutes: 2,
+        notes: '让学员按黎平、猴场、乌江的顺序复述从决定到行动的过程。联系地图点出遵义，并为下一段提出新问题，即抵达遵义后还要解决什么。' },
     ],
-    notes:[
-      '独立试讲第 1 分钟。先提出画面上的问题，等待两位学员作答，再追问其依据来自哪个前序事件。',
-      '独立试讲第 2 分钟。分别点桌上的两份材料，再并排对照。请学员说出会前的处境，以及会议集中解决的两类问题。',
-      '独立试讲第 3 分钟。揭示转折意义。让学员用“此前的处境＋会议处理的问题”组织一句解释，再返回地图。',
+  },
+  {
+    id: 'zunyi', name: '遵义会议', place: '贵州遵义', date: '1935 年 1 月 15 日—17 日', timeline: '1935.01',
+    lon: 106.93, lat: 27.69, routeEnd: 8, review: '总结与调整',
+    pages: [
+      { image: 'zunyi', title: '遵义会议室', line: '经历严重挫折后，会议最需要解决什么？', minutes: 2, video: 'zunyi',
+        notes: '交代中共中央政治局扩大会议的时间。请学员分别用湘江和黎平的事实概括会前处境与已经作出的改变，再听一位学员猜测会议的重点。' },
+      { image: 'zunyi-documents', title: '会议桌上的两份材料', line: '对照两份材料，找出会议集中解决的两类问题。', minutes: 2, activity: 'materials',
+        notes: '逐一打开两份摘要，再并排投影。请学员指出材料里哪些是会前形势，哪些是会议议题。两份材料为教学摘要，桌面物件为情境示意。' },
+      { image: 'zunyi-documents', title: '军事问题', line: '会议怎样总结第五次反“围剿”和长征初期受挫的教训？', minutes: 2, activity: 'military',
+        notes: '展开军事问题图解。请学员从前面的材料找出会议回顾的两段经历，讲清会议批评此前军事领导上的错误，并肯定毛泽东等提出的作战基本原则。' },
+      { image: 'zunyi-documents', title: '组织问题', line: '会议怎样调整中央领导机构？', minutes: 2, activity: 'organization',
+        notes: '展开组织问题图解。讲会议选举毛泽东为中央政治局常委，调整军事指挥安排。结合史料解释“事实上确立”的含义，请学员说出这与总结军事教训的关系。' },
+      { image: 'zunyi-dawn', title: '遵义会议的转折意义', line: '哪些变化使遵义会议成为转折点？', minutes: 2, activity: 'result',
+        notes: '先听学员用一份材料回答，再揭示结论。结合会前挫折、军事与组织调整，说明会议开启了党独立自主解决中国革命实际问题的新阶段。' },
     ],
-    source:'中央党史和文献研究院长征专题；中国共产党一百年大事记',
-    url:chronology,
-    review:'会议总结此前的经验教训，集中解决当时具有决定意义的军事和组织问题。',
   },
 ];

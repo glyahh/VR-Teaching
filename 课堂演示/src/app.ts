@@ -1,4 +1,4 @@
-type CourseEvent = typeof events[number];
+type LessonMode = 'lesson' | 'trial' | 'revisit';
 type Point = [number, number];
 type IconName = 'plus'|'minus'|'reset'|'play'|'pause'|'image'|'check'|'info'|'arrowLeft'|'arrowRight'|'expand'|'compress';
 
@@ -25,10 +25,13 @@ const iconPaths: Record<IconName, string[]> = {
   expand: ['M15 3h6v6','M9 21H3v-6','M21 3l-7 7','M3 21l7-7'],
   compress: ['M4 14h6v6','M20 10h-6V4','M14 10l7-7','M3 21l7-7'],
 };
-const visitedHotspots = new Set<string>();
+const revealed = new Set<string>();
+const chapterPages = events.flatMap((event, chapter) => event.pages.map(page => ({event, chapter, page})));
+const chapterStarts = events.map(event => chapterPages.findIndex(entry => entry.event.id === event.id));
+const lastViewed = new Map<number, number>();
+const reviewSteps = new Set<number>();
+let reviewAnswer = false;
 let selected = 0;
-let caption = 0;
-let mode: 'map'|'scene'|'review' = 'map';
 let mapResize: ResizeObserver | undefined;
 let zoom = 1;
 let pan: Point = [0,0];
@@ -79,13 +82,48 @@ function citation(label: string, url: string) {
   a.rel = 'noopener noreferrer';
   return a;
 }
-function replayAnimation(node: HTMLElement, className: string) {
-  if (reducedMotion.matches) return;
-  node.classList.remove(className);
-  void node.offsetWidth;
-  node.classList.add(className);
+const svgNamespace = 'http://www.w3.org/2000/svg';
+const motionEasing = 'cubic-bezier(.22,1,.36,1)';
+const runningMotion = new Set<Animation>();
+
+function stopMotion(scope?: Element) {
+  for (const animation of runningMotion) {
+    const target = (animation.effect as KeyframeEffect | null)?.target;
+    if (scope && !scope.contains(target ?? null)) continue;
+    animation.cancel();
+    runningMotion.delete(animation);
+  }
 }
+
+function animatePart(node: Element, frames: Keyframe[], duration: number, delay = 0) {
+  if (reducedMotion.matches || !node.isConnected || typeof node.animate !== 'function') return;
+  const animation = node.animate(frames,{duration,delay,easing:motionEasing,fill:'backwards'});
+  runningMotion.add(animation);
+  const release = ()=>runningMotion.delete(animation);
+  animation.finished.then(release,release);
+  return animation;
+}
+
+function appear(node: Element, delay = 0, duration = 280) {
+  animatePart(node,[{opacity:0,translate:'0 9px'},{opacity:1,translate:'0 0'}],duration,delay);
+}
+
+function drawLine(node: SVGElement, delay = 0, duration = 290) {
+  animatePart(node,[{strokeDasharray:'1 1',strokeDashoffset:1},{strokeDasharray:'1 1',strokeDashoffset:0}],duration,delay);
+}
+
+function diagramPath(d: string, className = '') {
+  const path = document.createElementNS(svgNamespace,'path');
+  path.setAttribute('d',d);
+  path.setAttribute('pathLength','1');
+  if (className) path.setAttribute('class',className);
+  return path;
+}
+
+reducedMotion.addEventListener('change',event=>{ if (event.matches) stopMotion(); });
+
 function modal(title: string, ...nodes: HTMLElement[]) {
+  stopMotion();
   if (!dialog.open) {
     dialogOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   }
@@ -99,6 +137,8 @@ dialog.addEventListener('click', e => {
   if (e.target === dialog) dialog.close();
 });
 dialog.addEventListener('close', () => {
+  if (dialog.open) return;
+  stopMotion(dialog);
   dialog.classList.remove('comparison');
   if (dialogOpener?.isConnected) dialogOpener.focus({preventScroll:true});
   dialogOpener = null;
@@ -130,123 +170,138 @@ function place(node: HTMLElement, point: Point) {
   node.style.left = x + '%';
   node.style.top = y + '%';
 }
-function openReview() {
+let pageButtons: {previous?: HTMLButtonElement; next?: HTMLButtonElement} = {};
+document.addEventListener('keydown', event => {
+  if (event.defaultPrevented || dialog.open || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  const button = ['ArrowLeft', 'PageUp'].includes(event.key) ? pageButtons.previous
+    : ['ArrowRight', 'PageDown'].includes(event.key) ? pageButtons.next : undefined;
+  if (!button?.isConnected) return;
+  event.preventDefault();
+  if (!event.repeat && !button.disabled) button.click();
+});
+
+function chapterNav(current: number, jump: (index: number) => void) {
+  const nav = element('nav','chapter-nav');
+  nav.setAttribute('aria-label','时间轴');
+  events.forEach((event, index) => {
+    const button = control(event.name, () => jump(index));
+    if (index === current) button.setAttribute('aria-current','step');
+    nav.append(button);
+  });
+  return nav;
+}
+
+function openReview(conclusionPage = false) {
+  stopMotion();
   mapResize?.disconnect();
-  mode = 'review';
   const shell = element('section','shell review');
   const header = element('header','top');
-  const title = element('h1','','课堂回顾');
   const actions = element('div','top-actions');
-  actions.append(fullscreenButton(),control('返回地图',()=>renderMap(true),'','arrowLeft'));
+  actions.append(fullscreenButton(),control('地图',()=>renderMap(true),'','arrowLeft'));
+  const title = element('h1','',conclusionPage ? '全课结论' : '课堂回顾');
+  title.tabIndex = -1;
   header.append(title,actions);
 
   const lesson = element('section','review-body');
-  const heading = element('h2','','按时间顺序选出三个事件');
-  heading.tabIndex = -1;
   const cards = element('div','review-cards');
-  const feedback = element('p','review-feedback');
-  feedback.setAttribute('role','status');
-  const order: number[] = [];
-  const choices = [2,0,1].map(index => {
-    const event = events[index];
-    const button = control('',()=>{
-      const previous = order.indexOf(index);
-      if (previous===-1) order.push(index);
-      else order.splice(previous,1);
-      update();
-    },'review-choice');
+  const heading = element('h2','',conclusionPage ? reviewQuestion : '从出发到转折，四站发生了什么？');
+  const conclusion = element('p','review-conclusion',lessonConclusion);
+  conclusion.hidden = !reviewAnswer;
+  conclusion.setAttribute('aria-live','polite');
+  events.forEach((event, index) => {
+    const card = element('article','review-card');
+    const detail = element('span','review-step',event.review);
+    detail.hidden = !(conclusionPage || reviewSteps.has(index));
+    detail.setAttribute('aria-live','polite');
     const label = element('span','review-label');
-    const number = element('span','review-number');
-    number.setAttribute('aria-hidden','true');
-    label.append(element('strong','',event.name),number);
-    button.append(photo(event.id, event.name+'情境示意'),label);
-    cards.append(button);
-    return { index, button, number };
+    label.append(element('time','',event.timeline),element('strong','',event.name),detail);
+    const image = photo(event.id === 'liping' ? event.pages[0].image : event.id);
+    if (conclusionPage) {
+      const summary = element('div','review-choice');
+      summary.append(image,label);
+      card.append(summary);
+    } else {
+      const choice = control('',()=>{
+        if (reviewSteps.has(index)) return;
+        stopMotion();
+        reviewSteps.add(index);
+        detail.hidden = false;
+        choice.setAttribute('aria-pressed','true');
+        animatePart(image,[{opacity:.72},{opacity:1}],260);
+        appear(detail,160,270);
+      },'review-choice');
+      choice.setAttribute('aria-label',event.name+'，揭示阶段要点');
+      choice.setAttribute('aria-pressed',String(!detail.hidden));
+      choice.append(image,label);
+      card.append(choice);
+    }
+    const revisit = control('回看',()=>openChapter(index,'revisit',()=>{
+      openReview(conclusionPage);
+      app.querySelector<HTMLButtonElement>('[data-revisit="'+event.id+'"]')?.focus({preventScroll:true});
+    }),'review-revisit','arrowRight',true);
+    revisit.dataset.revisit = event.id;
+    revisit.setAttribute('aria-label','回看'+event.name);
+    card.append(revisit);
+    cards.append(card);
   });
-  const toolbar = element('div','review-tools');
-  const reset = control('清空重选',()=>{order.length=0;update();choices[0].button.focus();},'','reset');
-  const check = control('核对时间顺序',()=>{
-    const correct = order.every((index,i)=>index===i);
-    feedback.dataset.correct = String(correct);
-    feedback.replaceChildren(
-      svgIcon(correct ? 'check' : 'info'),
-      element('span','',correct
-        ? '顺序正确：于都出发 → 湘江战役 → 遵义会议，下方已展开史料因果链。'
-        : '顺序有误：请想一想哪一事件最先出发，哪一事件在最后总结转折？')
-    );
-    if (!correct) replayAnimation(feedback,'is-shaking');
-    evidence.hidden = !correct;
-  },'primary','check');
-  toolbar.append(feedback,reset,check);
-
-  const evidence = element('section','review-evidence');
-  const chain = element('div','review-chain');
-  events.forEach((event,index)=>{
-    const item = element('article');
-    const revisit = control('重看场景',()=>{
-      openScene(index,()=>{
-        mode = 'review';
-        mapResize?.disconnect();
-        actions.firstElementChild?.replaceWith(fullscreenButton());
-        app.replaceChildren(shell);
-        revisit.focus();
+  const previous = control('上一页',()=>conclusionPage ? openReview() : openScene(chapterPages.length-1),'','arrowLeft');
+  const footer = element('div','review-tools');
+  const next = conclusionPage ? undefined : control('下一页',()=>openReview(true),'primary','arrowRight',true);
+  footer.append(previous);
+  if (next) footer.append(next);
+  if (conclusionPage) {
+    const reveal = control('揭示结论',()=>{
+      stopMotion();
+      reviewAnswer = true;
+      conclusion.hidden = false;
+      reveal.hidden = true;
+      conclusion.tabIndex = -1;
+      conclusion.focus({preventScroll:true});
+      cards.querySelectorAll('.review-step').forEach((detail,i)=>{
+        animatePart(detail,[{opacity:.45},{opacity:1,color:'#fff2cb'},{opacity:1}],330,i*140);
       });
-    },'','arrowRight',true);
-    revisit.setAttribute('aria-label','重看'+event.name+'场景');
-    item.append(element('time','',event.date),element('h3','',event.name),element('p','',event.review),revisit);
-    chain.append(item);
-  });
-  const liping = element('p','review-bridge','湘江与遵义之间，黎平会议决定改变进军方向。');
-  const discussion = element('div','review-discussion');
-  const answer = element('p','','湘江战役的损失让总结经验、调整方向更紧迫。黎平会议改变进军方向，随后召开的遵义会议集中解决了当时的军事和组织问题。');
-  answer.hidden = true;
-  const reveal = control('查看参考讲解',()=>{
-    answer.hidden = !answer.hidden;
-    reveal.textContent = answer.hidden ? '查看参考讲解' : '收起参考讲解';
-    reveal.setAttribute('aria-expanded',String(!answer.hidden));
-  });
-  reveal.setAttribute('aria-expanded','false');
-  discussion.append(element('h3','','湘江战役之后，为什么还需要召开遵义会议？'),reveal,answer);
-  evidence.append(chain,liping,discussion);
-  lesson.append(heading,cards,toolbar,evidence);
+      appear(conclusion,610,410);
+    },'primary');
+    reveal.hidden = reviewAnswer;
+    footer.append(reveal);
+  }
+  lesson.append(heading,cards,element('p','review-illustration','情境示意'));
+  if (conclusionPage) lesson.append(conclusion);
+  lesson.append(footer);
   shell.append(header,lesson);
   app.replaceChildren(shell);
-  update();
-  heading.focus({preventScroll:true});
-
-  function update() {
-    choices.forEach(({index,button,number})=>{
-      const position = order.indexOf(index)+1;
-      number.textContent = position ? String(position) : '';
-      button.setAttribute('aria-pressed',String(position>0));
-      button.setAttribute('aria-label',events[index].name+(position ? `，第 ${position} 项` : ''));
-    });
-    evidence.hidden = true;
-    answer.hidden = true;
-    reveal.textContent = '查看参考讲解';
-    reveal.setAttribute('aria-expanded','false');
-    delete feedback.dataset.correct;
-    feedback.classList.remove('is-shaking');
-    feedback.textContent = order.length ? `已选 ${order.length} / ${events.length}` : '';
-    check.disabled = order.length!==events.length;
-    reset.disabled = order.length===0;
-  }
+  pageButtons = {previous,next};
+  title.focus({preventScroll:true});
+  cards.querySelectorAll('.review-card').forEach((card,i)=>appear(card,100+i*75,320));
 }
+
 function openTeacher() {
-  const lesson = element('ol');
-  for (const text of [
-    '地图导入（约 2 分钟）：定位三个关键节点，提出核心问题。',
-    '场景精讲（各约 3 分钟）：观察情境画面，打开史料与互动环节，逐句讲解。',
-    '课堂回顾（约 4 分钟）：梳理时间顺序，结合史料解释转折意义。',
-  ]) lesson.append(element('li','',text));
+  const outline = element('ol','teacher-outline');
+  const start = element('li');
+  start.append(element('strong','','地图导入 · 3 分钟'),element('p','',lessonQuestion+' 依次点亮四站，请学员先预测哪一站调整方向、哪一站集中处理军事和组织问题。'));
+  outline.append(start);
+  events.forEach(event=>{
+    const item = element('li');
+    const notes = element('ul');
+    event.pages.forEach(page=>notes.append(element('li','',page.title+' · '+page.minutes+' 分钟。'+page.notes)));
+    const duration = event.pages.reduce((sum,page)=>sum+page.minutes,0);
+    item.append(element('strong','',event.name+' · '+duration+' 分钟'),notes);
+    outline.append(item);
+  });
+  const end = element('li');
+  end.append(element('strong','','课堂回顾 · 4 分钟'),element('p','','前 2 分钟逐张揭示四站要点，后 2 分钟请学员引用材料回答，再揭示结论。'));
+  outline.append(end);
+  const trialNotes = element('p','','遵义单讲 · 3 分钟。用 45 秒交代会前形势，90 秒对照两份材料，45 秒请学员回答并揭示结论。');
   const refs = element('div','dialog-split');
-  refs.append(citation('长征专题', history), citation('中国共产党一百年大事记', chronology),
-    citation('黎平会议',lipingSource),citation('地形晕渲 · Mapzen / USGS / NOAA',terrainSource));
-  modal('教师备课', lesson, control('开始遵义会议 3 分钟试讲', () => {
+  refs.append(citation('于都渡河', bridgeSource),citation('湘江战役',xiangSource),
+    citation('中国共产党一百年大事记', chronology),citation('黎平会议',lipingSource),
+    citation('猴场会议',houchangSource),citation('遵义会议',zunyiSource),citation('长征专题',history),citation('地形晕渲 · Mapzen / USGS / NOAA',terrainSource));
+  modal('教师备课 · 42 分钟', control('开始遵义 3 分钟试讲', () => {
     dialogOpener = null;
     dialog.close();
-    openScene(2);
-  }, 'primary', 'arrowRight', true), refs);
+    revealed.delete('trial-result');
+    openChapter(events.findIndex(event=>event.id==='zunyi'),'trial');
+  }, 'primary', 'arrowRight', true), trialNotes, outline, refs);
 }
 let updateMapSelection: (focus?: 'pin'|'timeline') => void;
 function select(index: number, focus?: 'pin'|'timeline') {
@@ -254,12 +309,12 @@ function select(index: number, focus?: 'pin'|'timeline') {
   updateMapSelection(focus);
 }
 function renderMap(restoreFocus = false) {
+  stopMotion();
   mapResize?.disconnect();
-  mode = 'map';
   const shell = element('section','shell');
   const header = element('header','top');
   const actions = element('div','top-actions');
-  actions.append(control('课堂回顾',openReview),control('教师备课',openTeacher),fullscreenButton());
+  actions.append(control('课堂回顾',()=>openReview()),control('教师备课',openTeacher),fullscreenButton());
   header.append(element('h1','','从于都到遵义'),actions);
   const map = element('section','map');
   map.setAttribute('aria-label','长征阶段地图');
@@ -271,8 +326,19 @@ function renderMap(restoreFocus = false) {
     place(node,[lon,lat]);
     world.append(node);
   }
-  const segments = route.slice(1).map(() => element('span','route'));
-  world.append(...segments);
+  const routeDiagram = document.createElementNS(svgNamespace,'svg');
+  routeDiagram.setAttribute('class','map-route');
+  routeDiagram.setAttribute('viewBox','0 0 100 100');
+  routeDiagram.setAttribute('preserveAspectRatio','none');
+  routeDiagram.setAttribute('aria-hidden','true');
+  const segments = route.slice(1).map((point,index)=>{
+    const start = position(route[index]);
+    const end = position(point);
+    return diagramPath('M '+start.join(' ')+' L '+end.join(' '),'route');
+  });
+  routeDiagram.append(...segments);
+  world.append(routeDiagram);
+  let displayedRouteEnd = events[selected].routeEnd;
   const pins = events.map((e,i) => {
     const node = control(e.name, () => select(i,'pin'), 'pin');
     place(node,[e.lon,e.lat]);
@@ -280,14 +346,23 @@ function renderMap(restoreFocus = false) {
     return node;
   });
   const card = element('article','event-card');
-  const thumb = photo(events[selected].id, events[selected].name+'情境缩略图');
+  const thumb = photo(events[selected].pages[0].image, events[selected].name+'情境示意');
   const copy = element('div','event-copy');
   const date = element('time');
   const title = element('h2');
   const question = element('p');
-  const enterScene = control('进入场景',()=>openScene(selected),'primary','arrowRight',true);
-  copy.append(date,title,question,enterScene);
-  card.append(thumb,copy);
+  const enterScene = control('进入场景',()=>openChapter(selected),'','arrowRight',true);
+  const start = control('开始授课',()=>{
+    revealed.clear();
+    reviewSteps.clear();
+    reviewAnswer = false;
+    lastViewed.clear();
+    openScene(0);
+  },'primary','arrowRight',true);
+  copy.append(date,title,question,start,enterScene);
+  const preview = element('div','event-preview');
+  preview.append(thumb,element('span','','情境示意'));
+  card.append(preview,copy);
   map.append(card);
   const tools = element('div','map-tools');
   const zoomTools = element('div','zoom');
@@ -328,13 +403,6 @@ function renderMap(restoreFocus = false) {
       : [map.clientWidth*.60-width*.52, (map.clientHeight-height)/2];
     world.style.width = width+'px';
     world.style.height = height+'px';
-    segments.forEach((segment,i) => {
-      const [ax,ay]=position(route[i]);
-      const [bx,by]=position(route[i+1]);
-      const dx=(bx-ax)*width/100,dy=(by-ay)*height/100;
-      Object.assign(segment.style,{left:ax+'%',top:ay+'%',width:Math.hypot(dx,dy)+'px',
-        transform:'rotate('+Math.atan2(dy,dx)+'rad)'});
-    });
     moveCamera();
   }
   function moveCamera(animate = false) {
@@ -398,287 +466,427 @@ function renderMap(restoreFocus = false) {
     }
   });
   updateMapSelection = (focus) => {
+    stopMotion();
     const e=events[selected];
-    thumb.src=mediaAssets[e.id];
+    const previousEnd = displayedRouteEnd;
+    displayedRouteEnd = e.routeEnd;
+    thumb.src=mediaAssets[e.pages[0].image];
     thumb.alt=e.name+'情境缩略图';
     date.textContent=e.date;
     title.textContent=e.name;
-    question.textContent=e.intro;
+    question.textContent=lessonQuestion;
     enterScene.setAttribute('aria-label','进入「'+e.name+'」场景');
     pins.forEach((node,i)=>node.setAttribute('aria-pressed',String(i===selected)));
     times.forEach((node,i)=>node.setAttribute('aria-current',String(i===selected)));
-    segments.forEach((node,i)=>node.classList.toggle('past',i<[0,4,8][selected]));
+    segments.forEach((node,i)=>node.classList.toggle('past',i<e.routeEnd));
     if (focus) {
-      replayAnimation(card,'is-switching');
+      const first = Math.min(previousEnd,e.routeEnd);
+      const arriving = segments.slice(first,e.routeEnd);
+      const draw = arriving.length ? arriving : segments.slice(Math.max(0,e.routeEnd-1),e.routeEnd);
+      draw.forEach((segment,i)=>drawLine(segment,110+i*65,290));
+      animatePart(pins[selected],[{outline:'5px solid #f6dca6a0',outlineOffset:'0px'},{outline:'5px solid #f6dca600',outlineOffset:'13px'}],420);
+      appear(times[selected].querySelector('strong')!,90,240);
+      animatePart(preview,[{opacity:.16},{opacity:1}],330,Math.min(510,220+draw.length*36));
+      appear(copy,Math.min(610,320+draw.length*36),265);
       const [x,y] = position([e.lon,e.lat]);
       const targetX = map.clientWidth*(map.clientWidth<=720 ? .5 : .65);
       const targetY = map.clientHeight*(map.clientWidth<=720 ? .33 : .47);
       const focusAmount = Math.max(.14,Math.min(1,(zoom-1)*2));
       pan = [(targetX-origin[0]-width*zoom*x/100)*focusAmount,
         (targetY-origin[1]-height*zoom*y/100)*focusAmount];
-      moveCamera(true);
+      moveCamera(!reducedMotion.matches);
       (focus==='pin'?pins:times)[selected].focus({preventScroll:true});
     }
   };
   updateMapSelection();
   layout();
+  pageButtons = {next: start};
   if (restoreFocus) times[selected].focus({preventScroll:true});
 }
 function showZunyiMaterials(index?: number) {
   const columns = element('div','materials');
-  const items = index===undefined ? zunyiMaterials : [zunyiMaterials[index]];
+  const items = index === undefined ? zunyiMaterials : [zunyiMaterials[index]];
   for (const item of items) {
     const card = element('article','material');
-    if (index===undefined) card.append(element('h3','',item.title));
-    for (const line of item.lines) card.append(element('p','',line));
-    const source = element('p','source');
-    source.append(citation(item.source,item.url));
-    card.append(source);
+    if (index === undefined) card.append(element('h3','',item.title));
+    item.lines.forEach(line=>card.append(element('p','',line)));
     columns.append(card);
   }
-  const footer = element('div','dialog-split');
-  if (index!==undefined) footer.append(control('并排对照',()=>showZunyiMaterials(),'primary'));
-  else footer.append(element('p','comparison-prompt','结合两份材料，说说遵义会议为什么成为转折点。'));
-  dialog.classList.toggle('comparison',index===undefined);
-  modal(index===undefined ? '两份史料对照' : items[0].title,columns,footer);
+  dialog.classList.toggle('comparison',index === undefined);
+  if (index === undefined) {
+    modal('两份材料对照',columns);
+    if (!revealed.has('materials-compared')) {
+      Array.from(columns.children).forEach((card,index)=>{
+        animatePart(card,[{opacity:0,translate:index ? '18px 0' : '-18px 0'},{opacity:1,translate:'0 0'}],360,140+index*180);
+      });
+      revealed.add('materials-compared');
+    }
+  }
+  else {
+    const footer = element('div','dialog-split');
+    footer.append(control('并排对照',()=>showZunyiMaterials(),'primary'));
+    modal(items[0].title,columns,footer);
+  }
 }
-function showEvidence(e: CourseEvent, title: string) {
-  const list=element('ul');
-  e.card.forEach(line=>list.append(element('li','',line)));
-  const source=element('p','source');
-  source.append(citation(e.source,e.url));
-  modal(title,list,source);
-}
-function showBridgeMaterials() {
-  const form = element('form','bridge-form');
-  const view = photo('yudu','浮桥近景，桥面下可见船体');
-  view.className = 'bridge-view';
-  const choices = element('fieldset','bridge-choices');
-  const legend = element('legend','','观察画面，哪两种材料用来搭这座浮桥？');
-  const inputs = ['木船','石块','木板'].map(material=>{
-    const label = element('label');
-    const input = element('input');
-    input.type = 'checkbox';
-    label.append(input,element('span','',material));
-    choices.append(label);
-    return input;
+
+function revealControl(key: string, label: string, output: HTMLElement, onReveal: () => void) {
+  const button = control(label,()=>{
+    if (revealed.has(key)) return;
+    stopMotion();
+    revealed.add(key);
+    sync();
+    onReveal();
   });
-  choices.prepend(legend);
-  const feedback = element('p','activity-feedback');
-  feedback.setAttribute('role','status');
-  const footer = element('div','dialog-split');
-  const check = control('核对材料',()=>{
-    const wrong = inputs[1].checked;
-    feedback.dataset.state = wrong ? 'hint' : 'ok';
-    feedback.replaceChildren(
-      svgIcon(wrong ? 'info' : 'check'),
-      element('span','',wrong
-        ? '再观察画面：桥面铺设的是什么材料？桥下又靠什么托浮在水面上？'
-        : '回答正确：木船和木板。船体托住桥面，木板铺成通道——当地群众拿出门板、床板等木料支援架桥。')
-    );
-  },'primary','check');
-  check.disabled = true;
-  footer.append(check);
-  const source = element('p','source');
-  source.append(citation('于都县人民政府 · 长征渡河资料',bridgeSource));
-  form.append(view,choices,footer,feedback,source);
-  form.addEventListener('submit',event=>event.preventDefault());
-  form.addEventListener('change',()=>{
-    delete feedback.dataset.state;
-    feedback.replaceChildren();
-    const count = inputs.filter(input=>input.checked).length;
-    check.disabled = count!==2;
-  });
-  modal('搭桥材料',form);
+  function sync() {
+    const visible = revealed.has(key);
+    output.hidden = !visible;
+    button.setAttribute('aria-expanded',String(visible));
+  }
+  sync();
+  return button;
 }
-function showTroopComparison() {
+
+function showTroops() {
   const chart = element('div','troop-chart');
-  [
-    ['长征出发时','8.6 万余人',100],['渡过湘江后','3 万余人',35],
-  ].forEach(([label,count,ratio], idx)=>{
+  const footer = element('div','dialog-split');
+  const note = element('p','source','两数的差额涵盖这段行程中的多种减员。');
+  const rows = [
+    { label: '长征出发时', count: '8.6 万余人', percent: 100 },
+    { label: '渡过湘江后', count: '3 万余人', percent: 35 },
+  ];
+  rows.forEach(({label,count,percent},index)=>{
     const row = element('div','troop-row');
     const text = element('div','troop-label');
-    text.append(element('span','',label),element('strong','',String(count)));
+    text.append(element('span','',label),element('strong','',count));
     const track = element('div','troop-track');
     track.setAttribute('aria-hidden','true');
     const bar = element('span','troop-bar');
-    bar.style.width = ratio+'%';
-    bar.style.animationDelay = (idx * 90) + 'ms';
+    bar.style.width = percent+'%';
     track.append(bar);
     row.append(text,track);
     chart.append(row);
+    footer.append(revealControl('troops-'+index,label,row,()=>{
+      animatePart(bar,[{scale:'0 1'},{scale:'1 1'}],430);
+      appear(text,340,260);
+      updateNote();
+      if (!note.hidden) appear(note,520,230);
+    }));
   });
-  const explanation = element('p','activity-feedback','这两组数字分别对应长征出发和渡过湘江两个时点。两者的差额包含这段行程中的多种减员，不能直接当作湘江战役阵亡人数。');
-  explanation.hidden = true;
-  const reveal = control('查看口径说明',()=>{
-    explanation.hidden = !explanation.hidden;
-    reveal.textContent = explanation.hidden ? '查看口径说明' : '收起口径说明';
-    reveal.setAttribute('aria-expanded',String(!explanation.hidden));
-  });
-  reveal.setAttribute('aria-expanded','false');
-  const footer = element('div','dialog-split');
-  footer.append(reveal);
-  const source = element('p','source');
-  source.append(citation('中国共产党一百年大事记',chronology));
-  modal('兵力对照',chart,footer,explanation,source);
+  function updateNote() { note.hidden = !rows.every((_,i)=>revealed.has('troops-'+i)); }
+  updateNote();
+  modal('兵力对照',chart,footer,note);
 }
-function openScene(index: number, returnToReview?: () => void) {
+
+function showDirections() {
+  const diagram = element('div','directions');
+  const lines = document.createElementNS(svgNamespace,'svg');
+  lines.setAttribute('viewBox','0 0 100 100');
+  lines.setAttribute('preserveAspectRatio','none');
+  lines.setAttribute('aria-hidden','true');
+  diagram.append(lines,element('strong','direction-origin','黎平'));
+  const footer = element('div','dialog-split');
+  const options = [
+    { label:'原计划', destination:'湘西北', direction:'east', line:'M 50 86 Q 63 78 74 43 L 69 47 M 74 43 L 74 55' },
+    { label:'会议决定', destination:'贵州北部', direction:'west', line:'M 50 86 Q 37 78 26 43 L 26 55 M 26 43 L 31 47' },
+  ];
+  options.forEach(({label,destination,direction,line})=>{
+    const branch = element('div','direction-branch '+direction);
+    const path = diagramPath(line,'direction-line '+direction);
+    const key = 'direction-'+direction;
+    path.classList.toggle('is-drawn',revealed.has(key));
+    lines.append(path);
+    branch.append(element('span','direction-name',label),element('strong','',destination));
+    diagram.append(branch);
+    footer.append(revealControl(key,label,branch,()=>{
+      path.classList.add('is-drawn');
+      drawLine(path,0,460);
+      appear(branch,390,270);
+    }));
+  });
+  modal('进军方向示意',diagram,footer);
+}
+
+function showCrossing() {
+  const firstVisit = !revealed.has('crossing-diagram');
+  revealed.add('crossing-diagram');
+  const chart = element('div','crossing-chart');
+  const svg = document.createElementNS(svgNamespace,'svg');
+  svg.setAttribute('viewBox','0 0 100 100');
+  svg.setAttribute('preserveAspectRatio','none');
+  svg.setAttribute('aria-hidden','true');
+  svg.append(diagramPath('M 51 -5 Q 31 22 49 52 T 49 106','river-line'));
+  const crossing = diagramPath('M 85 49 Q 70 45 55 51 T 19 60 L 24 54 M 19 60 L 25 63','crossing-line');
+  svg.append(crossing);
+  chart.append(svg,element('span','crossing-quanzhou','全州'),element('span','crossing-xingan','兴安'),
+    element('span','crossing-river','湘江'),element('span','crossing-label','渡江区域'));
+  modal('湘江渡江区域示意',chart);
+  if (firstVisit) {
+    drawLine(crossing,120,430);
+    appear(chart.querySelector('.crossing-label')!,490,260);
+  }
+}
+
+const issueSteps = {
+  military: ['回顾两段经历','总结第五次反“围剿”失败与长征初期受挫','纠正军事领导上的错误'],
+  organization: ['调整中央领导机构','毛泽东当选中央政治局常委','调整军事指挥安排'],
+};
+
+function showIssue(issue: keyof typeof issueSteps) {
+  const firstVisit = !revealed.has(issue+'-diagram');
+  revealed.add(issue+'-diagram');
+  const flow = element('ol','issue-flow');
+  issueSteps[issue].forEach(step=>flow.append(element('li','',step)));
+  modal(issue === 'military' ? '军事问题' : '组织问题',flow);
+  if (firstVisit) Array.from(flow.children).forEach((step,index)=>appear(step,110+index*165,300));
+}
+
+function openChapter(index: number, variant: LessonMode = 'lesson', returnToReview?: () => void) {
+  const first = chapterStarts[index];
+  openScene(variant === 'trial' ? first : (lastViewed.get(index) ?? first), variant, returnToReview);
+}
+
+function openScene(position: number, variant: LessonMode = 'lesson', returnToReview?: () => void) {
+  stopMotion();
+  const priorImage = app.querySelector<HTMLImageElement>('.scene-media > img');
+  const priorChapter = app.querySelector<HTMLElement>('.classroom-slide')?.dataset.chapter;
   mapResize?.disconnect();
-  mode='scene';
-  selected=index;
-  caption=0;
-  const e=events[index];
-  const scene=element('section','scene');
-  const stage=element('div','scene-stage');
-  const media=element('div','scene-media');
-  const poster=photo(e.id,e.name+'情境示意');
-  const video=element('video');
-  video.src=mediaAssets[e.id+'-video'];
-  video.poster=mediaAssets[e.id];
-  video.preload='metadata';
-  video.muted=true;
-  video.loop=true;
-  video.playsInline=true;
-  video.hidden=true;
-  let hotspotOrder = 0;
-  function addHotspot(label: string, [x,y]: number[], open: () => void) {
-    const key = e.id+':'+label;
-    const visited = visitedHotspots.has(key);
-    const hotspot=control(label,()=>{
-      visitedHotspots.add(key);
-      hotspot.dataset.visited='true';
-      setButtonContent(hotspot,label,'check');
-      video.pause();
-      open();
-    },'hotspot',visited?'check':'plus');
-    if (visited) hotspot.dataset.visited='true';
-    hotspot.setAttribute('aria-label',label+(visited?'（已查看）':''));
-    hotspot.style.left=x+'%';
-    hotspot.style.top=y+'%';
-    hotspot.style.setProperty('--delay',(hotspotOrder++ * 65)+'ms');
-    media.append(hotspot);
+  const { event, chapter, page } = chapterPages[position];
+  selected = chapter;
+  if (variant !== 'trial') lastViewed.set(chapter,position);
+  const scene = element('section','scene classroom-slide');
+  scene.dataset.chapter = String(chapter);
+  const media = element('div','scene-media');
+  const shade = element('div','scene-shade');
+  const picture = photo(page.image,page.title+'情境示意');
+  media.append(picture,shade);
+
+  let pauseVideo = () => {};
+  const tools = element('div','scene-actions');
+  if (page.video) pauseVideo = attachVideo(page.video,media,tools);
+
+  const leave = ()=>{
+    pauseVideo();
+    if (returnToReview) returnToReview();
+    else renderMap(true);
+  };
+  const jump = (index: number)=>{
+    pauseVideo();
+    openChapter(index,variant,returnToReview);
+  };
+  const heading = element('header','scene-head');
+  const identity = element('div','scene-identity');
+  const title = element('h1','',page.title);
+  title.tabIndex = -1;
+  const location = page.title === '猴场会议' ? '贵州瓮安 · 1935 年 1 月 1 日'
+    : page.image === 'wujiang' ? '贵州乌江 · 1935 年 1 月初' : event.place+' · '+event.date;
+  identity.append(title,element('p','scene-date',location));
+  tools.append(fullscreenButton(),control(returnToReview ? '返回回顾' : '地图',leave,'','arrowLeft'));
+  heading.append(identity,tools);
+
+  const narration = element('p','slide-line',page.line);
+  const evidence = element('ol','result-evidence');
+  if (page.activity === 'result') {
+    evidence.append(...['长征初期受挫','黎平改变方向','军事与组织调整'].map(text=>element('li','',text)));
+    evidence.setAttribute('aria-label','已讲材料');
   }
-  media.append(poster,video,element('div','scene-shade'));
-  if (e.id==='zunyi') {
-    zunyiMaterials.forEach((item,i)=>addHotspot(item.title,item.spot,()=>showZunyiMaterials(i)));
-  } else {
-    const {hotspot,spot} = e;
-    addHotspot(hotspot,spot,()=>showEvidence(e,hotspot));
-    if (e.id==='yudu') addHotspot('搭桥材料',[74,63],showBridgeMaterials);
-    else addHotspot('兵力对照',[65,58],showTroopComparison);
+  narration.setAttribute('aria-live','polite');
+  if (page.activity === 'bridge') {
+    const bridgeLabels = new Map<string,string>([['boat','木船托住桥面'],['plank','木板铺成通道']]);
+    const bridgeLine = () => {
+      const active = [...bridgeLabels].filter(([key])=>revealed.has(key));
+      narration.textContent = active.length === 2 ? '木船托桥，木板铺面。于都群众捐出门板等木料。'
+        : active[0]?.[1] ?? page.line;
+    };
+    const outlines = document.createElementNS(svgNamespace,'svg');
+    outlines.setAttribute('class','bridge-outlines');
+    outlines.setAttribute('viewBox','0 0 100 100');
+    outlines.setAttribute('preserveAspectRatio','none');
+    outlines.setAttribute('aria-hidden','true');
+    media.append(outlines);
+    const parts: [string,string,Point,string][] = [
+      ['船体','boat',[28,65],'M 9 42 Q 11 57 32 59 L 57 61 Q 49 78 39 84 Q 13 79 9 54 Z'],
+      ['桥板','plank',[73,46],'M 41 39 L 97 36 L 99 57 Q 70 49 45 45 Z'],
+    ];
+    parts.forEach(([label,key,point,shape])=>{
+      const outline = diagramPath(shape,'bridge-outline');
+      outline.classList.toggle('is-drawn',revealed.has(key));
+      outlines.append(outline);
+      addHotspot(label,key,point,()=>{
+        outline.classList.add('is-drawn');
+        drawLine(outline,0,450);
+        bridgeLine();
+        appear(narration,400,250);
+      });
+    });
+    bridgeLine();
   }
-  stage.append(media);
-  const heading=element('header','scene-head');
-  const name=element('div');
-  name.append(element('h1','',e.name),element('p','scene-date',e.place+' · '+e.date));
-  const tools=element('div','scene-actions');
-  const play=control('播放短片',async () => {
-    if (!video.paused) {video.pause();return;}
+  if (page.activity === 'crossing') addHotspot('渡江区域','crossing',[59,55],showCrossing);
+  if (page.activity === 'military' || page.activity === 'organization') {
+    const issue = page.activity;
+    addHotspot('展开图解',issue,[49,54],()=>showIssue(issue));
+  }
+  if (page.activity === 'troops') addHotspot('兵力对照','troops',[59,55],showTroops);
+  if (page.activity === 'directions') addHotspot('进军方向','directions',[53,62],showDirections);
+  if (page.activity === 'materials') {
+    addHotspot('会前形势','material-before',[32,47],()=>showZunyiMaterials(0));
+    addHotspot('会议讨论','material-during',[67,47],()=>showZunyiMaterials(1));
+  }
+
+  const navigation = element('div','scene-navigation');
+  const previous = control('上一页',()=>turn(-1),'','arrowLeft');
+  const finalPage = position === chapterPages.length-1;
+  const lastInChapter = chapterPages[position+1]?.chapter !== chapter;
+  previous.disabled = variant !== 'lesson' && position === chapterStarts[chapter];
+  const nextLabel = variant === 'trial' && finalPage ? '结束试讲'
+    : variant === 'revisit' && lastInChapter ? '返回回顾'
+    : finalPage ? '课堂回顾' : '下一页';
+  const next = control(nextLabel,()=>turn(1),'primary','arrowRight',true);
+  navigation.append(previous);
+  if (page.activity === 'materials' || page.video === 'zunyi') {
+    navigation.append(control('并排对照',()=>{
+      pauseVideo();
+      showZunyiMaterials();
+    }));
+  }
+  if (page.activity === 'result') {
+    const result = '会议集中解决军事和组织问题，事实上确立了毛泽东在党中央和红军的领导地位。';
+    const resultKey = variant === 'trial' ? 'trial-result' : 'zunyi-result';
+    const revealResult = control('揭示结论',()=>{
+      stopMotion();
+      revealed.add(resultKey);
+      displayResult();
+      Array.from(evidence.children).forEach((item,index)=>appear(item,index*160,320));
+      appear(narration,520,400);
+      next.focus({preventScroll:true});
+    });
+    function displayResult() {
+      const shown = revealed.has(resultKey);
+      narration.textContent = shown ? result : page.line;
+      revealResult.hidden = shown;
+      evidence.hidden = !shown;
+    }
+    displayResult();
+    navigation.append(revealResult);
+  }
+  navigation.append(next);
+
+  const stage = element('div','scene-stage');
+  const figureLabel = element('span','scene-illustration','情境示意');
+  stage.append(media,figureLabel);
+  const bottom = element('section','caption slide-caption');
+  if (page.activity === 'result') bottom.append(evidence);
+  bottom.append(narration,navigation);
+  if (variant === 'lesson') bottom.append(chapterNav(chapter,jump));
+  scene.append(stage,heading,bottom);
+  app.replaceChildren(scene);
+  const sizeMedia = ()=>{
+    media.style.width = Math.max(stage.clientWidth,stage.clientHeight*16/9)+'px';
+  };
+  mapResize = new ResizeObserver(sizeMedia);
+  mapResize.observe(stage);
+  sizeMedia();
+  pageButtons = {previous,next};
+  title.focus({preventScroll:true});
+  if (priorImage?.complete && priorImage.naturalWidth && priorImage.src !== picture.src && !reducedMotion.matches) {
+    const old = element('img','outgoing-image');
+    old.src = priorImage.src;
+    old.alt = '';
+    old.setAttribute('aria-hidden','true');
+    shade.before(old);
+    const fade = animatePart(old,[{opacity:1},{opacity:0}],400);
+    const remove = ()=>old.remove();
+    if (fade) fade.finished.then(remove,remove);
+    else remove();
+  } else if (priorImage?.src !== picture.src) {
+    animatePart(picture,[{opacity:.62},{opacity:1}],360);
+  }
+  appear(identity,120,290);
+  appear(narration,280,300);
+  media.querySelectorAll('.hotspot').forEach((spot,index)=>appear(spot,280+index*85,290));
+  const activeChapter = bottom.querySelector('[aria-current="step"]');
+  if (activeChapter && priorChapter !== String(chapter)) {
+    animatePart(activeChapter,[{backgroundColor:'#e8c48552'},{backgroundColor:'#e8c48514'}],380,220);
+  }
+
+  function addHotspot(label: string, key: string, [x,y]: Point, action: () => void) {
+    const spot = control(label,()=>{
+      stopMotion();
+      pauseVideo();
+      revealed.add(key);
+      update();
+      action();
+    },'hotspot');
+    function update() {
+      const active = revealed.has(key);
+      spot.dataset.visited = String(active);
+      setButtonContent(spot,label,active ? 'check' : 'plus');
+      spot.setAttribute('aria-label',label);
+    }
+    spot.style.left = x+'%';
+    spot.style.top = y+'%';
+    update();
+    media.append(spot);
+  }
+
+  function turn(direction: number) {
+    if (direction < 0 && previous.disabled) return;
+    pauseVideo();
+    if (position+direction < 0 || (direction > 0 && variant === 'revisit' && lastInChapter)) leave();
+    else if (direction > 0 && finalPage) {
+      if (variant === 'trial') leave();
+      else openReview();
+    } else {
+      const trialMaterials = chapterStarts[chapter]+1;
+      const target = variant === 'trial' && direction > 0 && position === trialMaterials
+        ? chapterPages.length-1
+        : variant === 'trial' && direction < 0 && finalPage ? trialMaterials : position+direction;
+      openScene(target,variant,returnToReview);
+    }
+  }
+}
+
+function attachVideo(key: string, media: HTMLElement, tools: HTMLElement) {
+  const video = element('video');
+  video.src = mediaAssets[key+'-video'];
+  video.poster = mediaAssets[key];
+  video.preload = 'metadata';
+  video.muted = true;
+  video.playsInline = true;
+  video.loop = true;
+  video.hidden = true;
+  media.querySelector('.scene-shade')!.before(video);
+  const play = control('播放短片',async ()=>{
+    if (!video.paused) { video.pause(); return; }
+    video.hidden = false;
     try {
-      video.hidden=false;
       await video.play();
-      if (!video.hidden && mode==='scene' && selected===index) {
-        requestAnimationFrame(()=>{
-          if (!video.hidden) video.classList.add('is-visible');
-        });
-      }
+      if (video.isConnected && !video.hidden && !video.paused) video.classList.add('is-visible');
+      else if (!video.isConnected) video.pause();
     } catch {
-      if (!video.hidden && mode==='scene' && selected===index) usePoster(true);
+      if (video.isConnected) showPoster();
     }
   },'','play');
-  const still=control('静态画面',()=>usePoster(),'','image');
-  still.disabled=true;
-  still.setAttribute('aria-pressed','true');
-  const playStatus=element('span','status-text');
-  playStatus.setAttribute('aria-live','polite');
-  const back=()=>{video.pause();renderMap(true);};
-  const finish=()=>{
-    video.pause();
-    if (returnToReview || e.id==='zunyi') (returnToReview ?? openReview)();
-    else back();
-  };
-  const backLabel = returnToReview ? '返回回顾' : '返回地图';
-  tools.append(play,still,fullscreenButton(),control(backLabel,returnToReview ? finish : back,'','arrowLeft'));
-  heading.append(name,tools);
-  const captionBox=element('section','caption');
-  const meta=element('div','caption-meta');
-  const progress=element('span');
-  meta.append(progress,element('span','','情境示意'));
-  const track=element('div','caption-track');
-  track.setAttribute('aria-hidden','true');
-  const fill=element('span','caption-fill');
-  track.append(fill);
-  const narration=element('p');
-  narration.setAttribute('aria-live','polite');
-  const navigation=element('div','scene-navigation');
-  const prev=control('上一句',()=>step(-1),'','arrowLeft');
-  const next=control('下一句',()=>caption===e.captions.length-1?finish():step(1),'primary','arrowRight',true);
-  navigation.append(prev,control('教师提示',()=>{video.pause();modal('教师提示',element('p','',e.notes[caption]));},'','info'),next);
-  if (e.id==='zunyi') navigation.insertBefore(control('对照材料',()=>{
-    video.pause();
-    showZunyiMaterials();
-  }),next);
-  captionBox.append(meta,track,narration,navigation,playStatus);
-  scene.append(stage,heading,captionBox);
-  app.replaceChildren(scene);
-  const sizeMedia=()=>{
-    media.style.width=Math.max(scene.clientWidth,scene.clientHeight*16/9)+'px';
-  };
-  mapResize=new ResizeObserver(sizeMedia);
-  mapResize.observe(scene);
-  sizeMedia();
-  function syncMediaState() {
-    still.disabled = video.hidden;
-    still.setAttribute('aria-pressed', String(video.hidden));
-  }
-  function usePoster(failed=false) {
-    video.pause();
-    video.classList.remove('is-visible');
-    video.hidden=true;
-    if (video.readyState>0) video.currentTime=0;
-    setButtonContent(play,'播放短片','play');
-    syncMediaState();
-    playStatus.textContent=failed?'短片无法播放。':'';
-  }
+  const still = control('静态画面',showPoster,'','image');
+  still.disabled = true;
   video.addEventListener('play',()=>{
     setButtonContent(play,'暂停短片','pause');
-    syncMediaState();
-    playStatus.textContent='';
+    still.disabled = false;
   });
   video.addEventListener('pause',()=>{
-    if (video.hidden) return;
-    if (video.ended) {
-      setButtonContent(play,'重播短片','play');
-    } else {
-      setButtonContent(play,'继续播放','play');
-    }
+    if (!video.hidden) setButtonContent(play,'继续播放','play');
   });
-  video.addEventListener('ended',()=>{
-    setButtonContent(play,'重播短片','play');
-  });
-  video.addEventListener('error',()=>usePoster(true));
-  function step(direction: number) {
-    caption=Math.min(e.captions.length-1,Math.max(0,caption+direction));
-    progress.textContent='教师讲解  '+(caption+1)+' / '+e.captions.length;
-    fill.style.transform='scaleX('+((caption+1)/e.captions.length)+')';
-    narration.textContent=e.captions[caption];
-    if (direction!==0) replayAnimation(narration,'is-stepping');
-    prev.disabled=caption===0;
-    const isLast = caption===e.captions.length-1;
-    const nextLabel = isLast
-      ? (returnToReview ? '完成并返回回顾' : e.id==='zunyi' ? '进入课堂回顾' : '完成本节，返回地图')
-      : '下一句';
-    setButtonContent(next,nextLabel,'arrowRight',true);
+  video.addEventListener('error',showPoster);
+  tools.append(play,still);
+  function showPoster() {
+    video.pause();
+    video.hidden = true;
+    video.classList.remove('is-visible');
+    if (video.readyState) video.currentTime = 0;
+    if (document.activeElement === still) play.focus({preventScroll:true});
+    still.disabled = true;
+    setButtonContent(play,'播放短片','play');
   }
-  step(0);
-  if (reducedMotion.matches) usePoster();
-  scene.addEventListener('keydown',ev=>{
-    if (dialog.open || ev.altKey || ev.ctrlKey || ev.metaKey) return;
-    if (ev.key==='ArrowRight' || ev.key==='ArrowLeft') {
-      ev.preventDefault();
-      step(ev.key==='ArrowRight'?1:-1);
-    }
-  });
-  next.focus({preventScroll:true});
+  return ()=>video.pause();
 }
+
 renderMap();
