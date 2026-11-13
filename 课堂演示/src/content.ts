@@ -2,7 +2,7 @@ export const history = 'https://www.dswxyjy.org.cn/GB/427277/462086/index.html';
 export const chronology = 'https://www.dswxyjy.org.cn/n1/2021/0628/c423712-32142078.html';
 export const yuduSource = 'https://www.ccphistory.org.cn/shds/shhm/content/a617c479-b2d7-4bb0-a5bf-9d66a25d7b4d.html';
 export const xiangSource = 'https://m.chnmuseum.cn/Portals/0/web/zt/20160922longmarch/index.html';
-export const terrainSource = 'https://www.naturalearthdata.com/downloads/50m-raster-data/50m-shaded-relief/';
+export const terrainSource = 'https://github.com/tilezen/joerd/blob/master/docs/attribution.md';
 export const lipingSource = 'https://www.dswxyjy.org.cn/n1/2025/0205/c427167-40412848.html';
 export const bridgeSource = 'https://www.yudu.gov.cn/yudu/ydrw/202610/3daa15d476e643a689023db426c29b8d.shtml';
 

@@ -1,5 +1,7 @@
 type CourseEvent = typeof events[number];
 type Point = [number, number];
+type IconName = 'plus'|'minus'|'reset'|'play'|'pause'|'image'|'check'|'info'|'arrowLeft'|'arrowRight'|'expand'|'compress';
+
 const app = document.querySelector<HTMLElement>('#app')!;
 const dialog = document.querySelector<HTMLDialogElement>('#dialog')!;
 const closeDialog = document.querySelector<HTMLButtonElement>('#close-dialog')!;
@@ -9,12 +11,28 @@ const route: Point[] = [[115.41,25.95],[114.94,25.39],[113.95,25.55],[112.95,25.
 const places: [string, number, number][] = [
   ['贵州',106.37,26.22],['湖南',112.15,28.3],['江西',116.6,27.35],['广西',109.2,24.58],['广东',114.1,24.54],
 ];
+const iconPaths: Record<IconName, string[]> = {
+  plus: ['M12 5v14','M5 12h14'],
+  minus: ['M5 12h14'],
+  reset: ['M3 12a9 9 0 1 0 3-6.7L3 8','M3 3v5h5'],
+  play: ['M7 5l12 7-12 7V5z'],
+  pause: ['M7 5h3v14H7z','M14 5h3v14h-3z'],
+  image: ['M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z','M7 16l3.5-4.5 2.5 3 2-2.5L19 16'],
+  check: ['M5 13l4 4L19 7'],
+  info: ['M12 16v-4','M12 8h.01','M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'],
+  arrowLeft: ['M15 18l-6-6 6-6'],
+  arrowRight: ['M9 18l6-6-6-6'],
+  expand: ['M15 3h6v6','M9 21H3v-6','M21 3l-7 7','M3 21l7-7'],
+  compress: ['M4 14h6v6','M20 10h-6V4','M14 10l7-7','M3 21l7-7'],
+};
+const visitedHotspots = new Set<string>();
 let selected = 0;
 let caption = 0;
 let mode: 'map'|'scene'|'review' = 'map';
 let mapResize: ResizeObserver | undefined;
 let zoom = 1;
 let pan: Point = [0,0];
+let dialogOpener: HTMLElement | null = null;
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', content = '') {
   const node = document.createElement(tag);
@@ -22,9 +40,29 @@ function element<K extends keyof HTMLElementTagNameMap>(tag: K, className = '', 
   node.textContent = content;
   return node;
 }
-function control(label: string, act: () => void, className = '') {
-  const node = element('button', className, label);
+function svgIcon(name: IconName) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'icon');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  for (const d of iconPaths[name]) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    svg.append(path);
+  }
+  return svg;
+}
+function setButtonContent(button: HTMLButtonElement, label: string, icon?: IconName, iconAfter = false) {
+  const nodes: (Node | string)[] = [];
+  if (icon && !iconAfter) nodes.push(svgIcon(icon));
+  if (label) nodes.push(element('span', '', label));
+  if (icon && iconAfter) nodes.push(svgIcon(icon));
+  button.replaceChildren(...nodes);
+}
+function control(label: string, act: () => void, className = '', icon?: IconName, iconAfter = false) {
+  const node = element('button', className);
   node.type = 'button';
+  if (icon || label) setButtonContent(node, label, icon, iconAfter);
   node.addEventListener('click', act);
   return node;
 }
@@ -41,24 +79,45 @@ function citation(label: string, url: string) {
   a.rel = 'noopener noreferrer';
   return a;
 }
+function replayAnimation(node: HTMLElement, className: string) {
+  if (reducedMotion.matches) return;
+  node.classList.remove(className);
+  void node.offsetWidth;
+  node.classList.add(className);
+}
 function modal(title: string, ...nodes: HTMLElement[]) {
+  if (!dialog.open) {
+    dialogOpener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
   document.querySelector('#dialog-title')!.textContent = title;
   document.querySelector('#dialog-content')!.replaceChildren(...nodes);
   if (!dialog.open) dialog.showModal();
   closeDialog.focus();
 }
 closeDialog.onclick = () => dialog.close();
+dialog.addEventListener('click', e => {
+  if (e.target === dialog) dialog.close();
+});
+dialog.addEventListener('close', () => {
+  dialog.classList.remove('comparison');
+  if (dialogOpener?.isConnected) dialogOpener.focus({preventScroll:true});
+  dialogOpener = null;
+});
 
 function fullscreenButton() {
-  const button = control('全屏', async () => {
+  const button = control('', async () => {
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
       else await document.documentElement.requestFullscreen();
     } catch {
-      modal('全屏显示', element('p', '', '浏览器未切换全屏。可按 F11 全屏显示。'));
+      modal('全屏不可用', element('p', '', '可按 F11 切换。'));
     }
   });
-  const update = () => button.textContent = document.fullscreenElement ? '退出全屏' : '全屏';
+  const update = () => {
+    const active = Boolean(document.fullscreenElement);
+    setButtonContent(button, active ? '退出全屏' : '全屏', active ? 'compress' : 'expand');
+    button.setAttribute('aria-pressed', String(active));
+  };
   update();
   document.onfullscreenchange = update;
   return button;
@@ -78,7 +137,7 @@ function openReview() {
   const header = element('header','top');
   const title = element('h1','','课堂回顾');
   const actions = element('div','top-actions');
-  actions.append(fullscreenButton(),control('返回地图',()=>renderMap(true)));
+  actions.append(fullscreenButton(),control('返回地图',()=>renderMap(true),'','arrowLeft'));
   header.append(title,actions);
 
   const lesson = element('section','review-body');
@@ -100,18 +159,24 @@ function openReview() {
     const number = element('span','review-number');
     number.setAttribute('aria-hidden','true');
     label.append(element('strong','',event.name),number);
-    button.append(photo(event.id),label);
+    button.append(photo(event.id, event.name+'情境示意'),label);
     cards.append(button);
     return { index, button, number };
   });
   const toolbar = element('div','review-tools');
-  const reset = control('重选',()=>{order.length=0;update();choices[0].button.focus();});
-  const check = control('核对顺序',()=>{
+  const reset = control('清空重选',()=>{order.length=0;update();choices[0].button.focus();},'','reset');
+  const check = control('核对时间顺序',()=>{
     const correct = order.every((index,i)=>index===i);
-    feedback.textContent = correct ? '顺序正确。' : '顺序还可以调整。再想想哪一件先发生。';
     feedback.dataset.correct = String(correct);
+    feedback.replaceChildren(
+      svgIcon(correct ? 'check' : 'info'),
+      element('span','',correct
+        ? '顺序正确：于都出发 → 湘江战役 → 遵义会议，下方已展开史料因果链。'
+        : '顺序有误：请想一想哪一事件最先出发，哪一事件在最后总结转折？')
+    );
+    if (!correct) replayAnimation(feedback,'is-shaking');
     evidence.hidden = !correct;
-  },'primary');
+  },'primary','check');
   toolbar.append(feedback,reset,check);
 
   const evidence = element('section','review-evidence');
@@ -126,7 +191,7 @@ function openReview() {
         app.replaceChildren(shell);
         revisit.focus();
       });
-    });
+    },'','arrowRight',true);
     revisit.setAttribute('aria-label','重看'+event.name+'场景');
     item.append(element('time','',event.date),element('h3','',event.name),element('p','',event.review),revisit);
     chain.append(item);
@@ -135,9 +200,9 @@ function openReview() {
   const discussion = element('div','review-discussion');
   const answer = element('p','','湘江战役的损失让总结经验、调整方向更紧迫。黎平会议改变进军方向，随后召开的遵义会议集中解决了当时的军事和组织问题。');
   answer.hidden = true;
-  const reveal = control('展开讲解',()=>{
+  const reveal = control('查看参考讲解',()=>{
     answer.hidden = !answer.hidden;
-    reveal.textContent = answer.hidden ? '展开讲解' : '收起讲解';
+    reveal.textContent = answer.hidden ? '查看参考讲解' : '收起参考讲解';
     reveal.setAttribute('aria-expanded',String(!answer.hidden));
   });
   reveal.setAttribute('aria-expanded','false');
@@ -158,9 +223,10 @@ function openReview() {
     });
     evidence.hidden = true;
     answer.hidden = true;
-    reveal.textContent = '展开讲解';
+    reveal.textContent = '查看参考讲解';
     reveal.setAttribute('aria-expanded','false');
     delete feedback.dataset.correct;
+    feedback.classList.remove('is-shaking');
     feedback.textContent = order.length ? `已选 ${order.length} / ${events.length}` : '';
     check.disabled = order.length!==events.length;
     reset.disabled = order.length===0;
@@ -168,11 +234,19 @@ function openReview() {
 }
 function openTeacher() {
   const lesson = element('ol');
-  for (const text of ['地图导入 2 分钟','三个场景各讲 3 分钟','课堂回顾 4 分钟']) lesson.append(element('li','',text));
+  for (const text of [
+    '地图导入（约 2 分钟）：定位三个关键节点，提出核心问题。',
+    '场景精讲（各约 3 分钟）：观察情境画面，打开史料与互动环节，逐句讲解。',
+    '课堂回顾（约 4 分钟）：梳理时间顺序，结合史料解释转折意义。',
+  ]) lesson.append(element('li','',text));
   const refs = element('div','dialog-split');
   refs.append(citation('长征专题', history), citation('中国共产党一百年大事记', chronology),
-    citation('黎平会议',lipingSource),citation('地形底图',terrainSource));
-  modal('教师备课', lesson, control('遵义会议 3 分钟试讲', () => {dialog.close(); openScene(2);}, 'primary'), refs);
+    citation('黎平会议',lipingSource),citation('地形晕渲 · Mapzen / USGS / NOAA',terrainSource));
+  modal('教师备课', lesson, control('开始遵义会议 3 分钟试讲', () => {
+    dialogOpener = null;
+    dialog.close();
+    openScene(2);
+  }, 'primary', 'arrowRight', true), refs);
 }
 let updateMapSelection: (focus?: 'pin'|'timeline') => void;
 function select(index: number, focus?: 'pin'|'timeline') {
@@ -189,11 +263,9 @@ function renderMap(restoreFocus = false) {
   header.append(element('h1','','从于都到遵义'),actions);
   const map = element('section','map');
   map.setAttribute('aria-label','长征阶段地图');
-  const backdrop = photo('terrain');
-  backdrop.className = 'map-backdrop';
   const world = element('div','map-world');
-  world.append(photo('terrain','长征阶段所经区域的地形晕渲'));
-  map.append(backdrop,world);
+  world.append(createTerrainSurface());
+  map.append(world);
   for (const [label,lon,lat] of places) {
     const node = element('span','place',label);
     place(node,[lon,lat]);
@@ -208,26 +280,31 @@ function renderMap(restoreFocus = false) {
     return node;
   });
   const card = element('article','event-card');
-  const thumb = photo(events[selected].id);
+  const thumb = photo(events[selected].id, events[selected].name+'情境缩略图');
   const copy = element('div','event-copy');
   const date = element('time');
   const title = element('h2');
   const question = element('p');
-  copy.append(date,title,question,control('进入场景',()=>openScene(selected),'primary'));
+  const enterScene = control('进入场景',()=>openScene(selected),'primary','arrowRight',true);
+  copy.append(date,title,question,enterScene);
   card.append(thumb,copy);
   map.append(card);
   const tools = element('div','map-tools');
   const zoomTools = element('div','zoom');
-  const zoomOut = control('−',()=>changeZoom(zoom / 1.25));
-  const zoomIn = control('＋',()=>changeZoom(zoom * 1.25));
-  zoomOut.setAttribute('aria-label','缩小');
-  zoomIn.setAttribute('aria-label','放大');
-  zoomTools.append(zoomOut,zoomIn,control('复位',()=>{
+  const zoomOut = control('',()=>changeZoom(zoom / 1.25, undefined, true),'','minus');
+  const zoomReadout = element('span','zoom-readout','100%');
+  zoomReadout.setAttribute('aria-live','polite');
+  const zoomIn = control('',()=>changeZoom(zoom * 1.25, undefined, true),'','plus');
+  const resetView = control('重置视角',()=>{
     zoom=1;
     pan=[0,0];
     moveCamera(true);
-  }));
-  tools.append(zoomTools,element('p','','阶段节点示意'));
+  },'','reset');
+  zoomOut.setAttribute('aria-label','缩小地图（快捷键 -）');
+  zoomIn.setAttribute('aria-label','放大地图（快捷键 +）');
+  resetView.setAttribute('aria-label','重置地图视角（快捷键 0）');
+  zoomTools.append(zoomOut,zoomReadout,zoomIn,resetView);
+  tools.append(zoomTools,element('p','','路线示意'));
   map.append(tools);
   const timeline = element('nav','timeline');
   timeline.setAttribute('aria-label','时间轴');
@@ -269,13 +346,14 @@ function renderMap(restoreFocus = false) {
     world.style.setProperty('--inverse-zoom',String(1/zoom));
     zoomOut.disabled = zoom <= .85;
     zoomIn.disabled = zoom >= 2.5;
+    zoomReadout.textContent = Math.round(zoom * 100) + '%';
   }
-  function changeZoom(next: number, anchor: Point = [map.clientWidth*.65,map.clientHeight*.48]) {
+  function changeZoom(next: number, anchor: Point = [map.clientWidth*.65,map.clientHeight*.48], animate = false) {
     const newZoom = Math.max(.85,Math.min(2.5,next));
     const ratio = newZoom/zoom;
     pan = pan.map((offset,axis)=>offset+(anchor[axis]-origin[axis]-offset)*(1-ratio)) as Point;
     zoom = newZoom;
-    moveCamera();
+    moveCamera(animate);
   }
   mapResize=new ResizeObserver(layout);
   mapResize.observe(map);
@@ -284,7 +362,7 @@ function renderMap(restoreFocus = false) {
     if ((e.target as Element).closest('.event-card,.map-tools')) return;
     e.preventDefault();
     const rect = map.getBoundingClientRect();
-    changeZoom(zoom*Math.exp(-Math.sign(e.deltaY)*.12),[e.clientX-rect.left,e.clientY-rect.top]);
+    changeZoom(zoom*Math.exp(-Math.sign(e.deltaY)*.12),[e.clientX-rect.left,e.clientY-rect.top],false);
   }, {passive:false});
   map.addEventListener('pointerdown', e => {
     if (!e.isPrimary || e.button!==0 || (e.target as Element).closest('button,.event-card,.map-tools')) return;
@@ -304,16 +382,34 @@ function renderMap(restoreFocus = false) {
       map.classList.remove('dragging');
     });
   }
+  shell.addEventListener('keydown', ev => {
+    if (dialog.open || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+    if (ev.key === '+' || ev.key === '=') {
+      ev.preventDefault();
+      changeZoom(zoom * 1.25, undefined, true);
+    } else if (ev.key === '-') {
+      ev.preventDefault();
+      changeZoom(zoom / 1.25, undefined, true);
+    } else if (ev.key === '0') {
+      ev.preventDefault();
+      zoom = 1;
+      pan = [0,0];
+      moveCamera(true);
+    }
+  });
   updateMapSelection = (focus) => {
     const e=events[selected];
     thumb.src=mediaAssets[e.id];
+    thumb.alt=e.name+'情境缩略图';
     date.textContent=e.date;
     title.textContent=e.name;
     question.textContent=e.intro;
+    enterScene.setAttribute('aria-label','进入「'+e.name+'」场景');
     pins.forEach((node,i)=>node.setAttribute('aria-pressed',String(i===selected)));
     times.forEach((node,i)=>node.setAttribute('aria-current',String(i===selected)));
     segments.forEach((node,i)=>node.classList.toggle('past',i<[0,4,8][selected]));
     if (focus) {
+      replayAnimation(card,'is-switching');
       const [x,y] = position([e.lon,e.lat]);
       const targetX = map.clientWidth*(map.clientWidth<=720 ? .5 : .65);
       const targetY = map.clientHeight*(map.clientWidth<=720 ? .33 : .47);
@@ -346,7 +442,6 @@ function showZunyiMaterials(index?: number) {
   dialog.classList.toggle('comparison',index===undefined);
   modal(index===undefined ? '两份史料对照' : items[0].title,columns,footer);
 }
-dialog.addEventListener('close',()=>dialog.classList.remove('comparison'));
 function showEvidence(e: CourseEvent, title: string) {
   const list=element('ul');
   e.card.forEach(line=>list.append(element('li','',line)));
@@ -373,10 +468,15 @@ function showBridgeMaterials() {
   feedback.setAttribute('role','status');
   const footer = element('div','dialog-split');
   const check = control('核对材料',()=>{
-    feedback.textContent = inputs[1].checked
-      ? '再看一眼画面。桥面是什么材料？桥面下靠什么浮在水上？'
-      : '木船和木板。船托住桥面，木板铺成通道。当地群众拿出门板、床板等木料，支援架桥。';
-  },'primary');
+    const wrong = inputs[1].checked;
+    feedback.dataset.state = wrong ? 'hint' : 'ok';
+    feedback.replaceChildren(
+      svgIcon(wrong ? 'info' : 'check'),
+      element('span','',wrong
+        ? '再观察画面：桥面铺设的是什么材料？桥下又靠什么托浮在水面上？'
+        : '回答正确：木船和木板。船体托住桥面，木板铺成通道——当地群众拿出门板、床板等木料支援架桥。')
+    );
+  },'primary','check');
   check.disabled = true;
   footer.append(check);
   const source = element('p','source');
@@ -384,32 +484,35 @@ function showBridgeMaterials() {
   form.append(view,choices,footer,feedback,source);
   form.addEventListener('submit',event=>event.preventDefault());
   form.addEventListener('change',()=>{
-    feedback.textContent = '';
-    check.disabled = inputs.filter(input=>input.checked).length!==2;
+    delete feedback.dataset.state;
+    feedback.replaceChildren();
+    const count = inputs.filter(input=>input.checked).length;
+    check.disabled = count!==2;
   });
   modal('搭桥材料',form);
 }
 function showTroopComparison() {
   const chart = element('div','troop-chart');
-  for (const [label,count,ratio] of [
+  [
     ['长征出发时','8.6 万余人',100],['渡过湘江后','3 万余人',35],
-  ] as const) {
+  ].forEach(([label,count,ratio], idx)=>{
     const row = element('div','troop-row');
     const text = element('div','troop-label');
-    text.append(element('span','',label),element('strong','',count));
+    text.append(element('span','',label),element('strong','',String(count)));
     const track = element('div','troop-track');
     track.setAttribute('aria-hidden','true');
     const bar = element('span','troop-bar');
     bar.style.width = ratio+'%';
+    bar.style.animationDelay = (idx * 90) + 'ms';
     track.append(bar);
     row.append(text,track);
     chart.append(row);
-  }
+  });
   const explanation = element('p','activity-feedback','这两组数字分别对应长征出发和渡过湘江两个时点。两者的差额包含这段行程中的多种减员，不能直接当作湘江战役阵亡人数。');
   explanation.hidden = true;
-  const reveal = control('揭示讲解',()=>{
+  const reveal = control('查看口径说明',()=>{
     explanation.hidden = !explanation.hidden;
-    reveal.textContent = explanation.hidden ? '揭示讲解' : '收起讲解';
+    reveal.textContent = explanation.hidden ? '查看口径说明' : '收起口径说明';
     reveal.setAttribute('aria-expanded',String(!explanation.hidden));
   });
   reveal.setAttribute('aria-expanded','false');
@@ -417,7 +520,7 @@ function showTroopComparison() {
   footer.append(reveal);
   const source = element('p','source');
   source.append(citation('中国共产党一百年大事记',chronology));
-  modal('兵力对照',chart,element('p','comparison-prompt','这两组数字能告诉我们什么？'),footer,explanation,source);
+  modal('兵力对照',chart,footer,explanation,source);
 }
 function openScene(index: number, returnToReview?: () => void) {
   mapResize?.disconnect();
@@ -434,13 +537,25 @@ function openScene(index: number, returnToReview?: () => void) {
   video.poster=mediaAssets[e.id];
   video.preload='metadata';
   video.muted=true;
+  video.loop=true;
   video.playsInline=true;
   video.hidden=true;
+  let hotspotOrder = 0;
   function addHotspot(label: string, [x,y]: number[], open: () => void) {
-    const hotspot=control(label,()=>{video.pause();open();},'hotspot');
-    hotspot.setAttribute('aria-label',label);
+    const key = e.id+':'+label;
+    const visited = visitedHotspots.has(key);
+    const hotspot=control(label,()=>{
+      visitedHotspots.add(key);
+      hotspot.dataset.visited='true';
+      setButtonContent(hotspot,label,'check');
+      video.pause();
+      open();
+    },'hotspot',visited?'check':'plus');
+    if (visited) hotspot.dataset.visited='true';
+    hotspot.setAttribute('aria-label',label+(visited?'（已查看）':''));
     hotspot.style.left=x+'%';
     hotspot.style.top=y+'%';
+    hotspot.style.setProperty('--delay',(hotspotOrder++ * 65)+'ms');
     media.append(hotspot);
   }
   media.append(poster,video,element('div','scene-shade'));
@@ -462,12 +577,19 @@ function openScene(index: number, returnToReview?: () => void) {
     try {
       video.hidden=false;
       await video.play();
+      if (!video.hidden && mode==='scene' && selected===index) {
+        requestAnimationFrame(()=>{
+          if (!video.hidden) video.classList.add('is-visible');
+        });
+      }
     } catch {
       if (!video.hidden && mode==='scene' && selected===index) usePoster(true);
     }
-  });
-  const still=control('静态讲解',()=>usePoster());
-  const playStatus=element('span','');
+  },'','play');
+  const still=control('静态画面',()=>usePoster(),'','image');
+  still.disabled=true;
+  still.setAttribute('aria-pressed','true');
+  const playStatus=element('span','status-text');
   playStatus.setAttribute('aria-live','polite');
   const back=()=>{video.pause();renderMap(true);};
   const finish=()=>{
@@ -476,23 +598,27 @@ function openScene(index: number, returnToReview?: () => void) {
     else back();
   };
   const backLabel = returnToReview ? '返回回顾' : '返回地图';
-  tools.append(play,still,fullscreenButton(),control(backLabel,returnToReview ? finish : back));
+  tools.append(play,still,fullscreenButton(),control(backLabel,returnToReview ? finish : back,'','arrowLeft'));
   heading.append(name,tools);
   const captionBox=element('section','caption');
   const meta=element('div','caption-meta');
   const progress=element('span');
   meta.append(progress,element('span','','情境示意'));
+  const track=element('div','caption-track');
+  track.setAttribute('aria-hidden','true');
+  const fill=element('span','caption-fill');
+  track.append(fill);
   const narration=element('p');
   narration.setAttribute('aria-live','polite');
   const navigation=element('div','scene-navigation');
-  const prev=control('上一句',()=>step(-1));
-  const next=control('下一句',()=>caption===e.captions.length-1?finish():step(1),'primary');
-  navigation.append(prev,control('教师提示',()=>{video.pause();modal('教师提示',element('p','',e.notes[caption]));}),next);
+  const prev=control('上一句',()=>step(-1),'','arrowLeft');
+  const next=control('下一句',()=>caption===e.captions.length-1?finish():step(1),'primary','arrowRight',true);
+  navigation.append(prev,control('教师提示',()=>{video.pause();modal('教师提示',element('p','',e.notes[caption]));},'','info'),next);
   if (e.id==='zunyi') navigation.insertBefore(control('对照材料',()=>{
     video.pause();
     showZunyiMaterials();
   }),next);
-  captionBox.append(meta,narration,navigation,playStatus);
+  captionBox.append(meta,track,narration,navigation,playStatus);
   scene.append(stage,heading,captionBox);
   app.replaceChildren(scene);
   const sizeMedia=()=>{
@@ -501,22 +627,48 @@ function openScene(index: number, returnToReview?: () => void) {
   mapResize=new ResizeObserver(sizeMedia);
   mapResize.observe(scene);
   sizeMedia();
+  function syncMediaState() {
+    still.disabled = video.hidden;
+    still.setAttribute('aria-pressed', String(video.hidden));
+  }
   function usePoster(failed=false) {
     video.pause();
+    video.classList.remove('is-visible');
     video.hidden=true;
-    play.textContent='播放短片';
-    playStatus.textContent=failed?'短片暂无法播放，已切到静态画面。':'';
+    if (video.readyState>0) video.currentTime=0;
+    setButtonContent(play,'播放短片','play');
+    syncMediaState();
+    playStatus.textContent=failed?'短片无法播放。':'';
   }
-  video.addEventListener('play',()=>{play.textContent='暂停';playStatus.textContent='';});
-  video.addEventListener('pause',()=>play.textContent=video.ended?'重播短片':video.hidden?'播放短片':'继续播放');
-  video.addEventListener('ended',()=>play.textContent='重播短片');
+  video.addEventListener('play',()=>{
+    setButtonContent(play,'暂停短片','pause');
+    syncMediaState();
+    playStatus.textContent='';
+  });
+  video.addEventListener('pause',()=>{
+    if (video.hidden) return;
+    if (video.ended) {
+      setButtonContent(play,'重播短片','play');
+    } else {
+      setButtonContent(play,'继续播放','play');
+    }
+  });
+  video.addEventListener('ended',()=>{
+    setButtonContent(play,'重播短片','play');
+  });
   video.addEventListener('error',()=>usePoster(true));
   function step(direction: number) {
     caption=Math.min(e.captions.length-1,Math.max(0,caption+direction));
     progress.textContent='教师讲解  '+(caption+1)+' / '+e.captions.length;
+    fill.style.transform='scaleX('+((caption+1)/e.captions.length)+')';
     narration.textContent=e.captions[caption];
+    if (direction!==0) replayAnimation(narration,'is-stepping');
     prev.disabled=caption===0;
-    next.textContent=caption===e.captions.length-1 ? (returnToReview ? backLabel : e.id==='zunyi' ? '课堂回顾' : backLabel) : '下一句';
+    const isLast = caption===e.captions.length-1;
+    const nextLabel = isLast
+      ? (returnToReview ? '完成并返回回顾' : e.id==='zunyi' ? '进入课堂回顾' : '完成本节，返回地图')
+      : '下一句';
+    setButtonContent(next,nextLabel,'arrowRight',true);
   }
   step(0);
   if (reducedMotion.matches) usePoster();
