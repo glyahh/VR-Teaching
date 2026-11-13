@@ -1,13 +1,30 @@
 export const history = 'https://www.dswxyjy.org.cn/GB/427277/462086/index.html';
-export const chronology = 'https://www.ndrc.gov.cn/fggz/fgjh/djzc/202107/t20210702_1285248.html';
+export const chronology = 'https://www.dswxyjy.org.cn/n1/2021/0628/c423712-32142078.html';
 export const yuduSource = 'https://www.ccphistory.org.cn/shds/shhm/content/a617c479-b2d7-4bb0-a5bf-9d66a25d7b4d.html';
 export const xiangSource = 'https://m.chnmuseum.cn/Portals/0/web/zt/20160922longmarch/index.html';
 export const terrainSource = 'https://www.naturalearthdata.com/downloads/50m-raster-data/50m-shaded-relief/';
+export const lipingSource = 'https://www.dswxyjy.org.cn/n1/2025/0205/c427167-40412848.html';
+export const bridgeSource = 'https://www.yudu.gov.cn/yudu/ydrw/202610/3daa15d476e643a689023db426c29b8d.shtml';
+
+export const zunyiMaterials = [
+  {
+    title: '会前形势', spot: [44, 43],
+    lines: ['长征初期，中央红军在湘江战役中遭受重大损失。', '黎平会议决定改变原定计划，转向贵州北部。'],
+    source: '《中国共产党简史》· 中央红军开始长征',
+    url: 'https://www.dswxyjy.org.cn/n1/2026/1012/c462662-40812894.html',
+  },
+  {
+    title: '会议讨论', spot: [67, 44],
+    lines: ['会议总结第五次反“围剿”失败和长征初期受挫的经验教训。', '会议集中解决当时具有决定意义的军事和组织问题。'],
+    source: '中央党史和文献研究院 · 中央红军长征在贵州',
+    url: 'https://www.dswxyjy.org.cn/n1/2026/0722/c244516-40765893.html',
+  },
+];
 
 export const events = [
   {
     id:'yudu', name:'于都出发', place:'江西于都', date:'1934 年 10 月', timeline:'1934.10',
-    lon:115.41, lat:25.95, hotspot:'浮桥', spot:[700,388],
+    lon:115.41, lat:25.95, hotspot:'浮桥', spot:[58,54],
     card:['中央红军在于都一带集结。', '当地群众支援物资和渡河准备。', '10 月中旬，部队从于都河沿岸多个渡口渡河。'],
     intro:'中央红军为什么先到于都集结？',
     captions:[
@@ -17,20 +34,21 @@ export const events = [
     ],
     notes:[
       '约 1 分钟。指地图上江西于都的位置，说明第五次反“围剿”失败后，中央红军开始战略转移。',
-      '约 1 分钟。请学员观察浮桥，想一想渡河除了队伍组织，还需要哪些物资和协作。随后打开史料。',
+      '约 1 分钟。先请学员观察浮桥，再点「搭桥材料」让学员选出图中的两种材料。揭晓后追问材料从哪里来。',
       '约 1 分钟。回顾集结、渡河、出发三个动作。返回地图，指向湘江方向。',
     ],
     source:'中央党史和文献研究院长征专题；中央红军长征出发纪念馆资料',
     url:yuduSource,
+    review:'中央红军在于都集结，当地群众支援渡河准备。',
   },
   {
     id:'xiang', name:'湘江战役', place:'广西湘江上游', date:'1934 年 11 月 27 日—12 月 1 日', timeline:'1934.11–12',
-    lon:110.73, lat:25.83, hotspot:'战役地图', spot:[767,340],
-    card:['战役发生在广西全州、兴安、灌阳一带。', '中央红军渡过湘江，突破第四道封锁线。', '中央红军由出发时的 8.6 万余人减至 3 万余人。'],
+    lon:110.73, lat:25.83, hotspot:'战役地点', spot:[42,43],
+    card:['战役发生在广西全州、兴安、灌阳一带。', '中央红军渡过湘江，突破第四道封锁线。'],
     intro:'渡过湘江，为什么仍是长征初期的一次重大挫折？',
     captions:[
       '1934 年 11 月底，中央红军在广西湘江上游一带经历湘江战役。',
-      '中央红军突破第四道封锁线，但付出了重大代价。点开战役地图，读一读地点和两组数字。',
+      '中央红军突破第四道封锁线，也付出了重大代价。点开「战役地点」和「兵力对照」，读一读地点和两组数字。',
       '渡江后的严峻形势，让调整行动方向和总结此前的经验教训更加紧迫。',
     ],
     notes:[
@@ -40,10 +58,11 @@ export const events = [
     ],
     source:'中央党史和文献研究院长征专题；中国国家博物馆长征文物展',
     url:xiangSource,
+    review:'中央红军渡过湘江，突破第四道封锁线，遭受重大损失。',
   },
   {
     id:'zunyi', name:'遵义会议', place:'贵州遵义', date:'1935 年 1 月 15 日—17 日', timeline:'1935.01',
-    lon:106.93, lat:27.69, hotspot:'桌面材料', spot:[824,327],
+    lon:106.93, lat:27.69,
     card:['中共中央政治局在遵义召开扩大会议。', '会议集中解决当时具有决定意义的军事和组织问题。', '会议事实上确立了毛泽东在党中央和红军的领导地位。'],
     intro:'经历湘江战役后的严峻局面，为什么要召开遵义会议？',
     captions:[
@@ -53,10 +72,11 @@ export const events = [
     ],
     notes:[
       '独立试讲第 1 分钟。先提出画面上的问题，等待两位学员作答，再追问其依据来自哪个前序事件。',
-      '独立试讲第 2 分钟。打开桌面材料，请学员找出会议集中解决的两类问题。说明场景为示意，文字为史实摘要。',
+      '独立试讲第 2 分钟。分别点桌上的两份材料，再并排对照。请学员说出会前的处境，以及会议集中解决的两类问题。',
       '独立试讲第 3 分钟。揭示转折意义。让学员用“此前的处境＋会议处理的问题”组织一句解释，再返回地图。',
     ],
     source:'中央党史和文献研究院长征专题；中国共产党一百年大事记',
     url:chronology,
+    review:'会议总结此前的经验教训，集中解决当时具有决定意义的军事和组织问题。',
   },
 ];
