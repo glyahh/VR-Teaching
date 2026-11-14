@@ -15,7 +15,7 @@ button:disabled{opacity:.48;cursor:default}
 .icon{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
 .primary{background:var(--gold);border-color:var(--gold);color:#22261d;font-weight:700}
 .primary:hover:not(:disabled){background:var(--gold-soft);border-color:var(--gold-soft)}
-[hidden]{display:none!important}
+[hidden],[data-dismissed=true]{display:none!important}
 h1,h2,p{margin:0}
 .shell{min-height:100dvh;display:flex;flex-direction:column;animation:view-in var(--dur-mid) var(--ease-out)}
 @keyframes view-in{from{opacity:0;transform:translateY(6px)}}
@@ -68,13 +68,20 @@ h1,h2,p{margin:0}
 .scene{position:relative;min-height:100dvh;isolation:isolate;background:#171b17;overflow:hidden}
 .scene-stage{position:absolute;inset:0;overflow:hidden;z-index:-1}
 .scene-media{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);aspect-ratio:16/9}
-.scene-media img,.scene-media video{position:absolute;width:100%;height:100%;object-fit:cover}
-.scene-media .outgoing-image{pointer-events:none}
-.scene-media video{opacity:0;transition:opacity var(--dur-mid) var(--ease-out)}
-.scene-media video.is-visible{opacity:1}
-.scene-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(#080d0be8 0%,transparent 27%,transparent 61%,#080d0be8 100%)}
-.scene-head{position:relative;z-index:var(--z-card);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:clamp(18px,3vw,45px)}
-.scene-head h1{margin-bottom:7px;font:700 clamp(28px,4.2vw,66px)/1.05 "STZhongsong","SimSun",serif;letter-spacing:.06em}
+.scene-camera{position:absolute;inset:0;transform-origin:0 0;transition:transform 520ms var(--ease-out);will-change:transform}
+.scene-camera img,.scene-camera video,.scene-camera .scene-motion{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:filter 420ms var(--ease-out)}
+.scene-camera .scene-motion{pointer-events:none;opacity:0;transition:opacity 180ms var(--ease-out)}
+.scene-camera .scene-motion.is-ready{opacity:1}
+.scene-camera .scene-motion.curtain-after-motion{clip-path:inset(0 0 0 var(--split,68%));transition:none}
+.scene-camera .outgoing-image{pointer-events:none}
+.scene-camera video{opacity:0;transition:opacity var(--dur-mid) var(--ease-out)}
+.scene-camera video.is-visible{opacity:1}
+.scene-spotlight{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 420ms var(--ease-out);background:radial-gradient(circle at var(--spot-x,50%) var(--spot-y,50%),transparent 13%,#080d0b8f 42%,#060a08cc 100%)}
+.scene-spotlight.is-active{opacity:1}
+.scene-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(#080d0be8 0%,transparent 26%,transparent 62%,#080d0bf0 100%)}
+.scene-head{position:relative;z-index:var(--z-card);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:clamp(14px,2.2vw,32px) clamp(18px,2.8vw,42px) 10px;pointer-events:none}
+.scene-identity,.scene-actions{pointer-events:auto}
+.scene-head h1{margin-bottom:7px;font:700 clamp(28px,4vw,62px)/1.06 "STZhongsong","SimSun",serif;letter-spacing:.06em;text-shadow:0 2px 14px #0009}
 .scene-actions{justify-content:flex-end;flex-wrap:wrap}
 .scene-actions button,.scene-navigation button:not(.primary){background:#151d17e8}
 .scene-actions button[aria-pressed=true]{border-color:var(--gold);color:var(--gold)}
@@ -84,13 +91,131 @@ h1,h2,p{margin:0}
 .hotspot .icon{color:var(--gold)}
 .hotspot[data-visited=true]{border-color:#9fc994a8;box-shadow:0 0 0 3px #8fd19e22,0 3px 14px #0008}
 .hotspot[data-visited=true] .icon{color:var(--ok)}
-.slide-caption{position:absolute;z-index:var(--z-card);bottom:clamp(14px,2.8vh,32px);left:clamp(18px,3vw,48px);right:clamp(18px,3vw,48px);display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px 18px;padding:clamp(12px,1.35vw,24px);background:#111914f4;border:1px solid #83775b99;border-radius:6px}
-.slide-line{font-size:clamp(22px,2.05vw,39px);line-height:1.38}
+.slide-caption{position:absolute;z-index:var(--z-card);bottom:clamp(14px,2.5vh,28px);left:clamp(18px,3vw,48px);right:clamp(18px,3vw,48px);display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px 18px;padding:clamp(12px,1.3vw,22px);background:#111914f2;backdrop-filter:blur(8px);border:1px solid #83775b99;border-radius:8px;box-shadow:0 14px 36px #0008}
+.caption-copy{display:grid;gap:4px;min-width:0}
+.slide-line{font-size:clamp(20px,1.9vw,34px);line-height:1.38}
+.scene-hint{font-size:clamp(13px,1.05vw,16px);color:var(--gold-soft);opacity:.92}
+.probe-progress{display:inline-block;padding:1px 8px;border-radius:999px;background:#e8c4851c;border:1px solid #e8c48555;color:var(--gold);font-size:.9em}
+.probe-progress[data-complete=true]{background:#8fd19e22;border-color:#8fd19e88;color:var(--ok)}
 .scene-navigation{justify-content:flex-end;flex-wrap:wrap}
 .chapter-nav{grid-column:1/-1;display:flex;gap:8px;align-items:center;border-top:1px solid var(--line);padding-top:8px}
 .chapter-nav button{background:transparent;border-color:transparent;padding:3px 12px;min-height:38px;color:var(--muted)}
 .chapter-nav button[aria-current=step]{color:var(--gold);border-color:#e8c48577;background:#e8c48514}
-.scene-illustration{position:absolute;right:clamp(20px,3.1vw,50px);top:72%;color:#f2e6c7;text-shadow:0 1px 6px #000;font-size:14px}
+.scene-illustration{position:absolute;right:clamp(20px,3.1vw,50px);bottom:clamp(140px,22vh,210px);color:#f2e6c7c7;text-shadow:0 1px 6px #000;font-size:13px;pointer-events:none}
+
+/* ---- In-Scene Focus Probes ---- */
+.probe-pin{position:absolute;transform:translate(-50%,-50%);display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:4px 12px 4px 6px;border-radius:999px;background:#131b15ed;border:1px solid var(--gold);box-shadow:0 0 0 4px #e8c48526,0 6px 18px #0009;white-space:nowrap;font-size:clamp(14px,1.05vw,17px);font-weight:600}
+.probe-pin:hover:not(:disabled){background:#222e24f7;border-color:var(--gold-soft);box-shadow:0 0 0 6px #e8c48540,0 8px 22px #000b}
+.probe-pin:active:not(:disabled){transform:translate(-50%,-50%)}
+.probe-num{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--gold);color:#1f2318;font-size:13px;font-weight:700}
+.probe-pin[data-visited=true]{border-color:#8fd19ea8}
+.probe-pin[data-visited=true] .probe-num{background:var(--ok);color:#111a14}
+.probe-pin[data-active=true],.probe-pin[data-active=true]:hover:not(:disabled){background:var(--gold);color:#1d2217;border-color:var(--gold-soft);box-shadow:0 0 0 7px #f6dca638,0 10px 26px #000c}
+.probe-pin[data-active=true] .probe-num{background:#1d2217;color:var(--gold)}
+.probe-callout{position:absolute;z-index:12;width:min(330px,31vw);padding:15px 17px;border-radius:8px;background:#121b15f2;backdrop-filter:blur(10px);border:1px solid #d5b476a6;box-shadow:0 16px 40px #000b;transform:translate(88px,-50%)}
+.probe-callout[data-side=left]{transform:translate(calc(-100% - 88px),-50%)}
+.probe-badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#e8c48522;color:var(--gold);font-size:12px;margin-bottom:6px}
+.probe-callout h3{margin:0 0 6px;font-size:clamp(18px,1.45vw,23px);color:var(--ink)}
+.probe-callout p{font-size:clamp(14px,1.15vw,17px);line-height:1.58;color:var(--muted);margin-bottom:0}
+
+/* ---- Xiang Crossing Overlay ---- */
+.crossing-inscene{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 360ms var(--ease-out)}
+.crossing-inscene.is-active{opacity:1}
+.crossing-inscene svg{position:absolute;inset:0;width:100%;height:100%}
+.river-zone{fill:#6db7cf38;stroke:#8ed3ea88;stroke-width:.32;stroke-dasharray:1.1 .7}
+.crossing-inscene-line{fill:none;stroke:#ffd584;stroke-width:.75;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px #ffbf57)}
+.map-tag{position:absolute;padding:4px 10px;border-radius:4px;background:#111914e6;border:1px solid #e8c48577;color:var(--ink);font-size:clamp(13px,1.05vw,16px);white-space:nowrap;box-shadow:0 4px 14px #0008}
+.tag-xingan{left:22%;top:72%;color:#acd3e2;border-color:#72b0c977}
+.tag-quanzhou{left:74%;top:50%;color:#acd3e2;border-color:#72b0c977}
+.tag-zone{left:36%;top:43%;color:var(--gold);border-color:var(--gold);font-weight:700}
+.tag-guanyang{left:63%;top:71%;color:var(--muted);font-size:.86em}
+
+/* ---- Xiang Force Curtain & Live Gauge ---- */
+.curtain-after{clip-path:inset(0 0 0 var(--split,68%));transition:none}
+.curtain-divider{position:absolute;top:0;bottom:0;left:var(--split,68%);width:2px;background:var(--gold);box-shadow:0 0 12px #f6dca6cc;pointer-events:none;z-index:5}
+.curtain-handle{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:#172119f2;border:2px solid var(--gold);color:var(--gold);box-shadow:0 6px 20px #000b}
+.troop-hud{position:absolute;z-index:12;right:clamp(18px,3vw,42px);top:clamp(94px,14vh,136px);width:min(380px,36vw);padding:16px 18px;border-radius:8px;background:#121b15ed;backdrop-filter:blur(10px);border:1px solid #a8905d99;box-shadow:0 16px 40px #000b;display:grid;gap:11px}
+.troop-hud-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.troop-hud-head strong{font-size:17px;color:var(--gold)}
+.troop-hud-tip{font-size:12px;color:var(--muted)}
+.troop-hud-row{padding:8px 10px;border-radius:6px;background:#0e1511a6;border:1px solid transparent;transition:border-color 220ms var(--ease-out),background-color 220ms var(--ease-out)}
+.troop-hud-row[data-focus=true]{border-color:#e8c48577;background:#1b261ee6}
+.troop-row-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;font-size:14px}
+.troop-row-top strong{font-size:18px;color:var(--gold)}
+.troop-bar.is-warn{background:var(--warn)}
+.curtain-range{width:100%;accent-color:var(--gold);cursor:pointer;height:24px}
+.troop-snap-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.snap-btn{min-height:36px;padding:4px 6px;font-size:13px;background:#1a251d}
+.troop-hud-note{font-size:13px;color:var(--gold-soft);line-height:1.5;border-top:1px solid var(--line);padding-top:8px}
+
+/* ---- Liping Tabletop Perspective Map ---- */
+.tabletop-paper{position:absolute;left:31%;top:49%;width:45%;height:28%;transform:perspective(860px) rotateX(34deg) rotateZ(-2.5deg) skewX(-3deg);transform-origin:center center;pointer-events:none}
+.tabletop-paper svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.paper-line{fill:none;stroke-linecap:round;stroke-linejoin:round;visibility:hidden}
+.paper-line.is-drawn{visibility:visible}
+.paper-line.east{stroke:#a63d2d;stroke-width:1.4;stroke-dasharray:2.4 1.6}
+.paper-line.west{stroke:#d88a1e;stroke-width:1.9;filter:drop-shadow(0 0 3px #ffc96b)}
+.paper-node{position:absolute;transform:translate(-50%,-50%);padding:3px 9px;border-radius:4px;font-size:clamp(12px,1.05vw,15px);white-space:nowrap;box-shadow:0 3px 10px #0006;line-height:1.25;text-align:center}
+.paper-node em{display:block;font-style:normal;font-size:.78em;opacity:.88}
+.paper-node.origin{left:50%;top:84%;background:#2d2419f0;border:1px solid #cfa45e;color:#f7edd7;font-weight:700}
+.paper-node.east{left:82%;top:22%;background:#3a1f1be8;border:1px solid #d16856;color:#ffd9cf}
+.paper-node.west{left:19%;top:22%;background:#2c2212f2;border:1px solid #f0c06d;color:#ffeab8}
+.tabletop-deck{position:absolute;z-index:12;left:50%;top:20%;transform:translateX(-50%);display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
+.deck-btn{background:#141c16eb;border:1px solid #88907aa8;border-radius:999px;padding:8px 16px;box-shadow:0 8px 24px #0009}
+.deck-btn.is-gold{border-color:var(--gold);color:var(--gold-soft)}
+.deck-btn[aria-pressed=true],.deck-btn[aria-pressed=true]:hover:not(:disabled){background:var(--gold);border-color:var(--gold-soft);color:#202418;font-weight:700}
+
+/* ---- Zunyi Dual Dossiers & Zoomed Step Panel ---- */
+.dossier-desk{position:absolute;inset:0;pointer-events:none;z-index:11}
+.dossier-slot{position:absolute;top:26%;width:min(380px,33vw);display:grid;gap:10px;justify-items:center;pointer-events:auto}
+.dossier-slot.is-left{left:14%}
+.dossier-slot.is-right{right:14%}
+.dossier-trigger{background:#161f18eb;border:1px solid var(--gold);border-radius:999px;padding:7px 16px;box-shadow:0 8px 24px #000a}
+.dossier-trigger[data-visited=true]{border-color:var(--ok);color:var(--ok)}
+.folio-card{width:100%;padding:16px 18px;border-radius:6px;background:#f2e7cfeb;color:#272017;border:1px solid #b59258;box-shadow:0 18px 42px #000b}
+.folio-tag{display:inline-block;padding:1px 8px;border-radius:3px;background:#6d4c23;color:#f8eedb;font-size:12px;margin-bottom:6px}
+.folio-card h3{margin:0 0 8px;font-family:"STZhongsong","SimSun",serif;font-size:21px;color:#3d2810}
+.folio-card p{font-size:15px;line-height:1.58;color:#382c1f}
+.folio-card p+p{margin-top:7px}
+.dossier-toolbar{position:absolute;z-index:14;left:50%;top:17.5%;transform:translateX(-50%);display:flex;gap:10px}
+
+.dossier-panel{position:absolute;z-index:12;top:clamp(112px,15vh,144px);width:min(440px,39vw);padding:16px 18px;border-radius:8px;background:#111914ee;backdrop-filter:blur(10px);border:1px solid #a8905da6;box-shadow:0 18px 46px #000c;display:grid;gap:10px}
+.dossier-panel.on-right{right:clamp(20px,3.2vw,48px)}
+.dossier-panel.on-left{left:clamp(20px,3.2vw,48px)}
+.dossier-kicker,.editorial-kicker{font-size:13px;color:var(--gold);letter-spacing:.08em}
+.dossier-panel-head h2{font-family:"STZhongsong","SimSun",serif;font-size:clamp(21px,1.9vw,28px);margin-top:3px}
+.step-stack{display:grid;gap:7px}
+.step-card{display:grid;gap:3px;text-align:left;justify-items:start;width:100%;padding:9px 13px;background:#19231be6;border:1px solid #6b766080;border-radius:6px}
+.step-card strong{font-size:15px;color:var(--ink)}
+.step-card p{font-size:13px;line-height:1.45;color:var(--muted);display:none}
+.step-card[data-revealed=true],.step-card[data-revealed=true]:hover:not(:disabled){background:#242e22f2;border-color:var(--gold)}
+.step-card[data-revealed=true] strong{color:var(--gold-soft)}
+.step-card[data-revealed=true] p{display:block}
+.step-badge,.chain-badge{font-size:12px;color:var(--gold);font-weight:700}
+.panel-all-btn{justify-self:start;min-height:38px;font-size:14px}
+
+/* ---- Split Editorial Layout (猴场会议 & 遵义转折意义) ---- */
+.scene.layout-split{display:grid;grid-template-rows:auto 1fr auto;height:100dvh;min-height:100dvh;background:radial-gradient(ellipse at top right,#263226,transparent 55%),#121914}
+.split-workspace{display:grid;grid-template-columns:1.18fr 1fr;gap:clamp(14px,2vw,26px);padding:0 clamp(18px,3vw,48px);min-height:0;align-items:stretch}
+.split-stage{position:relative;border-radius:10px;overflow:hidden;border:1px solid #8a795977;box-shadow:0 18px 48px #0009;min-height:280px}
+.split-stage .scene-stage{position:absolute;inset:0;z-index:0}
+.split-stage .scene-camera img{filter:brightness(var(--dawn-brightness,1))}
+.split-stage .scene-illustration{bottom:14px;right:14px;top:auto;z-index:3}
+.editorial-panel{background:#162018ee;border:1px solid var(--line);border-radius:10px;padding:clamp(14px,1.6vw,24px);display:flex;flex-direction:column;gap:10px;overflow:auto;min-height:0}
+.editorial-panel h2{font-family:"STZhongsong","SimSun",serif;font-size:clamp(19px,1.7vw,27px);line-height:1.25}
+.decision-chain,.assembly-board{display:grid;gap:8px}
+.chain-item,.evidence-chip{display:grid;gap:3px;text-align:left;justify-items:start;width:100%;padding:9px 12px;background:#1c271f;border:1px solid #75806980;border-radius:7px}
+.chain-item p{font-size:13px;line-height:1.45;color:var(--muted);opacity:.82}
+.chain-item[data-revealed=true],.chain-item[data-revealed=true]:hover:not(:disabled),.evidence-chip[data-locked=true],.evidence-chip[data-locked=true]:hover:not(:disabled){background:#292a1df0;border-color:var(--gold);box-shadow:0 0 0 2px #e8c4852a}
+.chain-item[data-revealed=true] p{opacity:1;color:var(--ink)}
+.evidence-chip strong{color:var(--gold);font-size:15px}
+.evidence-chip span{font-size:13px;color:var(--muted);line-height:1.42}
+.evidence-chip[data-locked=true] strong::after{content:"  ✓ 已拼入";font-size:12px;color:var(--ok)}
+.assembly-conclusion{padding:11px 14px;border-radius:8px;background:#262819;border:1px solid var(--gold);box-shadow:0 10px 28px #0007}
+.seal-tag{display:inline-block;padding:2px 8px;border-radius:3px;background:var(--gold);color:#202418;font-size:12px;font-weight:700;margin-bottom:5px}
+.assembly-conclusion p{font-size:14px;line-height:1.52;color:var(--gold-soft)}
+.scene.layout-split .slide-caption{position:relative;bottom:auto;left:auto;right:auto;margin:clamp(8px,1.2vh,14px) clamp(18px,3vw,48px) clamp(10px,1.8vh,20px)}
+
 dialog{width:min(720px,calc(100vw - 36px));background:var(--panel);color:var(--ink);border:1px solid #a8905d;border-radius:6px;padding:clamp(20px,4vw,42px);max-height:85dvh;box-shadow:0 24px 60px #000a}
 dialog[open]{animation:dialog-in var(--dur-mid) var(--ease-out)}
 @keyframes dialog-in{from{opacity:0;transform:translateY(8px) scale(.98)}}
@@ -155,9 +280,9 @@ button.review-choice:hover:not(:disabled){border-color:#c8b282}
 .review-revisit{min-height:38px;padding-block:5px}
 .review-conclusion{margin-top:20px;padding:clamp(14px,2vw,24px);background:#202b20;border:1px solid var(--line);border-radius:6px;color:var(--gold);font-size:clamp(20px,2.1vw,32px);line-height:1.5}
 .review-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:18px}
-@media(max-height:850px){.review-body{padding-block:24px}.review-choice img{max-height:155px}.review-label{min-height:91px}.review-conclusion{margin-top:14px}.scene-illustration{top:70%}}
-@media(max-width:1000px){.slide-caption{grid-template-columns:1fr}.scene-navigation{justify-content:space-between}.chapter-nav{padding-top:5px}.slide-line{font-size:clamp(19px,2.3vw,27px)}}
-@media(max-width:720px){.top{padding:12px;align-items:flex-start}.top h1{font-size:24px}.top-actions{gap:5px}.top-actions button{font-size:12px;padding:4px 8px;min-height:40px}.map{min-height:570px}.event-card{top:auto;bottom:66px;left:12px;width:225px;transform:none}.event-preview{display:none}.event-copy{padding:9px}.event-copy h2{font-size:26px}.event-copy p{margin-bottom:10px;font-size:14px}.map-tools{bottom:12px;right:12px}.map-tools p{margin-top:0}.timeline{padding:0 5px 7px}.time-button{padding:6px}.time-button strong{font-size:15px}.time-button time{font-size:11px}.scene-head{padding:12px;align-items:flex-start;flex-wrap:wrap}.scene-head h1{font-size:29px}.scene-date{font-size:13px}.scene-actions button,.scene-navigation button{font-size:13px;padding:5px 8px}.scene-actions{gap:5px}.chapter-nav{gap:2px;flex-wrap:wrap}.chapter-nav button{font-size:12px;padding:3px 6px}.comparison .materials{grid-template-columns:1fr}.review-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.review-card:nth-child(2)::after{display:none}}
+@media(max-height:850px){.review-body{padding-block:24px}.review-choice img{max-height:155px}.review-label{min-height:91px}.review-conclusion{margin-top:14px}.scene-illustration{bottom:150px}}
+@media(max-width:1000px){.slide-caption{grid-template-columns:1fr}.scene-navigation{justify-content:space-between}.chapter-nav{padding-top:5px}.slide-line{font-size:clamp(19px,2.3vw,27px)}.split-workspace{grid-template-columns:1fr;overflow:auto}.scene.layout-split{height:auto}.troop-hud,.dossier-panel{width:min(360px,46vw)}}
+@media(max-width:720px){.top{padding:12px;align-items:flex-start}.top h1{font-size:24px}.top-actions{gap:5px}.top-actions button{font-size:12px;padding:4px 8px;min-height:40px}.map{min-height:570px}.event-card{top:auto;bottom:66px;left:12px;width:225px;transform:none}.event-preview{display:none}.event-copy{padding:9px}.event-copy h2{font-size:26px}.event-copy p{margin-bottom:10px;font-size:14px}.map-tools{bottom:12px;right:12px}.map-tools p{margin-top:0}.timeline{padding:0 5px 7px}.time-button{padding:6px}.time-button strong{font-size:15px}.time-button time{font-size:11px}.scene-head{padding:12px;align-items:flex-start;flex-wrap:wrap}.scene-head h1{font-size:28px}.scene-date{font-size:13px}.scene-actions button,.scene-navigation button{font-size:13px;padding:5px 8px}.scene-actions{gap:5px}.chapter-nav{gap:2px;flex-wrap:wrap}.chapter-nav button{font-size:12px;padding:3px 6px}.comparison .materials{grid-template-columns:1fr}.review-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.review-card:nth-child(2)::after{display:none}.probe-callout,.troop-hud,.dossier-panel{width:calc(100% - 24px);left:12px!important;right:12px!important;transform:none!important}.troop-hud,.dossier-panel{top:138px;max-height:calc(100dvh - 340px);overflow:auto}.dossier-slot.is-left{left:4%;width:44%}.dossier-slot.is-right{right:4%;width:44%}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 #presenter{background:#172119;border:1px solid var(--line);border-radius:8px;padding:clamp(16px,2vw,28px);line-height:1.65;min-width:0;overflow-wrap:anywhere}
@@ -179,13 +304,14 @@ button.review-choice:hover:not(:disabled){border-color:#c8b282}
 .presenter-time{margin:4px 0 10px}
 .presenter-question{color:var(--gold-soft)}
 .presenter-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
-.projection-mode #app button,.projection-mode #close-dialog,.projection-mode #dialog-content .dialog-split{display:none}
-.projection-mode #app button.pin,.projection-mode #app button.time-button,.projection-mode #app button.review-choice,.projection-mode #app button.hotspot[data-visited=true]{display:flex;pointer-events:none}
+.projection-mode #app button,.projection-mode #close-dialog,.projection-mode #dialog-content .dialog-split,.projection-mode .dossier-toolbar,.projection-mode .tabletop-deck,.projection-mode .troop-snap-row,.projection-mode .curtain-range,.projection-mode .panel-all-btn{display:none}
+.projection-mode #app button.pin,.projection-mode #app button.time-button,.projection-mode #app button.review-choice,.projection-mode #app button.hotspot[data-visited=true],.projection-mode #app button.probe-pin,.projection-mode #app button.step-card[data-revealed=true],.projection-mode #app button.chain-item[data-revealed=true],.projection-mode #app button.evidence-chip[data-locked=true]{display:grid;pointer-events:none}
+.projection-mode #app button.pin,.projection-mode #app button.hotspot[data-visited=true],.projection-mode #app button.probe-pin{display:inline-flex}
 .projection-mode #app button.review-choice{display:block}
 .projection-mode #app button:focus{outline:none}
 .projection-mode #app .pin,.projection-mode #app .time-button,.projection-mode #app .review-choice,.projection-mode #app .hotspot,.projection-mode .map{cursor:default}
 .projection-mode .slide-caption{grid-template-columns:1fr}
-.projection-mode .scene-navigation,.projection-mode .chapter-nav,.projection-mode .review-tools,.projection-mode .map-tools .zoom{display:none}
+.projection-mode .scene-navigation,.projection-mode .chapter-nav,.projection-mode .review-tools,.projection-mode .map-tools .zoom,.projection-mode .scene-hint{display:none}
 .projection-mode .event-copy p{margin-bottom:0}
 .projection-mode .review-card::after{top:50%}
 .projection-mode .review-card{gap:0}
@@ -236,6 +362,28 @@ const houchangSource = 'https://www.dswxyjy.org.cn/GB/434461/434462/434818/index
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const events
 
 
@@ -244,61 +392,188 @@ const events
     id: 'yudu', name: '于都出发', place: '江西于都', date: '1934 年 10 月', timeline: '1934.10',
     lon: 115.41, lat: 25.95, routeEnd: 0, review: '集结出发',
     pages: [
-      { image: 'yudu-assembly', title: '于都集结', line: '第五次反“围剿”失败后，中央红军开始战略转移。', question: '大部队从集结到渡河，需要做哪些准备？', minutes: 2,
-        notes: '先让学员在地图上找到江西于都。交代中央根据地面临的局面和战略转移的背景。追问大部队从集结走到渡河，中间需要哪些准备。' },
-      { image: 'yudu-bank', title: '岸边备桥', line: '于都群众送来木料，帮助架设浮桥。', question: '渡河前，于都群众送来了什么？', minutes: 2,
-        notes: '请一位学员指出画面里的木板与船，再请另一位补充人手和物资。结合纪念园讲解资料，讲当地群众出力架桥、送来木料的事例。' },
-      { image: 'yudu-bridge', title: '浮桥近景', line: '浮桥由船体和桥板组成。', question: '桥面靠什么托住？', minutes: 2, activity: 'bridge',
-        notes: '先给学员观察，再分两次点船体和桥板。请学员用一句话讲清两种材料各有什么作用，然后把画面与上一页的群众支援连起来。' },
-      { image: 'yudu', title: '夜渡于都河', line: '1934 年 10 月中旬，中央红军从于都河沿岸多个渡口踏上长征路。', question: '从集结到夜渡，哪一步最能看出群众的作用？', minutes: 2, video: 'yudu',
-        notes: '可播放夜渡短片。请学员回顾集结、备桥、渡河三个步骤，并指出哪一步最能说明当地群众的作用。随后把问题转向长征初期遇到的困难。' },
+      {
+        image: 'yudu-assembly', title: '于都集结', line: '第五次反“围剿”失败后，中央红军开始战略转移。',
+        question: '大部队从集结到渡河，需要做哪些准备？',
+        hint: '点击画面中的三处备战细节，观察集结时的行装、物资与指挥协同',
+        minutes: 2,
+        probes: [
+          { id: 'probe-farewell', label: '群众送别', x: 19, y: 47, title: '军民依依告别', detail: '夜幕降临时，驻地群众点起灯火送别即将远行的红军战士。', zoom: 1.38 },
+          { id: 'probe-pack', label: '整理行装', x: 18, y: 74, title: '缝补被服与打背囊', detail: '战士抓紧出发前的最后时间缝补衣物、捆扎干粮与背囊。', zoom: 1.42 },
+          { id: 'probe-map', label: '研判路线', x: 46, y: 66, title: '核对渡口与集结路线', detail: '干部围坐在灯下对照行军草图，明确部队按序列向各渡口集中。', zoom: 1.44 },
+        ],
+        notes: '先让学员在地图上找到江西于都。交代中央根据地面临的局面和战略转移的背景。追问大部队从集结走到渡河，中间需要哪些准备。'
+      },
+      {
+        image: 'yudu-bank', title: '岸边备桥', line: '于都群众送来木料，帮助架设浮桥。',
+        question: '渡河前，于都群众送来了什么？',
+        hint: '点击岸边木料、门板与渡船，看群众怎样托起夜渡通道',
+        minutes: 2,
+        probes: [
+          { id: 'probe-timber', label: '堆放木料', x: 12, y: 66, title: '拆屋木料与杉木', detail: '当地群众把自家备用的木料连夜送到河岸，用作桥墩与支撑。', zoom: 1.38 },
+          { id: 'probe-door', label: '抬送门板', x: 43, y: 58, title: '群众捐出自家门板', detail: '渡江缺乏桥面木板，群众自发卸下门板抬到岸边铺设浮桥。', zoom: 1.42 },
+          { id: 'probe-boat', label: '系缆木船', x: 78, y: 61, title: '征集民间渡船', detail: '渔民与船工把木船集中到渡口并排系紧，形成浮桥基座。', zoom: 1.38 },
+        ],
+        notes: '请一位学员指出画面里的木板与船，再请另一位补充人手和物资。结合纪念园讲解资料，讲当地群众出力架桥、送来木料的事例。'
+      },
+      {
+        image: 'yudu-bridge', title: '浮桥近景', line: '浮桥由船体和桥板组成。',
+        question: '桥面靠什么托住？',
+        hint: '分别点击画面上的「船体」与「桥板」，观察浮桥的受力结构',
+        minutes: 2, activity: 'bridge',
+        notes: '先给学员观察，再分两次点船体和桥板。请学员用一句话讲清两种材料各有什么作用，然后把画面与上一页的群众支援连起来。'
+      },
+      {
+        image: 'yudu', title: '夜渡于都河', line: '1934 年 10 月中旬，中央红军从于都河沿岸多个渡口踏上长征路。',
+        question: '从集结到夜渡，哪一步最能看出群众的作用？',
+        hint: '短片自动播放中，可观察夜渡行军并在右上角暂停或切回静态画面',
+        minutes: 2, video: 'yudu',
+        notes: '可播放夜渡短片。请学员回顾集结、备桥、渡河三个步骤，并指出哪一步最能说明当地群众的作用。随后把问题转向长征初期遇到的困难。'
+      },
     ],
   },
   {
     id: 'xiang', name: '湘江战役', place: '广西湘江上游', date: '1934 年 11 月 27 日—12 月 1 日', timeline: '1934.11–12',
     lon: 110.73, lat: 25.83, routeEnd: 4, review: '渡江受挫',
     pages: [
-      { image: 'xiang', title: '湘江河谷', line: '中央红军渡过湘江，突破第四道封锁线，遭受重大损失。', question: '渡过湘江，为什么仍是一次重大挫折？', minutes: 2, video: 'xiang',
-        notes: '先让学员看河谷，交代战役发生在 11 月 27 日至 12 月 1 日。可手动播放短片。把“渡过湘江”和“遭受重大损失”作为接下来要解释的两个事实。' },
-      { image: 'xiang-ford', title: '湘江渡口', line: '中央红军在广西全州、兴安之间渡过湘江。', question: '渡过湘江意味着突破了第几道封锁线？', minutes: 2, activity: 'crossing',
-        notes: '打开渡江区域示意。指出全州、兴安之间的渡江区域，结合灌阳也在战役涉及范围内讲清区域与渡江点的区别。请学员先说突破的是第几道封锁线。' },
-      { image: 'xiang-ford', title: '兵力对照', line: '两组兵力数据分别记录长征出发时和渡过湘江后的情况。', question: '两组数字分别对应什么时点？', minutes: 3, activity: 'troops',
-        notes: '依次揭示长征出发时的 8.6 万余人和渡过湘江后的 3 万余人。让学员读出时点，再用图说明减员差额覆盖两个时点之间的行程。请学员用“结果”和“代价”各说一句。' },
-      { image: 'xiang-aftermath', title: '渡江之后', line: '突破封锁线后，中央红军面临重大损失。', question: '渡江之后，为什么还需要重新考虑进军方向？', minutes: 2,
-        notes: '复述结果与代价，请学员说说为什么渡江后还需要重新考虑进军方向。收束到军事形势变了，原来的计划需要重新讨论，转入黎平。' },
+      {
+        image: 'xiang', title: '湘江河谷', line: '中央红军渡过湘江，突破第四道封锁线，遭受重大损失。',
+        question: '渡过湘江，为什么仍是一次重大挫折？',
+        hint: '短片自动播放中，重点带着「结果」与「代价」两个视角观察',
+        minutes: 2, video: 'xiang',
+        notes: '先让学员看河谷，交代战役发生在 11 月 27 日至 12 月 1 日。可手动播放短片。把“渡过湘江”和“遭受重大损失”作为接下来要解释的两个事实。'
+      },
+      {
+        image: 'xiang-ford', title: '湘江渡口', line: '中央红军在广西全州、兴安之间渡过湘江。',
+        question: '渡过湘江意味着突破了第几道封锁线？',
+        hint: '点击画面中的「渡江区域」标绘，在河谷实景中区分点与面',
+        minutes: 2, activity: 'crossing',
+        notes: '打开渡江区域示意。指出全州、兴安之间的渡江区域，结合灌阳也在战役涉及范围内讲清区域与渡江点的区别。请学员先说突破的是第几道封锁线。'
+      },
+      {
+        image: 'xiang-ford', title: '兵力对照', line: '两组兵力数据分别记录长征出发时和渡过湘江后的情况。',
+        question: '两组数字分别对应什么时点？',
+        hint: '左右拖动画面卷帘或切换时点，直观看见长征出发与渡过湘江后的落差',
+        minutes: 3, activity: 'troops',
+        notes: '依次揭示长征出发时的 8.6 万余人和渡过湘江后的 3 万余人。让学员读出时点，再用图说明减员差额覆盖两个时点之间的行程。请学员用“结果”和“代价”各说一句。'
+      },
+      {
+        image: 'xiang-aftermath', title: '渡江之后', line: '突破封锁线后，中央红军面临重大损失。',
+        question: '渡江之后，为什么还需要重新考虑进军方向？',
+        hint: '点击画面中的两处观察点，结合代价思考为何必须改变原定计划',
+        minutes: 2,
+        probes: [
+          { id: 'probe-survivors', label: '休整队伍', x: 25, y: 67, title: '剧烈减员后的困境', detail: '连日苦战后部队急需喘息与整编，已难以按原计划硬闯湘西北重兵防线。', zoom: 1.32 },
+          { id: 'probe-river-back', label: '回望湘江', x: 76, y: 69, title: '第四道封锁线之后', detail: '突破封锁线虽然得以继续西进，但也迫使党和红军重新审视进军路线。', zoom: 1.32 },
+        ],
+        notes: '复述结果与代价，请学员说说为什么渡江后还需要重新考虑进军方向。收束到军事形势变了，原来的计划需要重新讨论，转入黎平。'
+      },
     ],
   },
   {
     id: 'liping', name: '黎平会议', place: '贵州黎平', date: '1934 年 12 月 18 日', timeline: '1934.12.18',
     lon: 109.14, lat: 26.23, routeEnd: 6, review: '改变方向',
     pages: [
-      { image: 'liping-street', title: '黎平翘街', line: '渡过湘江后，中央红军重新讨论进军方向。', question: '渡过湘江后，中央红军下一步往哪里走？', minutes: 2,
-        notes: '交代中共中央政治局于 12 月 18 日在黎平召开会议。联系上一站的损失，让学员说出进军方向为何成为此时要讨论的问题。' },
-      { image: 'liping-table', title: '进军方向', line: '黎平会议重新确定了进军方向。', question: '黎平会议怎样调整了进军方向？', minutes: 2, activity: 'directions',
-        notes: '先揭示原计划赴湘西北与红二、红六军团会合，再揭示会议决定改向贵州北部。请学员对着示意图复述变化，再问这个决定怎样落实。' },
-      { image: 'liping-table', title: '猴场会议', line: '猴场会议重申黎平会议的战略方针。', question: '黎平会议和猴场会议分别做了什么？', minutes: 2,
-        notes: '时间来到 1935 年 1 月 1 日，地点为贵州瓮安猴场。会议重申战略方针，并要求抢渡乌江、攻占遵义。让学员用“决定方向、重申方针”区分两次会议。桌面画面为教学示意。' },
-      { image: 'wujiang', title: '渡过乌江', line: '1935 年 1 月初，中央红军渡过乌江，进入黔北。', question: '从黎平到渡过乌江，哪些决定变成了行动？', minutes: 2,
-        notes: '让学员按黎平、猴场、乌江的顺序复述从决定到行动的过程。联系地图点出遵义，并为下一段提出新问题，即抵达遵义后还要解决什么。' },
+      {
+        image: 'liping-street', title: '黎平翘街', line: '渡过湘江后，中央红军重新讨论进军方向。',
+        question: '渡过湘江后，中央红军下一步往哪里走？',
+        hint: '点击老街会址灯火与夜行队伍，进入黎平决策时刻',
+        minutes: 2,
+        probes: [
+          { id: 'probe-hall', label: '会址灯火', x: 16, y: 42, title: '黎平翘街会议会址', detail: '1934 年 12 月 18 日，中共中央政治局在此召开会议，争论集中于战略去向。', zoom: 1.38 },
+          { id: 'probe-march', label: '部队宿营', x: 56, y: 68, title: '从湖南通道转入黎平', detail: '面对国民党军在湘西北设下的重兵口袋，急需在黎平做出新的方向抉择。', zoom: 1.35 },
+        ],
+        notes: '交代中共中央政治局于 12 月 18 日在黎平召开会议。联系上一站的损失，让学员说出进军方向为何成为此时要讨论的问题。'
+      },
+      {
+        image: 'liping-table', title: '进军方向', line: '黎平会议重新确定了进军方向。',
+        question: '黎平会议怎样调整了进军方向？',
+        hint: '直接点击桌上的选项，在展开的麻纸舆图上对比原计划与新方向',
+        minutes: 2, activity: 'directions',
+        camera: { x: 52, y: 61, scale: 1.15 },
+        notes: '先揭示原计划赴湘西北与红二、红六军团会合，再揭示会议决定改向贵州北部。请学员对着示意图复述变化，再问这个决定怎样落实。'
+      },
+      {
+        image: 'liping-table', title: '猴场会议', line: '猴场会议重申黎平会议的战略方针。',
+        question: '黎平会议和猴场会议分别做了什么？',
+        hint: '在右侧决策链中逐项对比两次会议的递进关系',
+        minutes: 2, layout: 'split', activity: 'houchang',
+        camera: { x: 28, y: 60, scale: 1.24 },
+        steps: [
+          { id: 'hc-1', badge: '1934.12.18 · 黎平', title: '决定方向：改向贵州北部', detail: '放弃北上湘西北与红二、六军团会合的危险原计划，避实击虚转向黔北。' },
+          { id: 'hc-2', badge: '1935.01.01 · 猴场', title: '重申方针：排除干扰坚持北进', detail: '中共中央政治局在贵州瓮安猴场重申黎平会议战略方针，要求立即付诸行动。' },
+          { id: 'hc-3', badge: '行动指令', title: '抢渡乌江，攻占遵义', detail: '明确部队向以遵义为中心的黔北地区挺进，为即将召开的遵义会议奠定基础。' },
+        ],
+        notes: '时间来到 1935 年 1 月 1 日，地点为贵州瓮安猴场。会议重申战略方针，并要求抢渡乌江、攻占遵义。让学员用“决定方向、重申方针”区分两次会议。桌面画面为教学示意。'
+      },
+      {
+        image: 'wujiang', title: '渡过乌江', line: '1935 年 1 月初，中央红军渡过乌江，进入黔北。',
+        question: '从黎平到渡过乌江，哪些决定变成了行动？',
+        hint: '点击峭壁行军路线与乌江激流，回顾决定如何转化为现实突破',
+        minutes: 2,
+        probes: [
+          { id: 'probe-cliff', label: '峭壁行军', x: 20, y: 62, title: '向乌江沿岸急进', detail: '猴场会议后部队迅速向乌江推进，执行抢渡乌江的战斗部署。', zoom: 1.36 },
+          { id: 'probe-gorge', label: '突破天险', x: 74, y: 68, title: '强渡乌江直指遵义', detail: '1935 年 1 月初强渡乌江成功进入黔北，打开了进驻遵义的门户。', zoom: 1.34 },
+        ],
+        notes: '让学员按黎平、猴场、乌江的顺序复述从决定到行动的过程。联系地图点出遵义，并为下一段提出新问题，即抵达遵义后还要解决什么。'
+      },
     ],
   },
   {
     id: 'zunyi', name: '遵义会议', place: '贵州遵义', date: '1935 年 1 月 15 日—17 日', timeline: '1935.01',
     lon: 106.93, lat: 27.69, routeEnd: 8, review: '总结与调整',
     pages: [
-      { image: 'zunyi', title: '遵义会议室', line: '长征初期严重受挫后，中共中央政治局在遵义召开扩大会议。', question: '经历严重挫折后，会议最需要解决什么？', minutes: 2, video: 'zunyi',
-        notes: '交代中共中央政治局扩大会议的时间。请学员分别用湘江和黎平的事实概括会前处境与已经作出的改变，再听一位学员猜测会议的重点。' },
-      { image: 'zunyi-documents', title: '会议桌上的两份材料', line: '两份材料分别介绍会前形势和会议讨论。', question: '从两份材料里，能找出会议集中解决的哪两类问题？', minutes: 2, activity: 'materials',
-        notes: '逐一打开两份摘要，再并排投影。请学员指出材料里哪些是会前形势，哪些是会议议题。两份材料为教学摘要，桌面物件为情境示意。' },
-      { image: 'zunyi-documents', title: '军事问题', line: '会议总结了第五次反“围剿”失败和长征初期受挫的教训。', question: '会议怎样总结第五次反“围剿”和长征初期受挫的教训？', minutes: 2, activity: 'military',
-        notes: '展开军事问题图解。请学员从前面的材料找出会议回顾的两段经历，讲清会议批评此前军事领导上的错误，并肯定毛泽东等提出的作战基本原则。' },
-      { image: 'zunyi-documents', title: '组织问题', line: '会议调整了中央领导机构和军事指挥安排。', question: '会议怎样调整中央领导机构？', minutes: 2, activity: 'organization',
-        notes: '展开组织问题图解。讲会议选举毛泽东为中央政治局常委，调整军事指挥安排。结合史料解释“事实上确立”的含义，请学员说出这与总结军事教训的关系。' },
-      { image: 'zunyi-dawn', title: '遵义会议的转折意义', line: '遵义会议集中解决了当时的军事和组织问题。', question: '哪些变化使遵义会议成为转折点？', minutes: 2, activity: 'result',
-        notes: '先听学员用一份材料回答，再揭示结论。结合会前挫折、军事与组织调整，说明会议开启了党独立自主解决中国革命实际问题的新阶段。' },
+      {
+        image: 'zunyi', title: '遵义会议室', line: '长征初期严重受挫后，中共中央政治局在遵义召开扩大会议。',
+        question: '经历严重挫折后，会议最需要解决什么？',
+        hint: '会议室短片自动播放中，可在右上角暂停或提前打开材料对照',
+        minutes: 2, video: 'zunyi',
+        notes: '交代中共中央政治局扩大会议的时间。请学员分别用湘江和黎平的事实概括会前处境与已经作出的改变，再听一位学员猜测会议的重点。'
+      },
+      {
+        image: 'zunyi-documents', title: '会议桌上的两份材料', line: '两份材料分别介绍会前形势和会议讨论。',
+        question: '从两份材料里，能找出会议集中解决的哪两类问题？',
+        hint: '直接点击桌上左右两份线装材料，在桌面原位翻阅并对照',
+        minutes: 2, activity: 'materials',
+        notes: '逐一打开两份摘要，再并排投影。请学员指出材料里哪些是会前形势，哪些是会议议题。两份材料为教学摘要，桌面物件为情境示意。'
+      },
+      {
+        image: 'zunyi-documents', title: '军事问题', line: '会议总结了第五次反“围剿”失败和长征初期受挫的教训。',
+        question: '会议怎样总结第五次反“围剿”和长征初期受挫的教训？',
+        hint: '镜头已推进至左侧卷宗，点击逐层展开军事总结要点',
+        minutes: 2, activity: 'military',
+        camera: { x: 31, y: 49, scale: 1.38 },
+        steps: [
+          { id: 'mil-1', badge: '① 检视过往', title: '回顾两段受挫经历', detail: '正视第五次反“围剿”失败与长征初期湘江惨痛损失的客观事实。' },
+          { id: 'mil-2', badge: '② 切中要害', title: '批评军事领导错误', detail: '严肃批评博古、李德等人在军事指挥上的教条主义与错误判断。' },
+          { id: 'mil-3', badge: '③ 确立原则', title: '肯定正确作战原则', detail: '充分肯定毛泽东等提出的符合中国革命战争实际的战略战术原则。' },
+        ],
+        notes: '展开军事问题图解。请学员从前面的材料找出会议回顾的两段经历，讲清会议批评此前军事领导上的错误，并肯定毛泽东等提出的作战基本原则。'
+      },
+      {
+        image: 'zunyi-documents', title: '组织问题', line: '会议调整了中央领导机构和军事指挥安排。',
+        question: '会议怎样调整中央领导机构？',
+        hint: '镜头已横移至右侧卷宗，点击逐层展开组织与指挥调整',
+        minutes: 2, activity: 'organization',
+        camera: { x: 69, y: 49, scale: 1.38 },
+        steps: [
+          { id: 'org-1', badge: '① 机构改组', title: '调整中央领导机构', detail: '改组中央最高核心领导层，从组织上保证正确军事路线的贯彻。' },
+          { id: 'org-2', badge: '② 核心确立', title: '选举毛泽东为政治局常委', detail: '增选毛泽东为中央政治局常委，实际上开始形成新的中央领导核心。' },
+          { id: 'org-3', badge: '③ 指挥落位', title: '调整军事指挥安排', detail: '随后成立三人军事指挥小组，统一高效指挥红军机动突破重围。' },
+        ],
+        notes: '展开组织问题图解。讲会议选举毛泽东为中央政治局常委，调整军事指挥安排。结合史料解释“事实上确立”的含义，请学员说出这与总结军事教训的关系。'
+      },
+      {
+        image: 'zunyi-dawn', title: '遵义会议的转折意义', line: '遵义会议集中解决了当时的军事和组织问题。',
+        question: '哪些变化使遵义会议成为转折点？',
+        hint: '依次将三条关键史实拼入推演台，点亮遵义黎明并揭示全课核心结论',
+        minutes: 2, layout: 'split', activity: 'result',
+        notes: '先听学员用一份材料回答，再揭示结论。结合会前挫折、军事与组织调整，说明会议开启了党独立自主解决中国革命实际问题的新阶段。'
+      },
     ],
   },
 ];
+
 
 let terrainSurface                            ;
 
@@ -387,6 +662,537 @@ function createTerrainSurface() {
 
 
 
+
+
+
+
+
+
+
+
+
+const ZONE_KIND_CODE                                  = {
+  exclude: -1,
+  sway: 1,
+  water: 2,
+  mist: 3,
+  smoke: 4,
+  rain: 5,
+  flame: 6,
+};
+
+const MAX_CINEMAGRAPH_ZONES = 16;
+
+const sceneCinemagraphs                                    = {
+  'yudu-assembly': [
+    // Strictly protect thick tree trunk, left roof eave, farmhouse walls/roofs (ridge at y~0.23), soldiers, and stone ditch wall
+    { kind: 'exclude', cx: 0.35, cy: 0.25, rx: 0.07, ry: 0.26, angle: 0.14 },
+    { kind: 'exclude', cx: 0.18, cy: 0.12, rx: 0.20, ry: 0.14 },
+    { kind: 'exclude', cx: 0.49, cy: 0.36, rx: 0.14, ry: 0.145 },
+    { kind: 'exclude', cx: 0.72, cy: 0.56, rx: 0.25, ry: 0.11 },
+    { kind: 'exclude', cx: 0.84, cy: 0.86, rx: 0.17, ry: 0.045, angle: 0.18 },
+    { kind: 'exclude', cx: 0.66, cy: 0.92, rx: 0.08, ry: 0.09 },
+    // Outer leafy canopy tips right of trunk against sky & distant lone tree crown
+    { kind: 'sway', cx: 0.53, cy: 0.115, rx: 0.11, ry: 0.10, strength: 0.0030, angle: 0.12, param: 1 },
+    { kind: 'sway', cx: 0.785, cy: 0.415, rx: 0.036, ry: 0.035, strength: 0.0020, angle: 0.10, param: -1 },
+    // Golden-green rice paddy field in bottom-right (cleanly below soldiers' feet & above stone ditch wall)
+    { kind: 'sway', cx: 0.85, cy: 0.745, rx: 0.145, ry: 0.058, strength: 0.0028, angle: 0.0, param: -1 },
+    // Narrow irrigation stream cleanly inside ditch below stone wall
+    { kind: 'water', cx: 0.77, cy: 0.945, rx: 0.055, ry: 0.042, strength: 0.0028, angle: 0.45, param: 1.0 },
+    // Distant hill valley mist upper-right
+    { kind: 'mist', cx: 0.86, cy: 0.31, rx: 0.14, ry: 0.09, strength: 0.28, angle: 0.05 },
+    // Doorway oil lamp wick flicker
+    { kind: 'flame', cx: 0.145, cy: 0.268, rx: 0.011, ry: 0.018, strength: 0.20, param: 0.2 },
+  ],
+  'yudu-bank': [
+    // Strictly protect thick trunk, lantern post + crossbar, both villagers, door plank, and boats
+    { kind: 'exclude', cx: 0.05, cy: 0.28, rx: 0.06, ry: 0.30 },
+    { kind: 'exclude', cx: 0.20, cy: 0.16, rx: 0.075, ry: 0.055 },
+    { kind: 'exclude', cx: 0.18, cy: 0.38, rx: 0.038, ry: 0.24 },
+    { kind: 'exclude', cx: 0.28, cy: 0.52, rx: 0.095, ry: 0.28 },
+    { kind: 'exclude', cx: 0.56, cy: 0.48, rx: 0.065, ry: 0.24 },
+    { kind: 'exclude', cx: 0.65, cy: 0.48, rx: 0.17, ry: 0.085 },
+    { kind: 'exclude', cx: 0.84, cy: 0.68, rx: 0.19, ry: 0.19 },
+    // Outer overhanging tree leaves (strictly right of lantern crossbar & above villager)
+    { kind: 'sway', cx: 0.375, cy: 0.09, rx: 0.115, ry: 0.085, strength: 0.0030, angle: 0.15, param: 1 },
+    // Pure river water pockets strictly between villagers, above moored boat, and right of boat bow
+    { kind: 'water', cx: 0.44, cy: 0.388, rx: 0.075, ry: 0.032, strength: 0.0030, angle: 0.0, param: 0.85 },
+    { kind: 'water', cx: 0.82, cy: 0.380, rx: 0.17, ry: 0.028, strength: 0.0030, angle: 0.0, param: 0.85 },
+    { kind: 'water', cx: 0.90, cy: 0.442, rx: 0.095, ry: 0.045, strength: 0.0030, angle: 0.0, param: 0.85 },
+    // Dusk clouds
+    { kind: 'mist', cx: 0.60, cy: 0.09, rx: 0.26, ry: 0.09, strength: 0.26, angle: 0.02 },
+    // Hanging lantern wick flicker
+    { kind: 'flame', cx: 0.239, cy: 0.244, rx: 0.011, ry: 0.018, strength: 0.20, param: 0.2 },
+  ],
+  'yudu-bridge': [
+    // Strictly protect moon disk, diagonal wooden pontoon hull, bridge deck, rope handrail, and right post
+    { kind: 'exclude', cx: 0.130, cy: 0.075, rx: 0.032, ry: 0.045 },
+    { kind: 'exclude', cx: 0.24, cy: 0.62, rx: 0.17, ry: 0.19, angle: 0.40 },
+    { kind: 'exclude', cx: 0.43, cy: 0.68, rx: 0.18, ry: 0.14, angle: -0.22 },
+    { kind: 'exclude', cx: 0.14, cy: 0.48, rx: 0.095, ry: 0.105 },
+    { kind: 'exclude', cx: 0.84, cy: 0.64, rx: 0.18, ry: 0.11 },
+    { kind: 'exclude', cx: 0.975, cy: 0.80, rx: 0.03, ry: 0.16 },
+    // Left treetop outer leaves sway
+    { kind: 'sway', cx: 0.06, cy: 0.10, rx: 0.06, ry: 0.10, strength: 0.0026, angle: 0.12, param: 1 },
+    // Moonlit left river & golden lantern reflections on lower right under bridge
+    { kind: 'water', cx: 0.11, cy: 0.73, rx: 0.11, ry: 0.24, strength: 0.0034, angle: 0.05, param: 1.15 },
+    { kind: 'water', cx: 0.83, cy: 0.75, rx: 0.11, ry: 0.055, strength: 0.0034, angle: 0.0, param: 1.25 },
+    // Moonlit clouds
+    { kind: 'mist', cx: 0.28, cy: 0.11, rx: 0.20, ry: 0.10, strength: 0.26, angle: 0.04 },
+    // Bridge post oil lamp
+    { kind: 'flame', cx: 0.943, cy: 0.285, rx: 0.012, ry: 0.020, strength: 0.20, param: 0.15 },
+  ],
+  'xiang-ford': [
+    // Strictly protect bamboo main culms, all 6 soldiers, stepping-stone rocks, and distant houses
+    { kind: 'exclude', cx: 0.02, cy: 0.48, rx: 0.04, ry: 0.36 },
+    { kind: 'exclude', cx: 0.14, cy: 0.65, rx: 0.08, ry: 0.30 },
+    { kind: 'exclude', cx: 0.24, cy: 0.70, rx: 0.06, ry: 0.24 },
+    { kind: 'exclude', cx: 0.34, cy: 0.62, rx: 0.045, ry: 0.14 },
+    { kind: 'exclude', cx: 0.43, cy: 0.60, rx: 0.065, ry: 0.11 },
+    // Upper weeping bamboo leaves (cleanly above soldiers)
+    { kind: 'sway', cx: 0.22, cy: 0.16, rx: 0.18, ry: 0.15, strength: 0.0034, angle: 0.18, param: 1 },
+    // Pure rock-free river water channels (above mid-stream boulder chain & in open foreground pockets)
+    { kind: 'water', cx: 0.76, cy: 0.676, rx: 0.22, ry: 0.020, strength: 0.0028, angle: -0.04, param: 1.25 },
+    { kind: 'water', cx: 0.58, cy: 0.785, rx: 0.09, ry: 0.032, strength: 0.0028, angle: -0.04, param: 1.25 },
+    { kind: 'water', cx: 0.87, cy: 0.795, rx: 0.12, ry: 0.035, strength: 0.0028, angle: -0.04, param: 1.25 },
+    // Karst valley mist (cleanly above village roofs)
+    { kind: 'mist', cx: 0.68, cy: 0.28, rx: 0.30, ry: 0.10, strength: 0.30, angle: 0.04 },
+  ],
+  'xiang-aftermath': [
+    // Strictly protect house roof, thick tree trunk + diagonal main limb, standing/sitting soldiers, wooded riverbank, and river rocks
+    { kind: 'exclude', cx: 0.14, cy: 0.24, rx: 0.14, ry: 0.26 },
+    { kind: 'exclude', cx: 0.20, cy: 0.34, rx: 0.06, ry: 0.18 },
+    { kind: 'exclude', cx: 0.30, cy: 0.16, rx: 0.13, ry: 0.045, angle: -0.78 },
+    { kind: 'exclude', cx: 0.71, cy: 0.76, rx: 0.12, ry: 0.22 },
+    { kind: 'exclude', cx: 0.93, cy: 0.61, rx: 0.08, ry: 0.065 },
+    { kind: 'exclude', cx: 0.81, cy: 0.725, rx: 0.028, ry: 0.028 },
+    { kind: 'exclude', cx: 0.92, cy: 0.79, rx: 0.085, ry: 0.05 },
+    // Autumn overhanging outer leafy twigs (cleanly above distant hill & right of trunk/limb)
+    { kind: 'sway', cx: 0.46, cy: 0.082, rx: 0.16, ry: 0.078, strength: 0.0030, angle: 0.12, param: 1 },
+    // Distant winding river in right valley (cleanly on open water away from rocks)
+    { kind: 'water', cx: 0.86, cy: 0.705, rx: 0.075, ry: 0.055, strength: 0.0028, angle: -0.35, param: 0.85 },
+    // Drifting valley mist
+    { kind: 'mist', cx: 0.68, cy: 0.37, rx: 0.30, ry: 0.12, strength: 0.34, angle: 0.05 },
+  ],
+  'liping-street': [
+    // Keep mountain ridges, roofs, stone street, and pedestrians steady
+    { kind: 'exclude', cx: 0.62, cy: 0.25, rx: 0.24, ry: 0.06 },
+    { kind: 'exclude', cx: 0.39, cy: 0.73, rx: 0.07, ry: 0.22 },
+    { kind: 'exclude', cx: 0.81, cy: 0.72, rx: 0.05, ry: 0.16 },
+    // Dusk sunset clouds cleanly above mountain silhouette & distant mountain haze
+    { kind: 'mist', cx: 0.62, cy: 0.10, rx: 0.22, ry: 0.09, strength: 0.42, angle: 0.03 },
+    { kind: 'mist', cx: 0.68, cy: 0.32, rx: 0.12, ry: 0.06, strength: 0.32, angle: 0.04 },
+    // Hanging woven lanterns subtle wick flicker
+    { kind: 'flame', cx: 0.148, cy: 0.312, rx: 0.013, ry: 0.022, strength: 0.24, param: 0.5 },
+    { kind: 'flame', cx: 0.410, cy: 0.432, rx: 0.010, ry: 0.017, strength: 0.20, param: 0.4 },
+    { kind: 'flame', cx: 0.900, cy: 0.512, rx: 0.010, ry: 0.018, strength: 0.22, param: 0.3 },
+  ],
+  'liping-table': [
+    // Strictly protect foreground cloth sleeve, doorframe, and outdoor cobblestones
+    { kind: 'exclude', cx: 0.94, cy: 0.69, rx: 0.14, ry: 0.25, angle: 0.42 },
+    // Crisp outdoor rain strictly outside the upper open right doorway
+    { kind: 'rain', cx: 0.935, cy: 0.23, rx: 0.060, ry: 0.22, strength: 0.48, angle: 0.24 },
+    // Brass oil lamp flame flicker inside the glass chimney
+    { kind: 'flame', cx: 0.776, cy: 0.438, rx: 0.012, ry: 0.021, strength: 0.22, param: 0.0 },
+  ],
+  'wujiang': [
+    // Strictly protect thick upper-left trunk/branch, stone huts, soldiers, foreground cliff rock, mid-river boulder, and shore rocks
+    { kind: 'exclude', cx: 0.06, cy: 0.07, rx: 0.08, ry: 0.08 },
+    { kind: 'exclude', cx: 0.28, cy: 0.03, rx: 0.11, ry: 0.045, angle: 0.25 },
+    { kind: 'exclude', cx: 0.16, cy: 0.24, rx: 0.15, ry: 0.15 },
+    { kind: 'exclude', cx: 0.54, cy: 0.90, rx: 0.15, ry: 0.12 },
+    { kind: 'exclude', cx: 0.54, cy: 0.76, rx: 0.045, ry: 0.045 },
+    { kind: 'exclude', cx: 0.652, cy: 0.812, rx: 0.052, ry: 0.042 },
+    { kind: 'exclude', cx: 0.92, cy: 0.74, rx: 0.11, ry: 0.14 },
+    // Chimney smoke curling up slowly from stone hut chimney
+    { kind: 'smoke', cx: 0.222, cy: 0.205, rx: 0.050, ry: 0.088, strength: 0.52, angle: 0.42 },
+    // Surging Wujiang rapids (strictly pure water, all boulders/cliffs excluded)
+    { kind: 'water', cx: 0.74, cy: 0.83, rx: 0.18, ry: 0.11, strength: 0.0040, angle: -0.25, param: 1.35 },
+    // Gorge morning mist
+    { kind: 'mist', cx: 0.56, cy: 0.34, rx: 0.25, ry: 0.15, strength: 0.38, angle: 0.08 },
+    // Delicate upper cliff outer twigs only (foreground rocky grass removed)
+    { kind: 'sway', cx: 0.39, cy: 0.09, rx: 0.08, ry: 0.065, strength: 0.0028, angle: 0.14, param: 1 },
+  ],
+  'zunyi-documents': [
+    // Calm close-up: keep both booklets, table, and window frame completely steady
+    { kind: 'mist', cx: 0.12, cy: 0.10, rx: 0.13, ry: 0.11, strength: 0.28, angle: 0.04 },
+    { kind: 'flame', cx: 0.493, cy: 0.140, rx: 0.013, ry: 0.022, strength: 0.20, param: 0.0 },
+  ],
+  'zunyi-dawn': [
+    // Strictly protect foreground wooden eave, roofs, and stone flagstones
+    { kind: 'exclude', cx: 0.36, cy: 0.20, rx: 0.12, ry: 0.12 },
+    // Golden sunrise mist drifting smoothly over the morning ridge
+    { kind: 'mist', cx: 0.62, cy: 0.20, rx: 0.24, ry: 0.14, strength: 0.40, angle: 0.05 },
+  ],
+};
+
+const VERT_SRC = `#version 300 es
+in vec2 a_pos;
+out vec2 v_uv;
+void main() {
+  v_uv = vec2(a_pos.x * 0.5 + 0.5, 0.5 - a_pos.y * 0.5);
+  gl_Position = vec4(a_pos, 0.0, 1.0);
+}`;
+
+const FRAG_SRC = `#version 300 es
+precision highp float;
+in vec2 v_uv;
+out vec4 outColor;
+
+uniform sampler2D u_tex;
+uniform float u_time;
+uniform vec2 u_res;
+uniform int u_count;
+uniform vec4 u_rect[${MAX_CINEMAGRAPH_ZONES}];
+uniform vec4 u_meta[${MAX_CINEMAGRAPH_ZONES}];
+
+float hash21(vec2 p) {
+  p = fract(p * vec2(123.34, 456.21));
+  p += dot(p, p + 45.32);
+  return fract(p.x * p.y);
+}
+
+float noise2(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  float a = hash21(i);
+  float b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0));
+  float d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+float fbm(vec2 p) {
+  float v = 0.0;
+  float a = 0.5;
+  for (int i = 0; i < 3; i++) {
+    v += a * noise2(p);
+    p = p * 2.04 + vec2(17.1, 31.7);
+    a *= 0.5;
+  }
+  return v;
+}
+
+float ellipseMask(vec2 uv, vec4 r) {
+  vec2 q = (uv - r.xy) / max(r.zw, vec2(0.001));
+  return 1.0 - smoothstep(0.28, 1.0, length(q));
+}
+
+float excludeMask(vec2 uv, vec4 r, float ang) {
+  vec2 d = uv - r.xy;
+  if (abs(ang) > 0.001) {
+    float c = cos(ang);
+    float s = sin(ang);
+    d = vec2(c * d.x + s * d.y, -s * d.x + c * d.y);
+  }
+  vec2 q = d / max(r.zw, vec2(0.001));
+  return 1.0 - smoothstep(0.68, 1.0, length(q));
+}
+
+float rectMask(vec2 uv, vec4 r, float edgeStart) {
+  vec2 q = abs(uv - r.xy) / max(r.zw, vec2(0.001));
+  return 1.0 - smoothstep(edgeStart, 1.0, max(q.x, q.y));
+}
+
+void main() {
+  vec2 uv = v_uv;
+  float edgeFade = smoothstep(0.0, 0.025, uv.x) * smoothstep(1.0, 0.975, uv.x)
+                 * smoothstep(0.0, 0.025, uv.y) * smoothstep(1.0, 0.975, uv.y);
+
+  float excl = 1.0;
+  for (int i = 0; i < ${MAX_CINEMAGRAPH_ZONES}; i++) {
+    if (i >= u_count) break;
+    if (u_meta[i].x < -0.5) {
+      excl *= 1.0 - excludeMask(uv, u_rect[i], u_meta[i].z);
+    }
+  }
+
+  vec2 uvOffset = vec2(0.0);
+  float waterGlint = 0.0;
+  float waterMaskTotal = 0.0;
+  float mistLayer = 0.0;
+  float smokeLayer = 0.0;
+  float rainLayer = 0.0;
+  float flameGlow = 0.0;
+
+  for (int i = 0; i < ${MAX_CINEMAGRAPH_ZONES}; i++) {
+    if (i >= u_count) break;
+    float kind = u_meta[i].x;
+    if (kind < 0.5) continue;
+
+    vec4 r = u_rect[i];
+    float strength = u_meta[i].y;
+    float ang = u_meta[i].z;
+    float param = u_meta[i].w;
+    vec2 dir = vec2(cos(ang), sin(ang));
+
+    if (kind < 1.5) {
+      // SWAY: slow natural breeze on outer leaves and rice
+      float m = rectMask(uv, r, 0.55) * excl * edgeFade;
+      if (m > 0.001) {
+        float hinge = param >= 0.0
+          ? clamp((uv.y - (r.y - r.w)) / max(2.0 * r.w, 0.001), 0.0, 1.0)
+          : clamp(((r.y + r.w) - uv.y) / max(2.0 * r.w, 0.001), 0.0, 1.0);
+        hinge = smoothstep(0.04, 0.92, hinge);
+        float gust = sin(u_time * 0.55 + uv.x * 8.5 + uv.y * 4.0) * 0.56
+                   + sin(u_time * 1.10 - uv.x * 16.0 + uv.y * 9.5) * 0.30
+                   + sin(u_time * 1.85 + uv.x * 29.0 - uv.y * 17.0) * 0.14;
+        vec2 perp = vec2(-dir.y, dir.x);
+        uvOffset -= (dir * gust + perp * (gust * 0.24)) * strength * m * hinge;
+      }
+    } else if (kind < 2.5) {
+      // WATER: calm river flow & specular glints on open water
+      float m = rectMask(uv, r, 0.60) * excl * edgeFade;
+      if (m > 0.001) {
+        vec2 p = uv * vec2(26.0, 76.0 / max(param, 0.45));
+        float w1 = sin(dot(p, vec2(1.0, 0.32)) - u_time * 1.05 + sin(p.y * 0.42 + u_time * 0.42) * 1.55);
+        float w2 = cos(dot(p * 1.55, vec2(-0.72, 0.85)) - u_time * 0.82);
+        float w3 = sin(p.y * 1.75 + p.x * 0.55 - u_time * 1.30);
+        vec2 ripple = vec2(w1 * 0.65 + w2 * 0.35, (w2 * 0.52 + w3 * 0.48) * 0.45);
+        uvOffset += ripple * strength * m;
+        waterGlint += (w1 * 0.6 + w2 * 0.4) * m;
+        waterMaskTotal = max(waterMaskTotal, m);
+      }
+    } else if (kind < 3.5) {
+      // MIST / CLOUD: slow atmospheric drift weighted to sky/valley mist without warping rock silhouettes
+      float m = ellipseMask(uv, r) * excl * edgeFade;
+      if (m > 0.001) {
+        float n1 = fbm(uv * vec2(7.5, 11.0) - dir * (u_time * 0.18));
+        float n2 = fbm(uv * vec2(14.0, 19.0) - dir * (u_time * 0.27) + 5.3);
+        float n = n1 * 0.58 + n2 * 0.42;
+        mistLayer += (n - 0.22) * strength * m;
+      }
+    } else if (kind < 4.5) {
+      // SMOKE: slow curling village chimney plume rising upward
+      vec2 q = (uv - r.xy) / max(r.zw, vec2(0.001));
+      float rise = clamp((1.0 - q.y) * 0.5, 0.0, 1.0);
+      float plumeHalfW = mix(0.14, 0.95, pow(rise, 0.72));
+      float xDist = abs(q.x - rise * (dir.x * 0.55)) / plumeHalfW;
+      float shape = (1.0 - smoothstep(0.25, 1.0, xDist))
+                  * smoothstep(0.0, 0.14, rise)
+                  * (1.0 - smoothstep(0.62, 1.0, rise));
+      if (shape > 0.001) {
+        float curl = fbm(vec2(uv.x * 24.0 - u_time * 0.12, uv.y * 20.0 + u_time * 0.34));
+        float wisp = smoothstep(0.24, 0.76, curl);
+        uvOffset.y += (curl - 0.5) * 0.0040 * shape * edgeFade;
+        smokeLayer += wisp * shape * strength;
+      }
+    } else if (kind < 5.5) {
+      // RAIN: calm fine diagonal streaks clipped strictly to outdoor doorway
+      float m = rectMask(uv, r, 0.85) * excl;
+      if (m > 0.001) {
+        vec2 rp = vec2(uv.x * cos(ang) + uv.y * sin(ang), -uv.x * sin(ang) + uv.y * cos(ang));
+        vec2 g1 = vec2(rp.x * 165.0, rp.y * 12.0 - u_time * 6.2);
+        vec2 g2 = vec2(rp.x * 240.0 + 17.3, rp.y * 16.0 - u_time * 8.0);
+        float c1 = floor(g1.x);
+        float c2 = floor(g2.x);
+        float r1 = hash21(vec2(c1, floor(g1.y + hash21(vec2(c1, 3.1)) * 7.0)));
+        float r2 = hash21(vec2(c2, floor(g2.y + hash21(vec2(c2, 9.7)) * 7.0)));
+        float s1 = smoothstep(0.70, 0.98, r1) * (1.0 - abs(fract(g1.x) - 0.5) * 2.2);
+        float s2 = smoothstep(0.76, 0.99, r2) * (1.0 - abs(fract(g2.x) - 0.5) * 2.4);
+        float f1 = smoothstep(0.0, 0.25, fract(g1.y)) * (1.0 - smoothstep(0.45, 0.95, fract(g1.y)));
+        float f2 = smoothstep(0.0, 0.25, fract(g2.y)) * (1.0 - smoothstep(0.40, 0.90, fract(g2.y)));
+        rainLayer += max(s1 * f1, s2 * f2 * 0.75) * m * strength;
+      }
+    } else {
+      // FLAME: calm organic wick shimmer strictly inside the lamp glass
+      float m = ellipseMask(uv, r) * edgeFade;
+      if (m > 0.001) {
+        float fl = sin(u_time * 2.8 + r.x * 41.0) * 0.52
+                 + sin(u_time * 5.4 + r.y * 23.0) * 0.33
+                 + sin(u_time * 8.2) * 0.15;
+        float sway = param > 0.01 ? sin(u_time * 0.75 + r.x * 19.0) * 0.0006 * param : 0.0;
+        uvOffset += vec2(sway + fl * 0.0004, abs(fl) * 0.0006) * m;
+        flameGlow += fl * strength * m;
+      }
+    }
+  }
+
+  vec3 baseCol = texture(u_tex, clamp(uv + uvOffset, 0.001, 0.999)).rgb;
+  float luma = dot(baseCol, vec3(0.299, 0.587, 0.114));
+
+  if (waterMaskTotal > 0.001) {
+    float hi = smoothstep(0.26, 0.74, luma);
+    baseCol += baseCol * (waterGlint * 0.11 * hi);
+  }
+
+  if (mistLayer > 0.001) {
+    float skyWeight = smoothstep(0.20, 0.58, luma);
+    vec3 mistTint = mix(baseCol, vec3(0.78, 0.84, 0.90), 0.38);
+    baseCol = mix(baseCol, mistTint, clamp(mistLayer * skyWeight * 0.56, 0.0, 0.22));
+  }
+
+  if (smokeLayer > 0.001) {
+    vec3 smokeCol = vec3(0.73, 0.79, 0.85);
+    baseCol = mix(baseCol, smokeCol, clamp(smokeLayer * 0.54, 0.0, 0.36));
+  }
+
+  if (rainLayer > 0.001) {
+    baseCol += vec3(0.72, 0.82, 0.92) * clamp(rainLayer * 0.45, 0.0, 0.28);
+  }
+
+  if (abs(flameGlow) > 0.001) {
+    float core = smoothstep(0.45, 0.90, luma);
+    baseCol += vec3(1.0, 0.76, 0.38) * (flameGlow * 0.16 * core);
+  }
+
+  outColor = vec4(clamp(baseCol, 0.0, 1.0), 1.0);
+}`;
+
+let activeCinemagraphs                 = [];
+
+function stopCinemagraphs() {
+  for (const stop of activeCinemagraphs) stop();
+  activeCinemagraphs = [];
+}
+
+function compileShader(gl                        , type        , src        ) {
+  const sh = gl.createShader(type);
+  if (!sh) return null;
+  gl.shaderSource(sh, src);
+  gl.compileShader(sh);
+  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+    gl.deleteShader(sh);
+    return null;
+  }
+  return sh;
+}
+
+function attachCinemagraph(imageKey        , img                  , extraClass = '') {
+  const zones = sceneCinemagraphs[imageKey];
+  if (!zones?.length || reducedMotion.matches) return undefined;
+
+  const canvas = element('canvas', 'scene-motion' + (extraClass ? ' ' + extraClass : ''));
+  canvas.setAttribute('aria-hidden', 'true');
+  img.after(canvas);
+
+  let disposed = false;
+  let rafId = 0;
+  let gl                                = null;
+  let program                      = null;
+  let texture                      = null;
+  let vbo                     = null;
+
+  const cleanup = () => {
+    if (disposed) return;
+    disposed = true;
+    if (rafId) cancelAnimationFrame(rafId);
+    if (gl) {
+      if (texture) gl.deleteTexture(texture);
+      if (vbo) gl.deleteBuffer(vbo);
+      if (program) gl.deleteProgram(program);
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+      gl = null;
+    }
+    canvas.remove();
+  };
+  activeCinemagraphs.push(cleanup);
+
+  const start = () => {
+    if (disposed || !canvas.isConnected || !img.naturalWidth) return;
+    const w = Math.min(img.naturalWidth, 1280);
+    const h = Math.round((w * img.naturalHeight) / img.naturalWidth);
+    canvas.width = w;
+    canvas.height = h;
+
+    gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, powerPreference: 'low-power' });
+    if (!gl) {
+      cleanup();
+      return;
+    }
+
+    const vs = compileShader(gl, gl.VERTEX_SHADER, VERT_SRC);
+    const fs = compileShader(gl, gl.FRAGMENT_SHADER, FRAG_SRC);
+    if (!vs || !fs) {
+      if (vs) gl.deleteShader(vs);
+      if (fs) gl.deleteShader(fs);
+      cleanup();
+      return;
+    }
+
+    program = gl.createProgram() ;
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    gl.deleteShader(vs);
+    gl.deleteShader(fs);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+      cleanup();
+      return;
+    }
+
+    gl.useProgram(program);
+    vbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const posLoc = gl.getAttribLocation(program, 'a_pos');
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+
+    texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+
+    const count = Math.min(zones.length, MAX_CINEMAGRAPH_ZONES);
+    const rectData = new Float32Array(MAX_CINEMAGRAPH_ZONES * 4);
+    const metaData = new Float32Array(MAX_CINEMAGRAPH_ZONES * 4);
+    for (let i = 0; i < count; i++) {
+      const z = zones[i];
+      rectData[i * 4] = z.cx;
+      rectData[i * 4 + 1] = z.cy;
+      rectData[i * 4 + 2] = z.rx;
+      rectData[i * 4 + 3] = z.ry;
+      metaData[i * 4] = ZONE_KIND_CODE[z.kind];
+      metaData[i * 4 + 1] = z.strength ?? 0.005;
+      metaData[i * 4 + 2] = z.angle ?? 0;
+      metaData[i * 4 + 3] = z.param ?? 1;
+    }
+
+    gl.uniform1i(gl.getUniformLocation(program, 'u_count'), count);
+    gl.uniform4fv(gl.getUniformLocation(program, 'u_rect'), rectData);
+    gl.uniform4fv(gl.getUniformLocation(program, 'u_meta'), metaData);
+    gl.uniform2f(gl.getUniformLocation(program, 'u_res'), w, h);
+    const timeLoc = gl.getUniformLocation(program, 'u_time');
+
+    const t0 = performance.now();
+    let shown = false;
+    const draw = (now        ) => {
+      if (disposed || !gl || !canvas.isConnected) {
+        cleanup();
+        return;
+      }
+      if (!document.hidden && !reducedMotion.matches) {
+        gl.viewport(0, 0, w, h);
+        gl.uniform1f(timeLoc, (now - t0) * 0.001);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        if (!shown) {
+          shown = true;
+          canvas.classList.add('is-ready');
+        }
+      }
+      rafId = requestAnimationFrame(draw);
+    };
+    rafId = requestAnimationFrame(draw);
+  };
+
+  const scheduleStart = () => {
+    if (!disposed) requestAnimationFrame(start);
+  };
+  if (img.complete && img.naturalWidth > 0) scheduleStart();
+  else img.addEventListener('load', scheduleStart, { once: true });
+
+  return canvas;
+}
+
+
+
+
+
 const app = document.querySelector             ('#app') ;
 const dialog = document.querySelector                   ('#dialog') ;
 const closeDialog = document.querySelector                   ('#close-dialog') ;
@@ -409,6 +1215,9 @@ const iconPaths                             = {
   arrowRight: ['M9 18l6-6-6-6'],
   expand: ['M15 3h6v6','M9 21H3v-6','M21 3l-7 7','M3 21l7-7'],
   compress: ['M4 14h6v6','M20 10h-6V4','M14 10l7-7','M3 21l7-7'],
+  compass: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z','M16.24 7.76l-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z'],
+  layers: ['M12 2l9 4.5-9 4.5-9-4.5L12 2z','M3 12l9 4.5 9-4.5','M3 17.5l9 4.5 9-4.5'],
+  sliders: ['M4 21v-7','M4 10V3','M12 21v-9','M12 8V3','M20 21v-5','M20 12V3','M1 14h6','M9 8h6','M17 16h6'],
 };
 const revealed = new Set        ();
 const chapterPages = events.flatMap((event, chapter) => event.pages.map(page => ({event, chapter, page})));
@@ -505,7 +1314,7 @@ function diagramPath(d        , className = '') {
   return path;
 }
 
-reducedMotion.addEventListener('change',event=>{ if (event.matches) stopMotion(); });
+reducedMotion.addEventListener('change',event=>{ if (event.matches) { stopMotion(); stopCinemagraphs(); } });
 
 function modal(title        , ...nodes               ) {
   stopMotion();
@@ -562,6 +1371,12 @@ function place(node             , point       ) {
 let pageButtons                                                           = {};
 document.addEventListener('keydown', event => {
   if (projectionMode || event.defaultPrevented || dialog.open || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if (event.key === 'Escape' && onStageDismiss) {
+    event.preventDefault();
+    sendAction('stage-dismiss');
+    onStageDismiss();
+    return;
+  }
   const button = ['ArrowLeft', 'PageUp'].includes(event.key) ? pageButtons.previous
     : ['ArrowRight', 'PageDown'].includes(event.key) ? pageButtons.next : undefined;
   if (!button?.isConnected) return;
@@ -582,7 +1397,10 @@ function chapterNav(current        , jump                         ) {
 
 function openReview(conclusionPage = false) {
   currentVideo = undefined;
+  applyScrub = undefined;
+  onStageDismiss = undefined;
   stopMotion();
+  stopCinemagraphs();
   mapResize?.disconnect();
   const shell = element('section','shell review');
   const header = element('header','top');
@@ -702,7 +1520,10 @@ function select(index        , focus                   ) {
 }
 function renderMap(restoreFocus = false) {
   currentVideo = undefined;
+  applyScrub = undefined;
+  onStageDismiss = undefined;
   stopMotion();
+  stopCinemagraphs();
   mapResize?.disconnect();
   const shell = element('section','shell');
   const header = element('header','top');
@@ -1055,23 +1876,53 @@ function openChapter(index        , variant             = 'lesson', returnToRevi
 
 function openScene(position        , variant             = 'lesson', returnToReview             ) {
   currentVideo = undefined;
+  applyScrub = undefined;
+  onStageDismiss = undefined;
   stopMotion();
-  const priorImage = app.querySelector                  ('.scene-media > img');
+  stopCinemagraphs();
+  const priorImage = app.querySelector                  ('.scene-media img');
   const priorChapter = app.querySelector             ('.classroom-slide')?.dataset.chapter;
   mapResize?.disconnect();
   const { event, chapter, page } = chapterPages[position];
   selected = chapter;
   if (variant !== 'trial') lastViewed.set(chapter,position);
-  const scene = element('section','scene classroom-slide');
+
+  const isSplit = page.layout === 'split';
+  const scene = element('section','scene classroom-slide' + (isSplit ? ' layout-split' : ''));
   scene.dataset.chapter = String(chapter);
+  if (page.activity) scene.dataset.activity = page.activity;
+
+  const stage = element('div','scene-stage');
   const media = element('div','scene-media');
+  const camera = element('div','scene-camera');
+  const spotlight = element('div','scene-spotlight');
+  spotlight.setAttribute('aria-hidden','true');
   const shade = element('div','scene-shade');
   const picture = photo(page.image,page.title+'情境示意');
-  media.append(picture,shade);
+  camera.append(picture,spotlight);
+  if (!page.video) attachCinemagraph(page.image, picture);
+  media.append(camera,shade);
+
+  const registerDismiss = (fn            ) => {
+    const prev = onStageDismiss;
+    onStageDismiss = () => {
+      prev?.();
+      fn();
+    };
+  };
+  scene.addEventListener('click', (e) => {
+    if (projectionMode) return;
+    const target = e.target                  ;
+    if (!target?.isConnected || target.closest('button,input,a,.probe-callout,.troop-hud,.dossier-panel,.folio-card,.editorial-panel,.slide-caption')) return;
+    if (onStageDismiss) {
+      sendAction('stage-dismiss');
+      onStageDismiss();
+    }
+  });
 
   let pauseVideo = () => {};
   const tools = element('div','scene-actions');
-  if (page.video) pauseVideo = attachVideo(page.video,media,tools);
+  if (page.video) pauseVideo = attachVideo(page.video,camera,tools);
 
   const leave = ()=>{
     pauseVideo();
@@ -1093,12 +1944,104 @@ function openScene(position        , variant             = 'lesson', returnToRev
   heading.append(identity,tools);
 
   const narration = element('p','slide-line',page.line);
+  narration.setAttribute('aria-live','polite');
+  const hintBar = page.hint ? element('p','scene-hint',page.hint) : undefined;
   const evidence = element('ol','result-evidence');
   if (page.activity === 'result') {
     evidence.append(...['长征初期受挫','黎平改变方向','军事与组织调整'].map(text=>element('li','',text)));
     evidence.setAttribute('aria-label','已讲材料');
   }
-  narration.setAttribute('aria-live','polite');
+
+  function setCamera(fx = 50, fy = 50, scale = 1, spot = false) {
+    const tx = Math.min(0, Math.max(100 * (1 - scale), 50 - fx * scale));
+    const ty = Math.min(0, Math.max(100 * (1 - scale), 48 - fy * scale));
+    camera.style.transform = `translate(${tx}%, ${ty}%) scale(${scale})`;
+    spotlight.style.setProperty('--spot-x', fx + '%');
+    spotlight.style.setProperty('--spot-y', fy + '%');
+    spotlight.classList.toggle('is-active', spot);
+    return { sx: tx + scale * fx, sy: ty + scale * fy };
+  }
+
+  if (page.camera) {
+    setCamera(page.camera.x, page.camera.y, page.camera.scale, true);
+  }
+
+  // ---- 1. In-scene Focus Probes (于都集结 / 岸边备桥 / 渡江之后 / 黎平翘街 / 渡过乌江) ----
+  if (page.probes?.length) {
+    const probes = page.probes;
+    const callout = element('article','probe-callout');
+    callout.hidden = true;
+    const calloutBadge = element('span','probe-badge','细节考据');
+    const calloutTitle = element('h3');
+    const calloutDetail = element('p');
+    const progress = element('span','probe-progress');
+    const pinButtons                      = [];
+    const syncHint = (inCloseup = false) => {
+      if (!hintBar) return;
+      const done = probes.filter(p=>revealed.has(p.id)).length;
+      if (inCloseup) {
+        hintBar.replaceChildren('点击卡片外部区域退出特写 · ', progress);
+      } else if (done === probes.length) {
+        hintBar.replaceChildren('细节已探查完毕，可进入下一页继续推进 · ', progress);
+      } else {
+        hintBar.replaceChildren(page.hint ?? '', ' · ', progress);
+      }
+    };
+    const resetProbes = () => {
+      callout.hidden = true;
+      setCamera(50,50,1,false);
+      pinButtons.forEach(b=>{
+        b.dataset.active = 'false';
+        b.dataset.dismissed = 'false';
+      });
+      syncHint(false);
+    };
+    callout.append(calloutBadge,calloutTitle,calloutDetail);
+    media.append(callout);
+
+    const updateProgress = (inCloseup = false) => {
+      const done = probes.filter(p=>revealed.has(p.id)).length;
+      progress.textContent = `已探查 ${done} / ${probes.length} 处`;
+      progress.dataset.complete = String(done === probes.length);
+      syncHint(inCloseup);
+    };
+    probes.forEach((probe, idx) => {
+      const btn = syncControl(probe.id, '', () => {
+        stopMotion();
+        revealed.add(probe.id);
+        btn.dataset.visited = 'true';
+        pinButtons.forEach(b=>{
+          const isCurrent = b === btn;
+          b.dataset.active = String(isCurrent);
+          b.dataset.dismissed = String(isCurrent);
+        });
+        const { sx, sy } = setCamera(probe.x, probe.y, probe.zoom ?? 1.38, true);
+        calloutTitle.textContent = probe.title;
+        calloutDetail.textContent = probe.detail;
+        callout.hidden = false;
+        callout.dataset.side = sx > 54 ? 'left' : 'right';
+        callout.style.left = Math.max(18, Math.min(82, sx)) + '%';
+        callout.style.top = Math.max(25, Math.min(64, sy)) + '%';
+        narration.textContent = probe.title + '：' + probe.detail;
+        appear(callout, 120, 260);
+        updateProgress(true);
+      }, 'probe-pin');
+      btn.style.left = probe.x + '%';
+      btn.style.top = probe.y + '%';
+      btn.dataset.visited = String(revealed.has(probe.id));
+      btn.dataset.active = 'false';
+      const num = element('span','probe-num',String(idx + 1));
+      const lbl = element('span','probe-label',probe.label);
+      btn.replaceChildren(num,lbl);
+      btn.setAttribute('aria-label',`${probe.label}：${probe.title}`);
+      camera.append(btn);
+      pinButtons.push(btn);
+    });
+    registerDismiss(resetProbes);
+    updateProgress(false);
+  }
+
+  // ---- 2. Bridge structural outlines (浮桥近景) ----
   if (page.activity === 'bridge') {
     const bridgeLabels = new Map               ([['boat','木船托住桥面'],['plank','木板铺成通道']]);
     const bridgeLine = () => {
@@ -1111,7 +2054,7 @@ function openScene(position        , variant             = 'lesson', returnToRev
     outlines.setAttribute('viewBox','0 0 100 100');
     outlines.setAttribute('preserveAspectRatio','none');
     outlines.setAttribute('aria-hidden','true');
-    media.append(outlines);
+    camera.append(outlines);
     const parts                                 = [
       ['船体','boat',[28,65],'M 9 42 Q 11 57 32 59 L 57 61 Q 49 78 39 84 Q 13 79 9 54 Z'],
       ['桥板','plank',[73,46],'M 41 39 L 97 36 L 99 57 Q 70 49 45 45 Z'],
@@ -1122,23 +2065,377 @@ function openScene(position        , variant             = 'lesson', returnToRev
       outlines.append(outline);
       addHotspot(label,key,point,()=>{
         outline.classList.add('is-drawn');
+        setCamera(point[0], point[1], 1.14, true);
         drawLine(outline,0,450);
         bridgeLine();
-        appear(narration,400,250);
+        appear(narration,360,250);
       });
     });
     bridgeLine();
   }
-  if (page.activity === 'crossing') addHotspot('渡江区域','crossing',[59,55],showCrossing);
-  if (page.activity === 'military' || page.activity === 'organization') {
-    const issue = page.activity;
-    addHotspot('展开图解',issue,[49,54],()=>showIssue(issue));
+
+  // ---- 3. Xiang River Crossing In-Scene Overlay (湘江渡口) ----
+  if (page.activity === 'crossing') {
+    const overlay = element('div','crossing-inscene');
+    const svg = document.createElementNS(svgNamespace,'svg');
+    svg.setAttribute('viewBox','0 0 100 100');
+    svg.setAttribute('preserveAspectRatio','none');
+    svg.setAttribute('aria-hidden','true');
+    const riverZone = diagramPath('M 18 65 Q 48 56 88 53 L 94 74 Q 52 78 16 86 Z','river-zone');
+    const crossingPath = diagramPath('M 14 70 Q 44 59 69 49 L 64 46 M 69 49 L 66 54','crossing-inscene-line');
+    svg.append(riverZone, crossingPath);
+    overlay.append(
+      svg,
+      element('span','map-tag tag-xingan','兴安方向'),
+      element('span','map-tag tag-quanzhou','全州方向'),
+      element('span','map-tag tag-zone','全州—兴安渡江区域 · 突破第四道封锁线'),
+      element('span','map-tag tag-guanyang','灌阳方向（战役波及）'),
+    );
+    const active = revealed.has('crossing');
+    overlay.classList.toggle('is-active', active);
+    camera.append(overlay);
+    addHotspot('标绘渡江区域','crossing',[56,57],()=>{
+      overlay.classList.add('is-active');
+      setCamera(54, 58, 1.15, true);
+      drawLine(crossingPath, 0, 520);
+      narration.textContent = '中央红军在全州、兴安之间抢渡湘江（灌阳也在战役涉及范围内），成功突破第四道封锁线。';
+      appear(narration, 320, 260);
+    });
   }
-  if (page.activity === 'troops') addHotspot('兵力对照','troops',[59,55],showTroops);
-  if (page.activity === 'directions') addHotspot('进军方向','directions',[53,62],showDirections);
+
+  // ---- 4. Xiang River Force Curtain & Live Gauge (兵力对照) ----
+  if (page.activity === 'troops') {
+    const afterImg = photo('xiang-aftermath','渡过湘江后回望江面');
+    afterImg.className = 'curtain-after';
+    camera.querySelector('.scene-spotlight') .before(afterImg);
+    attachCinemagraph('xiang-aftermath', afterImg, 'curtain-after-motion');
+
+    const divider = element('div','curtain-divider');
+    divider.setAttribute('aria-hidden','true');
+    const handle = element('div','curtain-handle');
+    handle.append(svgIcon('sliders'));
+    divider.append(handle);
+    camera.append(divider);
+
+    const hud = element('aside','troop-hud');
+    const hudHead = element('div','troop-hud-head');
+    hudHead.append(element('strong','','湘江前后兵力对比'),element('span','troop-hud-tip','拖动下方或画面中线对比'));
+    const barBefore = element('div','troop-hud-row');
+    barBefore.innerHTML = '<div class="troop-row-top"><span>1934.10 长征出发时</span><strong>8.6 万余人</strong></div><div class="troop-track"><span class="troop-bar" style="width:100%"></span></div>';
+    const barAfter = element('div','troop-hud-row');
+    barAfter.innerHTML = '<div class="troop-row-top"><span>1934.12 渡过湘江后</span><strong>3 万余人</strong></div><div class="troop-track"><span class="troop-bar is-warn" style="width:35%"></span></div>';
+    const diffNote = element('p','troop-hud-note','两数差额涵盖从出发到渡过湘江这段行程中的多种减员。');
+    const snapRow = element('div','troop-snap-row');
+    const rangeInput = document.createElement('input');
+    rangeInput.type = 'range';
+    rangeInput.min = '8';
+    rangeInput.max = '92';
+    rangeInput.value = String(scrubValue);
+    rangeInput.className = 'curtain-range';
+    rangeInput.setAttribute('aria-label','对比长征出发与渡过湘江后兵力滑杆');
+
+    const updateSplit = (val        , broadcast = false) => {
+      const clamped = Math.max(8, Math.min(92, Math.round(val)));
+      scrubValue = clamped;
+      rangeInput.value = String(clamped);
+      media.style.setProperty('--split', clamped + '%');
+      barBefore.dataset.focus = String(clamped >= 45);
+      barAfter.dataset.focus = String(clamped <= 55);
+      if (clamped < 55) revealed.add('troops-1');
+      if (clamped > 45) revealed.add('troops-0');
+      diffNote.hidden = !(revealed.has('troops-0') && revealed.has('troops-1'));
+      if (broadcast && !projectionMode) sendScrub(clamped);
+    };
+    applyScrub = (v)=>updateSplit(v,false);
+
+    snapRow.append(
+      syncControl('scrub-before','出发时 · 8.6万',()=>updateSplit(86,true),'snap-btn'),
+      syncControl('scrub-mid','居中对比',()=>updateSplit(50,true),'snap-btn'),
+      syncControl('scrub-after','渡江后 · 3万',()=>updateSplit(14,true),'snap-btn'),
+    );
+    rangeInput.addEventListener('input',()=>updateSplit(Number(rangeInput.value),true));
+
+    let draggingCurtain = false;
+    const scrubPointer = (clientX        ) => {
+      const rect = media.getBoundingClientRect();
+      if (!rect.width) return;
+      updateSplit(((clientX - rect.left) / rect.width) * 100, true);
+    };
+    media.addEventListener('pointerdown', e => {
+      if (projectionMode || (e.target           ).closest('button,input,.troop-hud')) return;
+      draggingCurtain = true;
+      media.setPointerCapture(e.pointerId);
+      scrubPointer(e.clientX);
+    });
+    media.addEventListener('pointermove', e => {
+      if (draggingCurtain) scrubPointer(e.clientX);
+    });
+    for (const ev of ['pointerup','pointercancel','lostpointercapture']) {
+      media.addEventListener(ev, ()=>{ draggingCurtain = false; });
+    }
+
+    hud.append(hudHead, barBefore, barAfter, rangeInput, snapRow, diffNote);
+    stage.append(hud);
+    updateSplit(scrubValue, false);
+  }
+
+  // ---- 5. Liping Tabletop Perspective Map (进军方向) ----
+  if (page.activity === 'directions') {
+    const paper = element('div','tabletop-paper');
+    const svg = document.createElementNS(svgNamespace,'svg');
+    svg.setAttribute('viewBox','0 0 100 100');
+    svg.setAttribute('preserveAspectRatio','none');
+    svg.setAttribute('aria-hidden','true');
+    const eastLine = diagramPath('M 50 84 Q 65 73 82 26 L 76 30 M 82 26 L 84 34','paper-line east');
+    const westLine = diagramPath('M 50 84 Q 35 73 19 26 L 17 34 M 19 26 L 25 30','paper-line west');
+    eastLine.classList.toggle('is-drawn', revealed.has('direction-east'));
+    westLine.classList.toggle('is-drawn', revealed.has('direction-west'));
+    svg.append(eastLine, westLine);
+
+    const originNode = element('span','paper-node origin','黎平');
+    const eastNode = element('span','paper-node east');
+    eastNode.innerHTML = '<em>原计划</em><strong>湘西北（险）</strong>';
+    eastNode.hidden = !revealed.has('direction-east');
+    const westNode = element('span','paper-node west');
+    westNode.innerHTML = '<em>会议决定</em><strong>贵州北部</strong>';
+    westNode.hidden = !revealed.has('direction-west');
+
+    paper.append(svg, originNode, eastNode, westNode);
+    camera.append(paper);
+
+    const deck = element('div','tabletop-deck');
+    const syncDirText = () => {
+      if (revealed.has('direction-west') && revealed.has('direction-east')) {
+        narration.textContent = '放弃赴湘西北与红二、六军团会合的危险原计划，会议决定改向敌兵力薄弱的贵州北部进军。';
+      } else if (revealed.has('direction-west')) {
+        narration.textContent = '会议决定：改向贵州北部进军，避实击虚，争取战略主动。';
+      } else if (revealed.has('direction-east')) {
+        narration.textContent = '原计划：北上湘西北与红二、红六军团会合（敌军重兵堵截）。';
+      }
+    };
+    const btnEast = syncControl('direction-east','推演原计划 · 湘西北',()=>{
+      revealed.add('direction-east');
+      eastNode.hidden = false;
+      eastLine.classList.add('is-drawn');
+      btnEast.setAttribute('aria-pressed','true');
+      btnEast.dataset.dismissed = 'true';
+      drawLine(eastLine,0,480);
+      appear(eastNode,350,240);
+      syncDirText();
+    },'deck-btn','compass');
+    const btnWest = syncControl('direction-west','推演新方向 · 贵州北部',()=>{
+      revealed.add('direction-west');
+      westNode.hidden = false;
+      westLine.classList.add('is-drawn');
+      btnWest.setAttribute('aria-pressed','true');
+      btnWest.dataset.dismissed = 'true';
+      drawLine(westLine,0,480);
+      appear(westNode,350,240);
+      syncDirText();
+    },'deck-btn is-gold','compass');
+    btnEast.setAttribute('aria-pressed', String(revealed.has('direction-east')));
+    btnWest.setAttribute('aria-pressed', String(revealed.has('direction-west')));
+    deck.append(btnEast, btnWest);
+    stage.append(deck);
+    registerDismiss(()=>{
+      btnEast.dataset.dismissed = 'false';
+      btnWest.dataset.dismissed = 'false';
+    });
+    syncDirText();
+  }
+
+  // ---- 6. Zunyi Tabletop Dual Dossiers (会议桌上的两份材料) ----
   if (page.activity === 'materials') {
-    addHotspot('会前形势','material-before',[32,47],()=>showZunyiMaterials(0));
-    addHotspot('会议讨论','material-during',[67,47],()=>showZunyiMaterials(1));
+    const deskLayer = element('div','dossier-desk');
+    const cards                = [];
+    const triggers                      = [];
+    let compareBtn                   ;
+    const specs = [
+      { key: 'material-before', cls: 'is-left', sideX: 31, label: '翻阅左册 · 会前形势', item: zunyiMaterials[0] },
+      { key: 'material-during', cls: 'is-right', sideX: 69, label: '翻阅右册 · 会议讨论', item: zunyiMaterials[1] },
+    ];
+    const renderDeskState = (mode                              ) => {
+      if (mode === 'left') setCamera(31, 49, 1.24, true);
+      else if (mode === 'right') setCamera(69, 49, 1.24, true);
+      else setCamera(50, 50, 1.0, false);
+      cards[0].hidden = !(mode === 'left' || mode === 'both');
+      cards[1].hidden = !(mode === 'right' || mode === 'both');
+      triggers[0].dataset.dismissed = String(mode === 'left' || mode === 'both');
+      triggers[1].dataset.dismissed = String(mode === 'right' || mode === 'both');
+      compareBtn.dataset.dismissed = String(mode !== 'none');
+      if (hintBar && page.hint) {
+        hintBar.textContent = mode === 'none' ? page.hint : '点击卡片外部区域即可收起卷宗、返回桌面';
+      }
+    };
+    specs.forEach((spec, idx) => {
+      const slot = element('div','dossier-slot ' + spec.cls);
+      const folio = element('article','folio-card');
+      folio.hidden = true;
+      folio.append(element('span','folio-tag', idx === 0 ? '会前卷宗' : '会议卷宗'), element('h3','',spec.item.title));
+      spec.item.lines.forEach(line=>folio.append(element('p','',line)));
+      cards.push(folio);
+      const trigger = syncControl(spec.key, spec.label, ()=>{
+        revealed.add(spec.key);
+        trigger.dataset.visited = 'true';
+        renderDeskState(idx === 0 ? 'left' : 'right');
+        appear(folio, 120, 260);
+      }, 'dossier-trigger', 'layers');
+      trigger.dataset.visited = String(revealed.has(spec.key));
+      triggers.push(trigger);
+      slot.append(trigger, folio);
+      deskLayer.append(slot);
+    });
+    const toolbar = element('div','dossier-toolbar');
+    compareBtn = syncControl('compare','桌面并排对照',()=>{
+      revealed.add('material-before');
+      revealed.add('material-during');
+      revealed.add('materials-compared');
+      triggers.forEach(b=>b.dataset.visited = 'true');
+      renderDeskState('both');
+      cards.forEach((c,i)=>appear(c, 80 + i*140, 280));
+    },'primary','layers');
+    toolbar.append(compareBtn);
+    registerDismiss(()=>renderDeskState('none'));
+    media.append(deskLayer);
+    stage.append(toolbar);
+  }
+
+  // ---- 7. Zoomed Dossier Step Breakdown (军事问题 / 组织问题) ----
+  if ((page.activity === 'military' || page.activity === 'organization') && page.steps) {
+    const steps = page.steps;
+    const panel = element('aside','dossier-panel ' + (page.activity === 'military' ? 'on-right' : 'on-left'));
+    const headerBox = element('div','dossier-panel-head');
+    headerBox.append(
+      element('span','dossier-kicker', page.activity === 'military' ? '左册精读 · 军事总结' : '右册精读 · 组织调整'),
+      element('h2','',page.title),
+    );
+    const list = element('div','step-stack');
+    const stepNodes = steps.map((st, idx) => {
+      const doneKey = st.id;
+      const btn = syncControl(doneKey, '', () => {
+        revealed.add(doneKey);
+        syncSteps();
+        narration.textContent = st.title + '：' + st.detail;
+      }, 'step-card');
+      btn.setAttribute('aria-label', `${st.badge} ${st.title}`);
+      const badge = element('span','step-badge',st.badge);
+      const h = element('strong','',st.title);
+      const p = element('p','',st.detail);
+      btn.append(badge, h, p);
+      list.append(btn);
+      return { btn, doneKey, idx };
+    });
+    const syncSteps = () => {
+      stepNodes.forEach(({ btn, doneKey }) => {
+        const active = revealed.has(doneKey);
+        btn.dataset.revealed = String(active);
+        btn.setAttribute('aria-pressed', String(active));
+      });
+    };
+    const expandAll = syncControl(page.activity + '-all', '展开全部要点', () => {
+      steps.forEach(s => revealed.add(s.id));
+      syncSteps();
+      stepNodes.forEach(({ btn, idx }) => appear(btn, idx * 90, 240));
+    }, 'panel-all-btn');
+    syncSteps();
+    panel.append(headerBox, list, expandAll);
+    stage.append(panel);
+  }
+
+  // ---- 8. Split Layout Right Editorial Panel (猴场会议 & 遵义转折意义) ----
+  let splitWorkspace                         ;
+  if (isSplit) {
+    splitWorkspace = element('div','split-workspace');
+    const splitStageWrap = element('div','split-stage');
+    splitStageWrap.append(stage, element('span','scene-illustration','情境示意'));
+    const editorial = element('aside','editorial-panel');
+
+    if (page.activity === 'houchang' && page.steps) {
+      editorial.append(
+        element('span','editorial-kicker','战略抉择的延续与落实'),
+        element('h2','','从黎平到猴场：决策怎样落地？'),
+      );
+      const chain = element('div','decision-chain');
+      const items = page.steps.map((st) => {
+        const card = syncControl(st.id, '', () => {
+          revealed.add(st.id);
+          updateChain();
+          narration.textContent = st.title + '——' + st.detail;
+        }, 'chain-item');
+        card.append(element('span','chain-badge',st.badge), element('strong','',st.title), element('p','',st.detail));
+        chain.append(card);
+        return { card, st };
+      });
+      const updateChain = () => {
+        items.forEach(({ card, st }) => {
+          const on = revealed.has(st.id);
+          card.dataset.revealed = String(on);
+          card.setAttribute('aria-pressed', String(on));
+        });
+      };
+      updateChain();
+      editorial.append(chain);
+    }
+
+    if (page.activity === 'result') {
+      const resultKey = variant === 'trial' ? 'trial-result' : 'zunyi-result';
+      const tokens = [
+        { id: 'res-ev-1', label: '① 湘江受挫', text: '长征初期遭受严重损失，暴露错误军事指挥代价' },
+        { id: 'res-ev-2', label: '② 黎平转向', text: '改向贵州北部并强渡乌江，打开进驻遵义的空间' },
+        { id: 'res-ev-3', label: '③ 遵义调整', text: '集中解决军事和组织问题，确立新的正确领导' },
+      ];
+      editorial.append(
+        element('span','editorial-kicker','历史转折推演台'),
+        element('h2','','拼合三项关键依据，揭示遵义会议意义'),
+      );
+      const board = element('div','assembly-board');
+      const conclusionBox = element('article','assembly-conclusion');
+      const conclusionText = '会议集中解决军事和组织问题，事实上确立了毛泽东在党中央和红军的领导地位，开启了党独立自主解决中国革命实际问题的新阶段。';
+      conclusionBox.append(element('span','seal-tag','历史转折点'), element('p','',conclusionText));
+
+      const quickReveal = syncControl('reveal-result','直接揭示全部结论',()=>{
+        tokens.forEach(t=>revealed.add(t.id));
+        revealed.add(resultKey);
+        board.querySelectorAll                   ('.evidence-chip').forEach(b=>{
+          b.dataset.locked = 'true';
+          b.setAttribute('aria-pressed','true');
+        });
+        syncAssembly();
+        appear(conclusionBox, 120, 320);
+      },'panel-all-btn');
+
+      const syncAssembly = () => {
+        const count = tokens.filter(t=>revealed.has(t.id)).length;
+        const done = revealed.has(resultKey) || count === tokens.length;
+        if (count === tokens.length) revealed.add(resultKey);
+        stage.style.setProperty('--dawn-brightness', String(0.84 + count * 0.09 + (done ? 0.08 : 0)));
+        conclusionBox.hidden = !done;
+        quickReveal.hidden = done;
+        narration.textContent = done
+          ? '会议集中解决军事和组织问题，事实上确立了毛泽东在党中央和红军的领导地位。'
+          : page.line;
+      };
+
+      tokens.forEach((tok) => {
+        const btn = syncControl(tok.id, '', () => {
+          revealed.add(tok.id);
+          btn.dataset.locked = 'true';
+          btn.setAttribute('aria-pressed','true');
+          syncAssembly();
+          if (!conclusionBox.hidden) appear(conclusionBox, 180, 360);
+        }, 'evidence-chip');
+        const locked = revealed.has(tok.id);
+        btn.dataset.locked = String(locked);
+        btn.setAttribute('aria-pressed', String(locked));
+        btn.append(element('strong','',tok.label), element('span','',tok.text));
+        board.append(btn);
+      });
+
+      editorial.append(board, conclusionBox, quickReveal);
+      syncAssembly();
+    }
+
+    splitWorkspace.append(splitStageWrap, editorial);
   }
 
   const navigation = element('div','scene-navigation');
@@ -1151,44 +2448,37 @@ function openScene(position        , variant             = 'lesson', returnToRev
     : finalPage ? '课堂回顾' : '下一页';
   const next = syncControl('next',nextLabel,()=>turn(1),'primary','arrowRight',true);
   navigation.append(previous);
-  if (page.activity === 'materials' || page.video === 'zunyi') {
+  if (page.video === 'zunyi') {
     navigation.append(syncControl('compare','并排对照',()=>{
       pauseVideo();
       showZunyiMaterials();
     }));
   }
-  if (page.activity === 'result') {
-    const result = '会议集中解决军事和组织问题，事实上确立了毛泽东在党中央和红军的领导地位。';
-    const resultKey = variant === 'trial' ? 'trial-result' : 'zunyi-result';
-    const revealResult = syncControl('reveal-result','揭示结论',()=>{
-      stopMotion();
-      revealed.add(resultKey);
-      displayResult();
-      Array.from(evidence.children).forEach((item,index)=>appear(item,index*160,320));
-      appear(narration,520,400);
-      next.focus({preventScroll:true});
-    });
-    function displayResult() {
-      const shown = revealed.has(resultKey);
-      narration.textContent = shown ? result : page.line;
-      revealResult.hidden = shown;
-      evidence.hidden = !shown;
-    }
-    displayResult();
-    navigation.append(revealResult);
-  }
   navigation.append(next);
 
-  const stage = element('div','scene-stage');
-  const figureLabel = element('span','scene-illustration','情境示意');
-  stage.append(media,figureLabel);
+  if (!isSplit) {
+    stage.append(media, element('span','scene-illustration','情境示意'));
+  } else {
+    stage.append(media);
+  }
+
+  const captionText = element('div','caption-copy');
+  captionText.append(narration);
+  if (hintBar) captionText.append(hintBar);
+
   const bottom = element('section','caption slide-caption');
-  if (page.activity === 'result') bottom.append(evidence);
-  bottom.append(narration,navigation);
+  if (page.activity === 'result' && !isSplit) bottom.append(evidence);
+  bottom.append(captionText, navigation);
   if (variant === 'lesson') bottom.append(chapterNav(chapter,jump));
-  scene.append(stage,heading,bottom);
+
+  if (isSplit && splitWorkspace) {
+    scene.append(heading, splitWorkspace, bottom);
+  } else {
+    scene.append(stage, heading, bottom);
+  }
   app.replaceChildren(scene);
   displayView({kind:'scene',position,variant});
+
   const sizeMedia = ()=>{
     media.style.width = Math.max(stage.clientWidth,stage.clientHeight*16/9)+'px';
   };
@@ -1197,22 +2487,22 @@ function openScene(position        , variant             = 'lesson', returnToRev
   sizeMedia();
   pageButtons = {previous,next};
   if (!projectionMode) title.focus({preventScroll:true});
-  if (priorImage?.complete && priorImage.naturalWidth && priorImage.src !== picture.src && !reducedMotion.matches) {
+  if (priorImage?.complete && priorImage.naturalWidth && priorImage.getAttribute('src') !== picture.getAttribute('src') && !reducedMotion.matches) {
     const old = element('img','outgoing-image');
     old.src = priorImage.src;
     old.alt = '';
     old.setAttribute('aria-hidden','true');
-    shade.before(old);
-    const fade = animatePart(old,[{opacity:1},{opacity:0}],400);
+    spotlight.before(old);
+    const fade = animatePart(old,[{opacity:1},{opacity:0}],380);
     const remove = ()=>old.remove();
     if (fade) fade.finished.then(remove,remove);
     else remove();
-  } else if (priorImage?.src !== picture.src) {
-    animatePart(picture,[{opacity:.62},{opacity:1}],360);
+  } else if (priorImage?.getAttribute('src') !== picture.getAttribute('src')) {
+    animatePart(picture,[{opacity:.62},{opacity:1}],340);
   }
-  appear(identity,120,290);
-  appear(narration,280,300);
-  media.querySelectorAll('.hotspot').forEach((spot,index)=>appear(spot,280+index*85,290));
+  appear(identity,110,270);
+  appear(narration,220,280);
+  camera.querySelectorAll('.hotspot,.probe-pin').forEach((spot,index)=>appear(spot,220+index*75,260));
   const activeChapter = bottom.querySelector('[aria-current="step"]');
   if (activeChapter && priorChapter !== String(chapter)) {
     animatePart(activeChapter,[{backgroundColor:'#e8c48552'},{backgroundColor:'#e8c48514'}],380,220);
@@ -1223,8 +2513,10 @@ function openScene(position        , variant             = 'lesson', returnToRev
       stopMotion();
       pauseVideo();
       revealed.add(key);
+      spot.dataset.dismissed = 'true';
       update();
       action();
+      if (hintBar) hintBar.textContent = '已隐藏当前按钮（点击画面空白处可重新显示）';
     },'hotspot');
     function update() {
       const active = revealed.has(key);
@@ -1235,7 +2527,12 @@ function openScene(position        , variant             = 'lesson', returnToRev
     spot.style.left = x+'%';
     spot.style.top = y+'%';
     update();
-    media.append(spot);
+    camera.append(spot);
+    registerDismiss(()=>{
+      spot.dataset.dismissed = 'false';
+      setCamera(50,50,1,false);
+      if (hintBar && page.hint) hintBar.textContent = page.hint;
+    });
   }
 
   function turn(direction        ) {
@@ -1259,12 +2556,13 @@ function attachVideo(key        , media             , tools             ) {
   const video = element('video');
   video.src = mediaAssets[key+'-video'];
   video.poster = mediaAssets[key];
-  video.preload = 'metadata';
+  video.preload = 'auto';
   video.muted = true;
   video.playsInline = true;
   video.loop = true;
+  video.autoplay = true;
   video.hidden = true;
-  media.querySelector('.scene-shade') .before(video);
+  (media.querySelector('.scene-spotlight') ?? media.querySelector('.scene-shade') ) .before(video);
   const play = control('播放短片',()=>{
     const state             = {mode: video.paused ? 'playing' : 'paused', time: video.currentTime};
     setVideo(state);
@@ -1285,7 +2583,7 @@ function attachVideo(key        , media             , tools             ) {
     try {
       await video.play();
       if (video.isConnected && !video.hidden && !video.paused) video.classList.add('is-visible');
-      else if (!video.isConnected) video.pause();
+      else video.pause();
     } catch {
       if (video.isConnected) showPoster();
     }
@@ -1317,8 +2615,11 @@ function attachVideo(key        , media             , tools             ) {
     still.disabled = true;
     setButtonContent(play,'播放短片','play');
   }
+  void setVideo({ mode: 'playing', time: 0 });
   return ()=>video.pause();
 }
+
+
 
 
 
@@ -1353,6 +2654,9 @@ let activeMaterial                    ;
 let cameraPosition                 = [1,0,0];
 let applyCamera                                                 ;
 let currentVideo                                                                 ;
+let scrubValue = 68;
+let applyScrub                                    ;
+let onStageDismiss                        ;
 
 function syncControl(id       ,label       ,act         ,className = '',icon          ,iconAfter = false) {
   const button = control(label,()=>{
@@ -1376,6 +2680,11 @@ function sendAction(id       ) {
 
 function sendCamera(position               ,animate        ) {
   sendProjection({type:'camera',position,animate});
+}
+
+function sendScrub(value       ) {
+  scrubValue = value;
+  sendProjection({type:'scrub',value});
 }
 
 function closeMaterial() {
@@ -1475,6 +2784,7 @@ function snapshot()                 {
     view:currentView, selected, revealed:[...revealed], lastViewed:[...lastViewed],
     reviewSteps:[...reviewSteps], reviewAnswer, reviewBack, camera:cameraPosition,
     material:dialog.open ? activeMaterial : undefined, video:currentVideo?.read(),
+    scrub:scrubValue,
   };
 }
 
@@ -1494,9 +2804,11 @@ function applySnapshot(state               ) {
   state.reviewSteps.forEach(index=>reviewSteps.add(index));
   reviewAnswer = state.reviewAnswer;
   reviewBack = state.reviewBack;
+  if (typeof state.scrub === 'number') scrubValue = state.scrub;
   if (state.view.kind === 'scene') {
     const back = state.reviewBack;
     openScene(state.view.position,state.view.variant,state.view.variant === 'revisit' ? ()=>openReview(back) : undefined);
+    if (typeof state.scrub === 'number') applyScrub?.(state.scrub);
   } else if (state.view.kind === 'review') {
     openReview(state.view.conclusionPage);
   } else {
@@ -1518,6 +2830,7 @@ function applySnapshot(state               ) {
 function applyAction(id       ) {
   if (id === 'close-material') { closeMaterial(); return; }
   if (id === 'trial') { openTrial(); return; }
+  if (id === 'stage-dismiss') { onStageDismiss?.(); return; }
   const buttons = (dialog.open ? dialog : app).querySelectorAll                   ('[data-lesson-action]');
   Array.from(buttons).find(button=>button.dataset.lessonAction === id)?.click();
 }
@@ -1532,6 +2845,7 @@ window.addEventListener('message',event=>{
     else if (message.type === 'action' && typeof message.id === 'string') applyAction(message.id);
     else if (message.type === 'video') currentVideo?.set(message.state);
     else if (message.type === 'camera' && currentView.kind === 'map') applyCamera(message.position,message.animate);
+    else if (message.type === 'scrub') applyScrub?.(message.value);
   } else if (projectionWindow && event.source === projectionWindow && message.token === sessionToken && message.type === 'ready') {
     projectionReady = true;
     sendProjection({type:'snapshot',state:snapshot()});

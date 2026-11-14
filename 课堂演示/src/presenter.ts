@@ -13,10 +13,12 @@ type LessonSnapshot = {
   camera:CameraPosition;
   material?:string;
   video?:VideoState;
+  scrub?:number;
 };
 type ProjectionMessage = {type:'ready'} | {type:'snapshot'; state:LessonSnapshot}
   | {type:'action'; id:string} | {type:'video'; state:VideoState}
-  | {type:'camera'; position:CameraPosition; animate:boolean};
+  | {type:'camera'; position:CameraPosition; animate:boolean}
+  | {type:'scrub'; value:number};
 
 const projectionToken = /^#projection=([a-f0-9]{32})$/.exec(location.hash)?.[1];
 const projectionMode = Boolean(projectionToken);
@@ -31,6 +33,9 @@ let activeMaterial: string | undefined;
 let cameraPosition: CameraPosition = [1,0,0];
 let applyCamera: (position:CameraPosition,animate:boolean)=>void;
 let currentVideo: {set:(state:VideoState)=>void; read:()=>VideoState} | undefined;
+let scrubValue = 68;
+let applyScrub: ((value:number)=>void) | undefined;
+let onStageDismiss: (()=>void) | undefined;
 
 function syncControl(id:string,label:string,act:()=>void,className = '',icon?:IconName,iconAfter = false) {
   const button = control(label,()=>{
@@ -54,6 +59,11 @@ function sendAction(id:string) {
 
 function sendCamera(position:CameraPosition,animate:boolean) {
   sendProjection({type:'camera',position,animate});
+}
+
+function sendScrub(value:number) {
+  scrubValue = value;
+  sendProjection({type:'scrub',value});
 }
 
 function closeMaterial() {
@@ -153,6 +163,7 @@ function snapshot(): LessonSnapshot {
     view:currentView, selected, revealed:[...revealed], lastViewed:[...lastViewed],
     reviewSteps:[...reviewSteps], reviewAnswer, reviewBack, camera:cameraPosition,
     material:dialog.open ? activeMaterial : undefined, video:currentVideo?.read(),
+    scrub:scrubValue,
   };
 }
 
@@ -172,9 +183,11 @@ function applySnapshot(state:LessonSnapshot) {
   state.reviewSteps.forEach(index=>reviewSteps.add(index));
   reviewAnswer = state.reviewAnswer;
   reviewBack = state.reviewBack;
+  if (typeof state.scrub === 'number') scrubValue = state.scrub;
   if (state.view.kind === 'scene') {
     const back = state.reviewBack;
     openScene(state.view.position,state.view.variant,state.view.variant === 'revisit' ? ()=>openReview(back) : undefined);
+    if (typeof state.scrub === 'number') applyScrub?.(state.scrub);
   } else if (state.view.kind === 'review') {
     openReview(state.view.conclusionPage);
   } else {
@@ -196,6 +209,7 @@ function applySnapshot(state:LessonSnapshot) {
 function applyAction(id:string) {
   if (id === 'close-material') { closeMaterial(); return; }
   if (id === 'trial') { openTrial(); return; }
+  if (id === 'stage-dismiss') { onStageDismiss?.(); return; }
   const buttons = (dialog.open ? dialog : app).querySelectorAll<HTMLButtonElement>('[data-lesson-action]');
   Array.from(buttons).find(button=>button.dataset.lessonAction === id)?.click();
 }
@@ -210,6 +224,7 @@ window.addEventListener('message',event=>{
     else if (message.type === 'action' && typeof message.id === 'string') applyAction(message.id);
     else if (message.type === 'video') currentVideo?.set(message.state);
     else if (message.type === 'camera' && currentView.kind === 'map') applyCamera(message.position,message.animate);
+    else if (message.type === 'scrub') applyScrub?.(message.value);
   } else if (projectionWindow && event.source === projectionWindow && message.token === sessionToken && message.type === 'ready') {
     projectionReady = true;
     sendProjection({type:'snapshot',state:snapshot()});
