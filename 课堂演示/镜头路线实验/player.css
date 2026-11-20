@@ -1,0 +1,70 @@
+:root {
+  color-scheme: dark;
+  font-family: "Microsoft YaHei UI", "Microsoft YaHei", system-ui, sans-serif;
+  color: #f2ead9;
+  background: #181b19;
+  --edge: #4b4e43;
+  --amber: #e4bd85;
+}
+* { box-sizing: border-box }
+body { margin: 0; min-height: 100vh; background: radial-gradient(ellipse at 45% 0%, #30362f, #191d1a 54%, #141715) }
+button, input { font: inherit }
+button { min-height: 34px; padding: 6px 13px; cursor: pointer; border: 1px solid var(--edge); border-radius: 6px; color: #eee7d8; background: #2b302a }
+button:hover { border-color: #b4a07e }
+button:focus-visible, input:focus-visible, .stage:focus-visible { outline: 2px solid #edc388; outline-offset: 3px }
+button:disabled, input:disabled { opacity: .45; cursor: default }
+[hidden] { display: none !important }
+.toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px clamp(14px,4vw,66px); border-bottom: 1px solid #d5ca9b25 }
+.identity, .tools, .rotate, .compare-tools { display: flex; align-items: center; gap: 8px }
+.identity { font-size: 13px; letter-spacing: .09em; color: #d1cfbc; font-weight: 600 }
+.identity i { width: 13px; height: 16px; border: 1.5px solid #dbba86; box-shadow: inset 3px 0 #ad8a57; transform: skewY(-10deg) }
+.identity span { width: 1px; height: 13px; background: #777d6d; margin: 0 4px }
+.tools button, .compare-tools button { font-size: 13px }
+.shell { width: min(93vw, 1400px, calc(177.778svh - 350px)); min-width: min(92vw,680px); margin: 0 auto 10px }
+.heading { display: flex; justify-content: space-between; align-items: baseline; padding: 8px 0 }
+h1, h2, p { margin: 0 }
+h1 { font: 600 clamp(24px,2.4vw,36px)/1.3 "STZhongsong", "SimSun", serif; letter-spacing: .08em }
+.heading strong { color: var(--amber); font-size: 14px; font-weight: 500 }
+.stage, .comparison-stage { position: relative; isolation: isolate; aspect-ratio: 16/9; background: #1c211c; overflow: hidden }
+.stage { border-radius: 9px 9px 0 0; cursor: grab; touch-action: none; box-shadow: 0 14px 40px #0004; user-select: none }
+.stage:active { cursor: grabbing }
+.stage canvas, .stage video, .comparison-stage img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; object-fit: contain }
+.stage video { opacity: 0; pointer-events: none }
+.stage.video-on video { opacity: 1 }
+.pin { position: absolute; min-height: 0; padding: 0; width: 27px; height: 27px; transform: translate(-50%,-50%); border-radius: 50%; background: #18201b8c; border: 1px solid #f6d398; box-shadow: 0 1px 9px #0009; display: grid; place-items: center }
+.pin i { width: 7px; height: 7px; border-radius: 50%; background: #ffe0a5 }
+.pin span { position: absolute; left: 30px; top: -1px; padding: 3px 7px; white-space: nowrap; background: #17201ae6; border-radius: 4px; color: #ffe5b7; font-size: 12px; pointer-events: none }
+.source-label { position: absolute; left: 12px; bottom: 10px; color: #f4eedb; font-size: 11px; text-shadow: 0 1px 4px black; pointer-events: none }
+#notice { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); background: #18201bf2; border: 1px solid var(--edge); border-radius: 6px; padding: 8px 16px; text-align: center }
+.transport { display: flex; align-items: center; gap: 14px; padding: 10px 13px; border: 1px solid var(--edge); border-top: 0; border-radius: 0 0 9px 9px; background: #222820 }
+.rotate { gap: 1px }
+.rotate button { border: 0; min-width: 28px }
+.rotate button:first-child, .rotate button:last-child { font-size: 20px; line-height: 1; padding-inline: 10px }
+.timeline { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0 }
+input[type=range] { accent-color: var(--amber); cursor: pointer }
+.timeline input { width: 100%; min-width: 30px }
+.timeline output { font-size: 12px; color: #d1cebd; white-space: nowrap; font-variant-numeric: tabular-nums }
+.primary, button[aria-pressed=true] { color: #302717; background: #e6c798; border-color: #e6c798; font-weight: 600 }
+.hint, dialog p { padding-top: 8px; color: #c4c7b6; font-size: 13px; line-height: 1.55 }
+dialog { width: min(860px, 94vw); max-height: 96vh; overflow: auto; border: 1px solid #6b6e59; border-radius: 10px; padding: 16px; background: #222820; color: #f1e9d7 }
+dialog::backdrop { background: #0d120fd9 }
+dialog form { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px }
+dialog h2 { font-size: 19px }
+.compare-tools { margin-bottom: 8px }
+.comparison-stage { --split: 50%; border-radius: 4px }
+.comparison-stage #before { clip-path: inset(0 calc(100% - var(--split)) 0 0) }
+.comparison-stage i { position: absolute; left: var(--split); top: 0; bottom: 0; width: 2px; background: #f3c47f; pointer-events: none }
+#divider { display: block; width: 100%; margin: 10px 0 0 }
+body.projecting { display: grid; min-height: 100vh; place-items: center; background: black; overflow: hidden }
+.projecting .teacher, .projecting .pin { display: none !important }
+.projecting .shell { width: min(100vw,177.77778vh); min-width: 0; margin: 0 }
+.projecting .stage { border-radius: 0; box-shadow: none; cursor: default }
+@media(max-width:640px) {
+  .shell { width: 96vw; min-width: 0 }
+  .toolbar { padding: 8px }
+  .heading { padding: 10px 0 }
+  .heading strong { font-size: 12px }
+  .transport { flex-wrap: wrap; gap: 6px; padding: 8px }
+  .timeline { flex-basis: 100%; order: 2 }
+  .primary { margin-left: auto }
+}

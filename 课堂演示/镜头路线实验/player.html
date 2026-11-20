@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>@@TITLE@@ · 遵义会议桌</title>
+  <style>@@CSS@@</style>
+</head>
+<body>
+  <header class="toolbar teacher">
+    <div class="identity"><i aria-hidden="true"></i>长征课堂<span></span>镜头实验</div>
+    <div class="tools">
+      <button id="check" disabled>对位检查</button>
+      <button id="project" disabled>打开投影</button>
+    </div>
+  </header>
+  <main class="shell">
+    <div class="heading teacher"><h1>遵义会议桌</h1><strong id="method">@@TITLE@@</strong></div>
+    <section class="stage" id="stage" aria-label="会议桌互动场景" tabindex="0">
+      <canvas id="space" hidden aria-label="实时三维会场"></canvas>
+      <canvas id="plate" hidden aria-label="多机位渲染图"></canvas>
+      <video id="film" playsinline muted preload="auto" aria-label="会场翻页短片"></video>
+      <button class="pin" id="pin" hidden aria-label="翻阅桌上卷宗"><i></i><span>卷宗</span></button>
+      <span class="source-label">教学情境复原</span>
+      <div id="notice" role="status">正在读取会场…</div>
+    </section>
+    <section class="transport teacher" aria-label="课堂控制">
+      <div class="rotate">
+        <button id="left" title="向左观察" aria-label="向左观察">‹</button>
+        <button id="front" title="回到正面机位">正面</button>
+        <button id="right" title="向右观察" aria-label="向右观察">›</button>
+      </div>
+      <div class="timeline"><input id="seek" type="range" min="0" max="4" step="0.02" value="0" aria-label="翻页进度" disabled><output id="time">0.0 / 4.0 秒</output></div>
+      <button id="reset" hidden>返回观察</button>
+      <button id="play" class="primary" disabled>翻阅卷宗</button>
+    </section>
+    <p class="hint teacher" id="hint"></p>
+  </main>
+  <dialog id="comparison">
+    <form method="dialog"><h2 id="compare-title">入片对位</h2><button aria-label="关闭对位检查">关闭</button></form>
+    <div class="compare-tools">
+      <button id="seam" aria-pressed="true">交接两帧</button>
+      <button id="original" aria-pressed="false">原课件参照</button>
+    </div>
+    <div class="comparison-stage" id="wipe"><img id="after" alt=""><img id="before" alt=""><i></i></div>
+    <input type="range" min="0" max="100" value="50" id="divider" aria-label="两帧对照分界">
+    <p id="pair-label"></p>
+  </dialog>
+  <script>const LAB = @@DATA@@;</script>
+  <script>@@RENDERER@@</script>
+  <script>@@PLAYER@@</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+{
+  "surface-color.jpg": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/wood_table/wood_table_diff_2k.jpg",
+    "md5": "767c1f81d6398aaf9a09353b5d12682d",
+    "size": 3954552
+  },
+  "surface-normal.jpg": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/wood_table/wood_table_nor_gl_2k.jpg",
+    "md5": "9ef2ab2545cda7529a8d653c777ce4b1",
+    "size": 2471254
+  },
+  "surface-rough.jpg": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/wood_table/wood_table_rough_2k.jpg",
+    "md5": "c3888bad55c796a871795adea14b33f3",
+    "size": 2482251
+  },
+  "wood-color.jpg": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/wood_table_worn/wood_table_worn_diff_2k.jpg",
+    "md5": "44d2440f1581401e0ea65133c0e11d79",
+    "size": 3108339
+  },
+  "wood-normal.jpg": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/wood_table_worn/wood_table_worn_nor_gl_2k.jpg",
+    "md5": "855386aa1a252bfbf13116047e9e9915",
+    "size": 3142587
+  },
+  "wood-rough.jpg": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/2k/wood_table_worn/wood_table_worn_rough_2k.jpg",
+    "md5": "0eb31614bc05c3e92a832f063991b6e0",
+    "size": 2890891
+  },
+  "plaster-color.jpg": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_plaster_wall/painted_plaster_wall_diff_1k.jpg",
+    "md5": "15ba8c1f63a5ab412b1eabe31728540a",
+    "size": 686726
+  },
+  "plaster-normal.jpg": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_plaster_wall/painted_plaster_wall_nor_gl_1k.jpg",
+    "md5": "43fff290583dbdfc9bfa088a2750e840",
+    "size": 900461
+  },
+  "plaster-rough.jpg": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/painted_plaster_wall/painted_plaster_wall_rough_1k.jpg",
+    "md5": "e076a6360329a2bc18c7397dc50c074a",
+    "size": 354762
+  },
+  "chair/chinese_armchair_1k.gltf": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/1k/chinese_armchair/chinese_armchair_1k.gltf",
+    "md5": "ecad26c95dbf2c7e631f848711700678",
+    "size": 2816
+  },
+  "chair/textures/chinese_armchair_arm_1k.jpg": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/chinese_armchair/chinese_armchair_arm_1k.jpg",
+    "md5": "ed3bece412754abf3aa2c5f6bc6aa9de",
+    "size": 618850
+  },
+  "chair/textures/chinese_armchair_nor_gl_1k.jpg": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/chinese_armchair/chinese_armchair_nor_gl_1k.jpg",
+    "md5": "ba905cf32062cf2869ec39f7adbb95b8",
+    "size": 483304
+  },
+  "chair/chinese_armchair.bin": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Models/gltf/8k/chinese_armchair/chinese_armchair.bin",
+    "md5": "7575b1f0e7de094e7c1cbebf610e5da0",
+    "size": 81428
+  },
+  "chair/textures/chinese_armchair_diff_1k.jpg": {
+    "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/chinese_armchair/chinese_armchair_diff_1k.jpg",
+    "md5": "5ae99f09fe8a767d4ecd49c86539d46d",
+    "size": 516908
+  }
+}
