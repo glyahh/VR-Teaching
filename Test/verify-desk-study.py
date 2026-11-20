@@ -74,7 +74,8 @@ def run():
                 assert picture.size == ((1920,1080) if args.render_to else (480,270))
                 small = picture.convert("RGB").resize((160,90))
                 assert ImageStat.Stat(small.convert("L")).stddev[0] > 18
-                magenta = sum(red>200 and green<26 and blue>200 for red,green,blue in small.getdata())
+                rgb = small.tobytes()
+                magenta = sum(red>200 and green<26 and blue>200 for red,green,blue in zip(rgb[::3],rgb[1::3],rgb[2::3]))
                 assert magenta < 3, camera_name
                 thumbs.append(small)
         difference = ImageStat.Stat(ImageChops.difference(*thumbs)).mean

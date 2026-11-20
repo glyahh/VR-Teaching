@@ -66,7 +66,7 @@ def paper(work, filename, base, seed, notebook):
     rectified=original.transform((width,height),Image.Transform.QUAD,sampling,Image.Resampling.BICUBIC)
     density=np.asarray(rectified,dtype=float)
     lighting=np.asarray(rectified.filter(ImageFilter.GaussianBlur(86)),dtype=float)
-    variation+=1.55*(density-lighting)+.32*(lighting-np.median(lighting))
+    variation+=(.83 if notebook else .72)*(density-lighting)+.23*(lighting-np.median(lighting))
     for index in range(19):
         spot_x=rng.choice([rng.uniform(15,.17*width),rng.uniform(.77*width,width-15)])
         spot_y=rng.choice([rng.uniform(12,.20*height),rng.uniform(.78*height,height-12)])
@@ -126,8 +126,8 @@ def prepare(work):
         pending = [pool.submit(fetch, work, name, entry) for name,entry in entries.items()]
         for task in pending:
             task.result()
-    paper(work,"notebook.jpg",(165,143,109),831,True)
-    paper(work,"wrapper.jpg",(144,113,79),939,False)
+    paper(work,"notebook.jpg",(171,148,113),831,True)
+    paper(work,"wrapper.jpg",(147,116,82),939,False)
     wear_map(work)
 
 
