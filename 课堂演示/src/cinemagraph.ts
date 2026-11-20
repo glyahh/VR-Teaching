@@ -153,11 +153,6 @@ const sceneCinemagraphs: Record<string, CinemagraphZone[]> = {
     // Delicate upper cliff outer twigs only (foreground rocky grass removed)
     { kind: 'sway', cx: 0.39, cy: 0.09, rx: 0.08, ry: 0.065, strength: 0.0028, angle: 0.14, param: 1 },
   ],
-  'zunyi-documents': [
-    // Calm close-up: keep both booklets, table, and window frame completely steady
-    { kind: 'mist', cx: 0.12, cy: 0.10, rx: 0.13, ry: 0.11, strength: 0.28, angle: 0.04 },
-    { kind: 'flame', cx: 0.493, cy: 0.140, rx: 0.013, ry: 0.022, strength: 0.20, param: 0.0 },
-  ],
   'zunyi-dawn': [
     // Strictly protect foreground wooden eave, roofs, and stone flagstones
     { kind: 'exclude', cx: 0.36, cy: 0.20, rx: 0.12, ry: 0.12 },

@@ -160,18 +160,11 @@ h1,h2,p{margin:0}
 .deck-btn[aria-pressed=true],.deck-btn[aria-pressed=true]:hover:not(:disabled){background:var(--gold);border-color:var(--gold-soft);color:#202418;font-weight:700}
 
 /* ---- Zunyi Dual Dossiers & Zoomed Step Panel ---- */
-.dossier-desk{position:absolute;inset:0;pointer-events:none;z-index:11}
-.dossier-slot{position:absolute;top:26%;width:min(380px,33vw);display:grid;gap:10px;justify-items:center;pointer-events:auto}
-.dossier-slot.is-left{left:14%}
-.dossier-slot.is-right{right:14%}
-.dossier-trigger{background:#161f18eb;border:1px solid var(--gold);border-radius:999px;padding:7px 16px;box-shadow:0 8px 24px #000a}
-.dossier-trigger[data-visited=true]{border-color:var(--ok);color:var(--ok)}
 .folio-card{width:100%;padding:16px 18px;border-radius:6px;background:#f2e7cfeb;color:#272017;border:1px solid #b59258;box-shadow:0 18px 42px #000b}
 .folio-tag{display:inline-block;padding:1px 8px;border-radius:3px;background:#6d4c23;color:#f8eedb;font-size:12px;margin-bottom:6px}
 .folio-card h3{margin:0 0 8px;font-family:"STZhongsong","SimSun",serif;font-size:21px;color:#3d2810}
 .folio-card p{font-size:15px;line-height:1.58;color:#382c1f}
 .folio-card p+p{margin-top:7px}
-.dossier-toolbar{position:absolute;z-index:14;left:50%;top:17.5%;transform:translateX(-50%);display:flex;gap:10px}
 
 .dossier-panel{position:absolute;z-index:12;top:clamp(112px,15vh,144px);width:min(440px,39vw);padding:16px 18px;border-radius:8px;background:#111914ee;backdrop-filter:blur(10px);border:1px solid #a8905da6;box-shadow:0 18px 46px #000c;display:grid;gap:10px}
 .dossier-panel.on-right{right:clamp(20px,3.2vw,48px)}
@@ -276,7 +269,7 @@ button.review-choice:hover:not(:disabled){border-color:#c8b282}
 .review-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:18px}
 @media(max-height:850px){.review-body{padding-block:24px}.review-choice img{max-height:155px}.review-label{min-height:91px}.review-conclusion{margin-top:14px}.scene-illustration{bottom:150px}}
 @media(max-width:1000px){.slide-caption{grid-template-columns:1fr}.scene-navigation{justify-content:space-between}.chapter-nav{padding-top:5px}.slide-line{font-size:clamp(19px,2.3vw,27px)}.split-workspace{grid-template-columns:1fr;overflow:auto}.scene.layout-split{height:auto}.troop-hud,.dossier-panel{width:min(360px,46vw)}}
-@media(max-width:720px){.top{padding:12px;align-items:flex-start}.top h1{font-size:24px}.top-actions{gap:5px}.top-actions button{font-size:12px;padding:4px 8px;min-height:40px}.map{min-height:570px}.event-card{top:auto;bottom:66px;left:12px;width:225px;transform:none}.event-preview{display:none}.event-copy{padding:9px}.event-copy h2{font-size:26px}.event-copy p{margin-bottom:10px;font-size:14px}.map-tools{bottom:12px;right:12px}.map-tools p{margin-top:0}.timeline{padding:0 5px 7px}.time-button{padding:6px}.time-button strong{font-size:15px}.time-button time{font-size:11px}.scene-head{padding:12px;align-items:flex-start;flex-wrap:wrap}.scene-head h1{font-size:28px}.scene-date{font-size:13px}.scene-actions button,.scene-navigation button{font-size:13px;padding:5px 8px}.scene-actions{gap:5px}.chapter-nav{gap:2px;flex-wrap:wrap}.chapter-nav button{font-size:12px;padding:3px 6px}.comparison .materials{grid-template-columns:1fr}.review-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.review-card:nth-child(2)::after{display:none}.probe-callout,.troop-hud,.dossier-panel{width:calc(100% - 24px);left:12px!important;right:12px!important;transform:none!important}.troop-hud,.dossier-panel{top:138px;max-height:calc(100dvh - 340px);overflow:auto}.dossier-slot.is-left{left:4%;width:44%}.dossier-slot.is-right{right:4%;width:44%}}
+@media(max-width:720px){.top{padding:12px;align-items:flex-start}.top h1{font-size:24px}.top-actions{gap:5px}.top-actions button{font-size:12px;padding:4px 8px;min-height:40px}.map{min-height:570px}.event-card{top:auto;bottom:66px;left:12px;width:225px;transform:none}.event-preview{display:none}.event-copy{padding:9px}.event-copy h2{font-size:26px}.event-copy p{margin-bottom:10px;font-size:14px}.map-tools{bottom:12px;right:12px}.map-tools p{margin-top:0}.timeline{padding:0 5px 7px}.time-button{padding:6px}.time-button strong{font-size:15px}.time-button time{font-size:11px}.scene-head{padding:12px;align-items:flex-start;flex-wrap:wrap}.scene-head h1{font-size:28px}.scene-date{font-size:13px}.scene-actions button,.scene-navigation button{font-size:13px;padding:5px 8px}.scene-actions{gap:5px}.chapter-nav{gap:2px;flex-wrap:wrap}.chapter-nav button{font-size:12px;padding:3px 6px}.comparison .materials{grid-template-columns:1fr}.review-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.review-card:nth-child(2)::after{display:none}.probe-callout,.troop-hud,.dossier-panel{width:calc(100% - 24px);left:12px!important;right:12px!important;transform:none!important}.troop-hud,.dossier-panel{top:138px;max-height:calc(100dvh - 340px);overflow:auto}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 #presenter{background:#172119;border:1px solid var(--line);border-radius:8px;padding:clamp(16px,2vw,28px);line-height:1.65;min-width:0;overflow-wrap:anywhere}
@@ -298,7 +291,7 @@ button.review-choice:hover:not(:disabled){border-color:#c8b282}
 .presenter-time{margin:4px 0 10px}
 .presenter-question{color:var(--gold-soft)}
 .presenter-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
-.projection-mode #app button,.projection-mode #close-dialog,.projection-mode #dialog-content .dialog-split,.projection-mode .dossier-toolbar,.projection-mode .tabletop-deck,.projection-mode .troop-snap-row,.projection-mode .curtain-range,.projection-mode .panel-all-btn{display:none}
+.projection-mode #app button,.projection-mode #close-dialog,.projection-mode #dialog-content .dialog-split,.projection-mode .tabletop-deck,.projection-mode .troop-snap-row,.projection-mode .curtain-range,.projection-mode .panel-all-btn{display:none}
 .projection-mode #app button.pin,.projection-mode #app button.time-button,.projection-mode #app button.review-choice,.projection-mode #app button.hotspot[data-visited=true],.projection-mode #app button.probe-pin,.projection-mode #app button.step-card[data-revealed=true],.projection-mode #app button.chain-item[data-revealed=true],.projection-mode #app button.evidence-chip[data-locked=true]{display:grid;pointer-events:none}
 .projection-mode #app button.pin,.projection-mode #app button.hotspot[data-visited=true],.projection-mode #app button.probe-pin{display:inline-flex}
 .projection-mode #app button.review-choice{display:block}

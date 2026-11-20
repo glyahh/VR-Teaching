@@ -5,6 +5,69 @@ from tempfile import TemporaryDirectory
 from playwright.sync_api import expect, sync_playwright
 
 
+def verify_desk_inquiry(teacher, student):
+    frame = teacher.locator(".desk-live-frame")
+    screen = student.locator(".desk-live-frame")
+    teacher.get_by_role("button", name="动手查证").click()
+    expect(screen.locator(".desk-inquiry-cue")).to_contain_text("先查哪一册")
+    teacher.get_by_role("button", name="翻阅左册 · 会前形势").click()
+    expect(frame).to_have_attribute("data-inquiry", "leaf")
+    expect(frame).to_have_attribute("data-phase", "browse")
+
+    def drag_leaf(start, stop):
+        bounds = frame.bounding_box()
+        def point(fraction):
+            return bounds["x"] + bounds["width"] * fraction[0], bounds["y"] + bounds["height"] * fraction[1]
+        teacher.mouse.move(*point(start))
+        teacher.mouse.down()
+        teacher.mouse.move(*point(stop), steps=12)
+        teacher.mouse.up()
+
+    drag_leaf((.34,.60), (.24,.53))
+    opening = frame.get_attribute("data-opening")
+    assert 0 < int(opening) < 24
+    expect(screen).to_have_attribute("data-opening", opening)
+    student.wait_for_function("""() => {
+      const sheet = document.querySelector('.desk-inquiry-sheet');
+      return !sheet.hidden && sheet.getContext('2d').getImageData(0,0,sheet.width,sheet.height).data.some((value,index) => index%4===3 && value>64);
+    }""")
+    viewport = student.viewport_size
+    student.close()
+    with teacher.expect_popup() as reopened:
+        teacher.get_by_role("button", name="重新打开投影").click()
+    student = reopened.value
+    student.set_viewport_size(viewport)
+    screen = student.locator(".desk-live-frame")
+    expect(screen).to_have_attribute("data-opening", opening)
+    expect(screen.locator(".desk-inquiry-sheet")).to_be_visible()
+    expect(student.locator(".desk-inquiry-range")).not_to_be_visible()
+    drag_leaf((.33,.48), (.50,.57))
+    expect(screen).to_have_attribute("data-opening", "0")
+    expect(screen.locator(".desk-inquiry-sheet")).not_to_be_visible()
+    drag_leaf((.34,.60), (.11,.37))
+    expect(screen).to_have_attribute("data-inquiry", "found")
+    expect(screen.locator(".desk-inquiry-ink")).to_be_visible()
+    teacher.get_by_role("button", name="翻阅右册 · 会议讨论").click()
+    expect(screen).to_have_attribute("data-inquiry", "done")
+    expect(screen.locator(".is-left .folio-card")).to_be_visible()
+    expect(screen.locator(".is-right .folio-card")).to_be_visible()
+    teacher.get_by_role("button", name="结束查证").click()
+    expect(screen).to_have_attribute("data-inquiry", "off")
+    expect(screen.locator(".desk-inquiry-cue")).not_to_be_visible()
+    frame.press("ArrowRight")
+    teacher.get_by_role("button", name="动手查证").click()
+    teacher.get_by_role("button", name="翻阅右册 · 会议讨论").click()
+    expect(screen.locator(".desk-inquiry-cue")).to_contain_text("再找一册")
+    expect(screen.locator(".is-right .folio-card")).to_be_visible()
+    teacher.get_by_role("button", name="翻阅左册 · 会前形势").click()
+    expect(frame).to_have_attribute("data-phase", "browse")
+    teacher.get_by_role("slider", name="手记开合").press("End")
+    expect(screen).to_have_attribute("data-inquiry", "done")
+    expect(screen.locator(".is-left .folio-card")).to_be_visible()
+    teacher.get_by_role("button", name="结束查证").click()
+    return student
+
+
 def verify_lesson(context, lesson_url, student_width, student_height):
     errors = []
     remote_requests = []
@@ -100,12 +163,14 @@ def verify_lesson(context, lesson_url, student_width, student_height):
     expect(student.locator("dialog")).not_to_be_visible()
     press("下一页")
     slide("会议桌上的两份材料")
+    student = verify_desk_inquiry(teacher, student)
     left = student.locator(".dossier-slot.is-left .folio-card")
     right = student.locator(".dossier-slot.is-right .folio-card")
     expect(left).to_be_hidden()
     expect(right).to_be_hidden()
     press("翻阅左册 · 会前形势")
-    expect(left).to_be_visible()
+    expect(student.locator(".desk-live-frame")).to_have_attribute("data-phase", "film")
+    expect(left).to_be_visible(timeout=18000)
     expect(right).to_be_hidden()
     teacher.keyboard.press("Escape")
     expect(left).to_be_hidden()
@@ -121,6 +186,8 @@ def verify_lesson(context, lesson_url, student_width, student_height):
     student.set_viewport_size({"width": student_width, "height": student_height})
     expect(status).to_have_text("投影已连接")
     slide("会议桌上的两份材料")
+    expect(student.locator(".dossier-slot.is-left .folio-card")).to_be_visible()
+    expect(student.locator(".dossier-slot.is-right .folio-card")).to_be_visible()
     press("下一页")
     press("下一页")
     press("下一页")

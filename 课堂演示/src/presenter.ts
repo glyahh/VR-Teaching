@@ -13,11 +13,13 @@ type LessonSnapshot = {
   camera:CameraPosition;
   material?:string;
   video?:VideoState;
+  desk?:DeskSnapshot;
   scrub?:number;
 };
 type ProjectionMessage = {type:'ready'} | {type:'snapshot'; state:LessonSnapshot}
   | {type:'action'; id:string} | {type:'video'; state:VideoState}
   | {type:'camera'; position:CameraPosition; animate:boolean}
+  | {type:'desk'; state:DeskSnapshot}
   | {type:'scrub'; value:number};
 
 const projectionToken = /^#projection=([a-f0-9]{32})$/.exec(location.hash)?.[1];
@@ -162,7 +164,7 @@ function snapshot(): LessonSnapshot {
   return {
     view:currentView, selected, revealed:[...revealed], lastViewed:[...lastViewed],
     reviewSteps:[...reviewSteps], reviewAnswer, reviewBack, camera:cameraPosition,
-    material:dialog.open ? activeMaterial : undefined, video:currentVideo?.read(),
+    material:dialog.open ? activeMaterial : undefined, video:currentVideo?.read(), desk:currentDesk?.read(),
     scrub:scrubValue,
   };
 }
@@ -195,6 +197,7 @@ function applySnapshot(state:LessonSnapshot) {
     applyCamera(state.camera,false);
   }
   if (state.video) currentVideo?.set(state.video);
+  if (state.desk) currentDesk?.restore(state.desk);
   const materials: Record<string,()=>void> = {
     comparison:()=>showZunyiMaterials(),
     'material-before':()=>showZunyiMaterials(0),
@@ -223,6 +226,7 @@ window.addEventListener('message',event=>{
     if (message.type === 'snapshot') applySnapshot(message.state);
     else if (message.type === 'action' && typeof message.id === 'string') applyAction(message.id);
     else if (message.type === 'video') currentVideo?.set(message.state);
+    else if (message.type === 'desk' && message.state) currentDesk?.restore(message.state);
     else if (message.type === 'camera' && currentView.kind === 'map') applyCamera(message.position,message.animate);
     else if (message.type === 'scrub') applyScrub?.(message.value);
   } else if (projectionWindow && event.source === projectionWindow && message.token === sessionToken && message.type === 'ready') {
@@ -239,4 +243,5 @@ if (projectionMode) {
 } else {
   window.addEventListener('pagehide',()=>projectionWindow?.close());
 }
-renderMap();
+if (!projectionMode && location.hash==='#desk') openDeskPage();
+else renderMap();

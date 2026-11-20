@@ -182,7 +182,7 @@ document.addEventListener('keydown', event => {
   if (projectionMode || event.defaultPrevented || dialog.open || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
   if (event.key === 'Escape' && onStageDismiss) {
     event.preventDefault();
-    sendAction('stage-dismiss');
+    if (!currentDesk) sendAction('stage-dismiss');
     onStageDismiss();
     return;
   }
@@ -205,6 +205,7 @@ function chapterNav(current: number, jump: (index: number) => void) {
 }
 
 function openReview(conclusionPage = false) {
+  releaseDesk();
   currentVideo = undefined;
   applyScrub = undefined;
   onStageDismiss = undefined;
@@ -328,6 +329,7 @@ function select(index: number, focus?: 'pin'|'timeline') {
   updateMapSelection(focus);
 }
 function renderMap(restoreFocus = false) {
+  releaseDesk();
   currentVideo = undefined;
   applyScrub = undefined;
   onStageDismiss = undefined;
@@ -338,6 +340,7 @@ function renderMap(restoreFocus = false) {
   const header = element('header','top');
   const actions = element('div','top-actions');
   actions.append(syncControl('review','课堂回顾',()=>openReview()));
+  actions.append(syncControl('open-desk','遵义实景',openDeskPage,'','layers'));
   if (!projectionMode) actions.append(control('教师备课',openTeacher), control('开始双屏授课',openProjection));
   actions.append(fullscreenButton());
   header.append(element('h1','','从于都到遵义'),actions);
@@ -683,7 +686,13 @@ function openChapter(index: number, variant: LessonMode = 'lesson', returnToRevi
   openScene(variant === 'trial' ? first : (lastViewed.get(index) ?? first), variant, returnToReview);
 }
 
+function openDeskPage() {
+  const position = chapterPages.findIndex(entry=>entry.page.activity==='materials');
+  if (position>=0) openScene(position);
+}
+
 function openScene(position: number, variant: LessonMode = 'lesson', returnToReview?: () => void) {
+  releaseDesk();
   currentVideo = undefined;
   applyScrub = undefined;
   onStageDismiss = undefined;
@@ -697,7 +706,9 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   if (variant !== 'trial') lastViewed.set(chapter,position);
 
   const isSplit = page.layout === 'split';
+  const liveDesk = page.activity === 'materials';
   const scene = element('section','scene classroom-slide' + (isSplit ? ' layout-split' : ''));
+  if (liveDesk) scene.classList.add('desk-live-page');
   scene.dataset.chapter = String(chapter);
   if (page.activity) scene.dataset.activity = page.activity;
 
@@ -707,10 +718,12 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   const spotlight = element('div','scene-spotlight');
   spotlight.setAttribute('aria-hidden','true');
   const shade = element('div','scene-shade');
-  const picture = photo(page.image,page.title+'情境示意');
-  camera.append(picture,spotlight);
-  if (!page.video) attachCinemagraph(page.image, picture);
-  media.append(camera,shade);
+  const picture = liveDesk ? element('img') : photo(page.image,page.title+'情境示意');
+  if (!liveDesk) {
+    camera.append(picture,spotlight);
+    if (!page.video) attachCinemagraph(page.image, picture);
+    media.append(camera,shade);
+  }
 
   const registerDismiss = (fn: () => void) => {
     const prev = onStageDismiss;
@@ -720,7 +733,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     };
   };
   scene.addEventListener('click', (e) => {
-    if (projectionMode) return;
+    if (projectionMode || liveDesk) return;
     const target = e.target as Element | null;
     if (!target?.isConnected || target.closest('button,input,a,.probe-callout,.troop-hud,.dossier-panel,.folio-card,.editorial-panel,.slide-caption')) return;
     if (onStageDismiss) {
@@ -731,7 +744,14 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
 
   let pauseVideo = () => {};
   const tools = element('div','scene-actions');
+  if (liveDesk && !projectionMode) tools.append(control('双屏授课',openProjection,'desk-project','expand'));
   if (page.video) pauseVideo = attachVideo(page.video,camera,tools);
+  if (page.video==='zunyi') {
+    camera.append(syncControl('visit-meeting-desk','进入会议桌实景',()=>{
+      pauseVideo();
+      openScene(position+1,variant,returnToReview);
+    },'desk-scene-link','layers'));
+  }
 
   const leave = ()=>{
     pauseVideo();
@@ -1053,60 +1073,9 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     syncDirText();
   }
 
-  // ---- 6. Zunyi Tabletop Dual Dossiers (会议桌上的两份材料) ----
-  if (page.activity === 'materials') {
-    const deskLayer = element('div','dossier-desk');
-    const cards: HTMLElement[] = [];
-    const triggers: HTMLButtonElement[] = [];
-    let compareBtn: HTMLButtonElement;
-    const specs = [
-      { key: 'material-before', cls: 'is-left', sideX: 31, label: '翻阅左册 · 会前形势', item: zunyiMaterials[0] },
-      { key: 'material-during', cls: 'is-right', sideX: 69, label: '翻阅右册 · 会议讨论', item: zunyiMaterials[1] },
-    ];
-    const renderDeskState = (mode: 'none'|'left'|'right'|'both') => {
-      if (mode === 'left') setCamera(31, 49, 1.24, true);
-      else if (mode === 'right') setCamera(69, 49, 1.24, true);
-      else setCamera(50, 50, 1.0, false);
-      cards[0].hidden = !(mode === 'left' || mode === 'both');
-      cards[1].hidden = !(mode === 'right' || mode === 'both');
-      triggers[0].dataset.dismissed = String(mode === 'left' || mode === 'both');
-      triggers[1].dataset.dismissed = String(mode === 'right' || mode === 'both');
-      compareBtn.dataset.dismissed = String(mode !== 'none');
-      if (hintBar && page.hint) {
-        hintBar.textContent = mode === 'none' ? page.hint : '点击卡片外部区域即可收起卷宗、返回桌面';
-      }
-    };
-    specs.forEach((spec, idx) => {
-      const slot = element('div','dossier-slot ' + spec.cls);
-      const folio = element('article','folio-card');
-      folio.hidden = true;
-      folio.append(element('span','folio-tag', idx === 0 ? '会前卷宗' : '会议卷宗'), element('h3','',spec.item.title));
-      spec.item.lines.forEach(line=>folio.append(element('p','',line)));
-      cards.push(folio);
-      const trigger = syncControl(spec.key, spec.label, ()=>{
-        revealed.add(spec.key);
-        trigger.dataset.visited = 'true';
-        renderDeskState(idx === 0 ? 'left' : 'right');
-        appear(folio, 120, 260);
-      }, 'dossier-trigger', 'layers');
-      trigger.dataset.visited = String(revealed.has(spec.key));
-      triggers.push(trigger);
-      slot.append(trigger, folio);
-      deskLayer.append(slot);
-    });
-    const toolbar = element('div','dossier-toolbar');
-    compareBtn = syncControl('compare','桌面并排对照',()=>{
-      revealed.add('material-before');
-      revealed.add('material-during');
-      revealed.add('materials-compared');
-      triggers.forEach(b=>b.dataset.visited = 'true');
-      renderDeskState('both');
-      cards.forEach((c,i)=>appear(c, 80 + i*140, 280));
-    },'primary','layers');
-    toolbar.append(compareBtn);
-    registerDismiss(()=>renderDeskState('none'));
-    media.append(deskLayer);
-    stage.append(toolbar);
+  if (liveDesk) {
+    currentDesk = mountDesk(stage);
+    registerDismiss(()=>currentDesk?.dismiss());
   }
 
   // ---- 7. Zoomed Dossier Step Breakdown (军事问题 / 组织问题) ----
@@ -1265,7 +1234,9 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   }
   navigation.append(next);
 
-  if (!isSplit) {
+  if (liveDesk) {
+    stage.setAttribute('aria-label','精修会议桌实景');
+  } else if (!isSplit) {
     stage.append(media, element('span','scene-illustration','情境示意'));
   } else {
     stage.append(media);
@@ -1277,7 +1248,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
 
   const bottom = element('section','caption slide-caption');
   if (page.activity === 'result' && !isSplit) bottom.append(evidence);
-  bottom.append(captionText, navigation);
+  bottom.append(liveDesk && currentDesk ? currentDesk.transport : captionText, navigation);
   if (variant === 'lesson') bottom.append(chapterNav(chapter,jump));
 
   if (isSplit && splitWorkspace) {
@@ -1291,12 +1262,14 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   const sizeMedia = ()=>{
     media.style.width = Math.max(stage.clientWidth,stage.clientHeight*16/9)+'px';
   };
-  mapResize = new ResizeObserver(sizeMedia);
-  mapResize.observe(stage);
-  sizeMedia();
+  if (!liveDesk) {
+    mapResize = new ResizeObserver(sizeMedia);
+    mapResize.observe(stage);
+    sizeMedia();
+  }
   pageButtons = {previous,next};
   if (!projectionMode) title.focus({preventScroll:true});
-  if (priorImage?.complete && priorImage.naturalWidth && priorImage.getAttribute('src') !== picture.getAttribute('src') && !reducedMotion.matches) {
+  if (!liveDesk && priorImage?.complete && priorImage.naturalWidth && priorImage.getAttribute('src') !== picture.getAttribute('src') && !reducedMotion.matches) {
     const old = element('img','outgoing-image');
     old.src = priorImage.src;
     old.alt = '';
@@ -1306,7 +1279,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     const remove = ()=>old.remove();
     if (fade) fade.finished.then(remove,remove);
     else remove();
-  } else if (priorImage?.getAttribute('src') !== picture.getAttribute('src')) {
+  } else if (!liveDesk && priorImage?.getAttribute('src') !== picture.getAttribute('src')) {
     animatePart(picture,[{opacity:.62},{opacity:1}],340);
   }
   appear(identity,110,270);
