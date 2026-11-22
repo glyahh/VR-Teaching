@@ -1,0 +1,76 @@
+:root {
+  font-family: "Microsoft YaHei", "Noto Sans CJK SC", system-ui, sans-serif;
+  color: #f4f2ed;
+  color-scheme: dark;
+  background: #222925;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; }
+body[data-mode="walk"] #stage { --silver: 242 229 204; }
+body[data-mode="river"] #view { background-color: #354844; }
+button { font: inherit; cursor: pointer; }
+button:disabled { opacity: 0.48; cursor: default; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
+#stage {
+  --rail-bottom: clamp(12px, 2.5vh, 26px);
+  --dock-bottom: max(clamp(72px, 10vh, 128px), calc(var(--rail-bottom) + 64px));
+  position: relative; width: 100%; height: 100dvh; overflow: hidden; isolation: isolate;
+}
+#view { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+#view:active { cursor: grabbing; }
+#view:focus { outline-offset: -3px; }
+#scene-previous {
+  position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+}
+#stage::after {
+  content: ""; position: absolute; z-index: 1; inset: 0; pointer-events: none;
+  background: linear-gradient(180deg, #202821a8, transparent 28%, transparent 78%, #121713ae);
+}
+
+.hud {
+  position: absolute; z-index: 2; inset-inline: 0; display: flex;
+  justify-content: space-between; align-items: flex-start; pointer-events: none;
+  gap: 20px; padding: var(--inset);
+}
+.hud { top: 0; }
+.heading { text-shadow: 0 1px 16px rgb(20 23 27 / 0.54); }
+.heading p {
+  margin: 0 0 8px;
+  font-size: clamp(12px, 1.05vw, 19px); letter-spacing: 0.065em; color: #f1e7d5;
+}
+h1 {
+  margin: 0; color: #fbf1df;
+  font: 700 clamp(29px, 3.55vw, 66px) / 1.12 "SimSun", "Noto Serif CJK SC", serif;
+}
+
+.toolbar {
+  display: flex; align-items: center; gap: 7px; pointer-events: auto;
+  padding: 5px; border-radius: 16px; max-width: 100%;
+}
+.modes {
+  position: absolute; z-index: 2;
+  inset-inline: var(--inset); bottom: var(--rail-bottom);
+  pointer-events: none;
+}
+.modes .chapter-link { pointer-events: auto; }
+
+#status {
+  z-index: 5; margin: 0; min-width: min(310px, 100% - 2 * var(--inset));
+  padding: 15px 20px; color: #f8f4e9; text-align: center;
+}
+@media (max-width: 680px) {
+  .hud { gap: 12px; }
+}
+
+@media (max-width: 550px) {
+  .hud { flex-wrap: wrap; }
+  .toolbar { flex-wrap: wrap; border-radius: 18px; }
+  .toolbar button { padding-inline: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

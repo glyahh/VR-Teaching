@@ -1,7 +1,7 @@
-type LessonView = {kind:'map'} | {kind:'review'; conclusionPage:boolean}
+type LessonView = {kind:'map'} | {kind:'opening'} | {kind:'review'; conclusionPage:boolean}
   | {kind:'scene'; position:number; variant:LessonMode};
 type VideoState = {mode:'static'|'paused'|'playing'; time:number};
-type CameraPosition = [number,number,number];
+type CameraPosition = [zoom:number, x:number, y:number, azimuth:number, tilt:number];
 type LessonSnapshot = {
   view:LessonView;
   selected:number;
@@ -12,14 +12,19 @@ type LessonSnapshot = {
   reviewBack:boolean;
   camera:CameraPosition;
   material?:string;
+  sceneCue?:string;
   video?:VideoState;
   desk?:DeskSnapshot;
+  exploration?:ExplorationFrame;
   scrub?:number;
+  practice?:PracticeState;
 };
 type ProjectionMessage = {type:'ready'} | {type:'snapshot'; state:LessonSnapshot}
   | {type:'action'; id:string} | {type:'video'; state:VideoState}
   | {type:'camera'; position:CameraPosition; animate:boolean}
   | {type:'desk'; state:DeskSnapshot}
+  | {type:'exploration'; update:ExplorationUpdate}
+  | {type:'practice'; position:number; state:PracticeState}
   | {type:'scrub'; value:number};
 
 const projectionToken = /^#projection=([a-f0-9]{32})$/.exec(location.hash)?.[1];
@@ -32,7 +37,8 @@ let presenterTimer: number | undefined;
 let currentView: LessonView = {kind:'map'};
 let reviewBack = false;
 let activeMaterial: string | undefined;
-let cameraPosition: CameraPosition = [1,0,0];
+let activeSceneCue: string | undefined;
+let cameraPosition: CameraPosition = [1,0,0,...mapHomeAngle];
 let applyCamera: (position:CameraPosition,animate:boolean)=>void;
 let currentVideo: {set:(state:VideoState)=>void; read:()=>VideoState} | undefined;
 let scrubValue = 68;
@@ -81,30 +87,34 @@ function displayView(view:LessonView) {
 }
 
 function updatePresenterNotes() {
+  const schedule = lessonSchedule(teachingPace);
   let heading = '地图导入';
-  let minutes = '3 分钟';
-  let notes = '依次点亮四站。按课堂节奏介绍这段行程。';
-  let question = lessonQuestion;
+  let timing = schedule.map;
+  let time: string | undefined;
+  let practice: PracticeId | undefined;
   if (currentView.kind === 'scene') {
     const {page} = chapterPages[currentView.position];
     heading = page.title;
-    minutes = page.minutes+' 分钟';
-    notes = page.notes;
-    question = page.question ?? '';
+    timing = schedule.scenes[currentView.position];
+    practice = page.practice;
     if (currentView.variant === 'trial') {
       const last = currentView.position === chapterPages.length-1;
       const first = currentView.position === chapterStarts[events.length-1];
-      minutes = first || last ? '45 秒' : '90 秒';
+      time = first ? '0:00–0:45' : last ? '2:15–3:00' : '0:45–2:15';
+    } else if (currentView.variant === 'revisit') {
+      time = '回看';
     }
   } else if (currentView.kind === 'review') {
     heading = currentView.conclusionPage ? '全课结论' : '课堂回顾';
-    minutes = '2 分钟';
-    notes = currentView.conclusionPage ? '可请学员引用一份材料，再揭示全课结论。' : '按需要点亮四站要点，可随时回看对应场景。';
-    question = currentView.conclusionPage ? reviewQuestion : '这四站分别带来了哪些变化？';
+    timing = schedule.review[currentView.conclusionPage ? 1 : 0];
+  } else if (currentView.kind === 'opening') {
+    heading = '开场导览';
   }
   const area = teacherPanel.querySelector('.presenter-notes')!;
-  area.replaceChildren(element('h2','',heading),element('p','presenter-time',minutes),element('p','',notes));
-  if (question) area.append(element('h3','','可选提问'),element('p','presenter-question',question));
+  const {beat} = timing;
+  area.replaceChildren(element('h2','',heading),element('p','presenter-time',time ?? teachingRange(timing)),
+    ...beatCopy(beat,practice).map(line => element('p','',line)));
+  if (beat.question) area.append(element('h3','','可选提问'),element('p','presenter-question',beat.question));
   teacherPanel.scrollTop = 0;
 }
 
@@ -140,13 +150,15 @@ function openProjection() {
     heading.lastElementChild!.setAttribute('role','status');
     const actions = element('div','presenter-actions');
     actions.append(control('重新打开投影',openProjection,'presenter-reopen'),control('结束双屏',stopProjection));
+    const clock = lessonClock();
     teacherPanel.replaceChildren(heading,
       element('p','presenter-setup','Win + P 选择「扩展」，将投影窗口拖到大屏后按 F11。'),
+      pacePicker('live-pace',updatePresenterNotes),clock.row,
       element('section','presenter-notes'),actions);
     teacherPanel.hidden = false;
     document.body.classList.add('presenter-mode');
     updatePresenterNotes();
-    presenterTimer = window.setInterval(updateProjectionStatus,1000);
+    presenterTimer = window.setInterval(()=>{updateProjectionStatus();clock.update();},1000);
   }
   updateProjectionStatus();
 }
@@ -164,8 +176,8 @@ function snapshot(): LessonSnapshot {
   return {
     view:currentView, selected, revealed:[...revealed], lastViewed:[...lastViewed],
     reviewSteps:[...reviewSteps], reviewAnswer, reviewBack, camera:cameraPosition,
-    material:dialog.open ? activeMaterial : undefined, video:currentVideo?.read(), desk:currentDesk?.read(),
-    scrub:scrubValue,
+    material:dialog.open ? activeMaterial : undefined, sceneCue:activeSceneCue, video:currentVideo?.read(), desk:currentDesk?.read(),
+    scrub:scrubValue, practice:currentPractice?.read(), exploration:readExplorationUpdate(),
   };
 }
 
@@ -190,6 +202,9 @@ function applySnapshot(state:LessonSnapshot) {
     const back = state.reviewBack;
     openScene(state.view.position,state.view.variant,state.view.variant === 'revisit' ? ()=>openReview(back) : undefined);
     if (typeof state.scrub === 'number') applyScrub?.(state.scrub);
+    if (state.sceneCue) applyAction(state.sceneCue);
+  } else if (state.view.kind === 'opening') {
+    renderOpening(false);
   } else if (state.view.kind === 'review') {
     openReview(state.view.conclusionPage);
   } else {
@@ -198,6 +213,7 @@ function applySnapshot(state:LessonSnapshot) {
   }
   if (state.video) currentVideo?.set(state.video);
   if (state.desk) currentDesk?.restore(state.desk);
+  currentPractice?.restore(state.practice ?? null);
   const materials: Record<string,()=>void> = {
     comparison:()=>showZunyiMaterials(),
     'material-before':()=>showZunyiMaterials(0),
@@ -206,6 +222,7 @@ function applySnapshot(state:LessonSnapshot) {
     military:()=>showIssue('military'), organization:()=>showIssue('organization'),
   };
   if (state.material) materials[state.material]?.();
+  applyExplorationUpdate(state.exploration,true);
   stopMotion();
 }
 
@@ -227,6 +244,10 @@ window.addEventListener('message',event=>{
     else if (message.type === 'action' && typeof message.id === 'string') applyAction(message.id);
     else if (message.type === 'video') currentVideo?.set(message.state);
     else if (message.type === 'desk' && message.state) currentDesk?.restore(message.state);
+    else if (message.type === 'exploration') applyExplorationUpdate(message.update);
+    else if (message.type === 'practice' && currentView.kind === 'scene' && message.position === currentView.position) {
+      currentPractice?.restore(message.state);
+    }
     else if (message.type === 'camera' && currentView.kind === 'map') applyCamera(message.position,message.animate);
     else if (message.type === 'scrub') applyScrub?.(message.value);
   } else if (projectionWindow && event.source === projectionWindow && message.token === sessionToken && message.type === 'ready') {

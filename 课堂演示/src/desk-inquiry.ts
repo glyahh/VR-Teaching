@@ -1,4 +1,4 @@
-type DeskInquiry = {step:'choose'|'leaf'|'found'|'done'|'closing'; opening:number; needsClue:boolean; meetingRead:boolean};
+type DeskInquiry = {step:'choose'|'leaf'|'found'|'done'; opening:number; needsClue:boolean; meetingRead:boolean};
 
 function mountDeskInquiry(frame:HTMLElement, adjust:(opening:number)=>void, settle:()=>void) {
   const layout:{size:[number,number];crop:[number,number,number,number];cell:[number,number];columns:number;count:number} = JSON.parse(mediaAssets['desk-leaf-layout']);
@@ -57,11 +57,11 @@ function mountDeskInquiry(frame:HTMLElement, adjust:(opening:number)=>void, sett
   range.onkeydown=event=>event.stopPropagation();
   frame.append(canvas,ink,indicator,grip,cue);
 
-  function paint(task:DeskInquiry|null, aligning:boolean, rightPin:readonly number[]) {
+  function paint(task:DeskInquiry|null, rightPin:readonly number[]) {
     frame.dataset.inquiry=task?.step ?? 'off';
     frame.dataset.opening=String(task?.opening ?? 0);
     if (task && !requested) {requested=true;atlas.src=mediaAssets['desk-leaf'];}
-    const handling=!!task && task.step!=='choose' && !aligning;
+    const handling=!!task && task.step!=='choose';
     const opening=task?.opening ?? 0;
     desired=opening;
     grip.hidden=!handling || task?.step!=='leaf' || opening!==0;
@@ -78,14 +78,14 @@ function mountDeskInquiry(frame:HTMLElement, adjust:(opening:number)=>void, sett
       indicator.style.left=rightPin[0]*100+'%';
       indicator.style.top=rightPin[1]*100+'%';
     }
-    cue.hidden=!task || task.step==='closing';
+    cue.hidden=!task;
     let text='';
-    if (task?.step==='choose') text=task.needsClue?'你查到了会议议题。请再找一册，看看会前遇到了什么困难。':'要解释黎平会议为何改变进军方向，你先查哪一册？';
-    else if (task?.step==='leaf') text=aligning?'正在靠近手记。':task.needsClue?'右册的议题已记下。会前的证据还在左册，请掀开纸页。':'向左或向上拖动左册翻页，松手停住，反向拖可合上。';
-    else if (task?.step==='found') text=task.meetingRead?'会前和会上的证据已齐，松开纸页可并排核对。':'湘江战役损失重大，黎平会议决定改变进军方向。再查另一册，看看遵义会议解决了什么。';
-    else if (task?.step==='done') text='两份证据已找到。请用会前的处境和会上解决的问题，解释这次转折。';
+    if (task?.step==='choose') text=task.needsClue?'再查会前手记。':'先查哪一册？';
+    else if (task?.step==='leaf') text='向左拖开手记。';
+    else if (task?.step==='found') text=task.meetingRead?'松手，对照两册。':'再查会议卷宗。';
+    else if (task?.step==='done') text='对照会前处境与会议议题。';
     if (cue.textContent!==text) cue.textContent=text;
-    range.hidden=!handling || task?.step==='done' || task?.step==='closing';
+    range.hidden=!handling || task?.step==='done';
     if (range.valueAsNumber!==opening) range.value=String(opening);
     range.setAttribute('aria-valuetext',Math.round(opening/last*100)+'% 展开');
   }

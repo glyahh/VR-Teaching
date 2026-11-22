@@ -1,0 +1,19 @@
+    <section id="river-tools" class="dock glass" aria-label="渡河推演" hidden>
+      <div class="river-guide">
+        <span id="river-instruction" aria-live="polite"></span>
+        <div id="river-actions" class="dock-actions">
+          <button id="river-inspect" type="button" class="soft-button" hidden>看构件</button>
+          <button id="river-history" type="button" class="soft-button" hidden>史料</button>
+          <button id="river-action" class="action-button" type="button">
+            <span class="playback-icon" aria-hidden="true"></span><span id="river-action-label"></span>
+          </button>
+        </div>
+        <div id="river-parts" class="dock-actions" role="group" aria-label="构件" hidden>
+          <button type="button" class="soft-button" data-part="hull">船体</button>
+          <button type="button" class="soft-button" data-part="beam">纵梁</button>
+          <button type="button" class="soft-button" data-part="board">桥板</button>
+          <button id="river-inspect-close" type="button" class="action-button">返回</button>
+        </div>
+      </div>
+      <progress id="river-time" max="1" value="0" aria-label="本段演示进度" hidden></progress>
+    </section>

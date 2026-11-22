@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>从于都到遵义 · 交互样课</title>
+  <style>/* STYLES */</style>
+</head>
+<body>
+  <main id="stage" class="exploration-stage">
+    <canvas id="view" tabindex="0" aria-label="三维场景"></canvas>
+    <canvas id="scene-previous" aria-hidden="true" hidden></canvas>
+    <div id="markers"></div>
+    <header class="hud">
+      <div class="heading">
+        <p id="era"></p>
+        <h1 id="scene-title"></h1>
+      </div>
+      <div class="toolbar glass">
+        <button id="home" type="button" hidden>回全景</button>
+        <button id="restart" type="button" disabled>重新开始</button>
+        <button id="full" type="button">全屏</button>
+      </div>
+    </header>
+    <!-- WALK_CONTROLS -->
+    <!-- RIVER_CONTROLS -->
+    <!-- EXPLORATION_READING -->
+    <p id="status" class="dock glass" role="status">正在载入…</p>
+    <nav class="modes chapter-rail" aria-label="切换场景">
+      <button type="button" class="chapter-link" data-scene="walk">遵义材料厅</button>
+      <button type="button" class="chapter-link" data-scene="river">于都河岸</button>
+    </nav>
+  </main>
+  <script>/* SCRIPT */</script>
+</body>
+</html>

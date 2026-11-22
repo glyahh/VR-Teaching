@@ -1,0 +1,69 @@
+.lesson-exploration {
+  --dock-bottom: var(--exploration-dock-bottom, 110px);
+  position: absolute;
+  inset: 0;
+  isolation: isolate;
+  color: #f4f2ed;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-mid) var(--ease-out);
+}
+.lesson-exploration[data-ready] { opacity: 1; pointer-events: auto; }
+.lesson-exploration #view {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  background: #354844;
+  cursor: grab;
+}
+.lesson-exploration #view:active { cursor: grabbing; }
+.lesson-exploration #view:focus { outline-offset: -3px; }
+.lesson-exploration::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, #202821a8, transparent 26%, transparent 77%, #121713ae);
+}
+.scene[data-exploration] .scene-stage > :not(.lesson-exploration) { pointer-events: none; }
+.scene[data-exploration] .slide-caption {
+  grid-template-columns: 1fr;
+}
+.scene[data-exploration] .scene-navigation { justify-content: flex-end; }
+.scene[data-exploration] :is(.caption-copy, .practice, .practice-entry) { display: none; }
+.exploration-load-status {
+  position: absolute;
+  z-index: var(--z-card);
+  bottom: max(var(--exploration-dock-bottom, 140px), 140px);
+  left: 50%;
+  translate: -50%;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #202422e9;
+}
+.projection-mode .lesson-exploration { --dock-bottom: clamp(38px, 8vh, 88px); pointer-events: none; }
+.projection-mode .lesson-exploration #view { cursor: default; }
+.projection-mode .lesson-exploration :is(.river-guide, #inspect) { grid-template-columns: minmax(0, 1fr); }
+.projection-mode .lesson-exploration :is(.dock-actions, #river-recall) { display: none; }
+.projection-mode .scene[data-exploration] .lesson-footer { display: none; }
+.projection-mode .lesson-exploration #river-tools { width: min(1080px, 100% - 2 * var(--inset)); }
+.projection-mode .lesson-exploration #river-instruction {
+  font-size: clamp(24px, 1.78vw, 34px);
+  text-wrap: balance;
+}
+.projection-mode .lesson-exploration .river-label { font-size: clamp(18px, 1.36vw, 26px); }
+
+.lesson-exploration[data-scene="zunyi-hall"] { --silver: 242 229 204; }
+.scene[data-exploration="zunyi-hall"] > :is(.scene-head, .lesson-footer) {
+  transition: opacity 240ms ease-out;
+}
+.scene[data-exploration="zunyi-hall"]:has(.lesson-exploration[data-walking]) > :is(.scene-head, .lesson-footer) {
+  opacity: 0;
+  visibility: hidden;
+  transition: none;
+}
