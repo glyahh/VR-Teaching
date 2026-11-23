@@ -51,6 +51,8 @@ def narration(room, url):
         const clientY = bounds.top + bounds.height * .30;
         const target = document.elementFromPoint(clientX, clientY);
         const pointer = {bubbles:true, isPrimary:true, pointerId:1, pointerType:'mouse', button:0, clientX, clientY};
+        const nextPaintAfter = performance.now() + 900;
+        while (performance.now() < nextPaintAfter) {}
         target.dispatchEvent(new PointerEvent('pointerdown', {...pointer, buttons:1}));
         target.dispatchEvent(new PointerEvent('pointerup', pointer));
         window.finishedTypingClick = true;

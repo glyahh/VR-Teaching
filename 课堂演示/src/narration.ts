@@ -157,7 +157,6 @@ function mountNarration(host: HTMLElement, signal: AbortSignal) {
       paint();
     },
     isWriting() {
-      paint();
       return writing;
     },
   };
