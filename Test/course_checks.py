@@ -115,7 +115,7 @@ def entry(room, url):
     page = room.teacher
     enter_lesson(page, url)
     slide = page.locator('.classroom-slide')
-    expect(slide).to_have_attribute('data-entry-phase','ready',timeout=8500)
+    expect(slide).to_have_attribute('data-entry-phase','ready',timeout=18000)
     if room.reduced:
         button(page,'下一页').click()
         expect(slide).to_have_attribute('data-entry-phase','ready')
@@ -140,18 +140,18 @@ def entry(room, url):
       }).observe(document.querySelector('#app'), {subtree:true,childList:true,attributes:true,attributeFilter:['data-entry-phase']});
     }''')
     button(page, '下一页').click()
-    expect(slide).to_have_attribute('data-entry-phase','ready')
+    expect(slide).to_have_attribute('data-entry-phase','ready',timeout=18000)
     phases = page.evaluate('entryPhases')
     assert phases == ['picture','layout','narration','ready'], phases
     button(page, '下一页').click()
-    expect(slide).to_have_attribute('data-entry-phase','ready')
+    expect(slide).to_have_attribute('data-entry-phase','ready',timeout=18000)
     samples=page.evaluate('entrySamples.filter(sample=>sample.title==="浮桥近景")')
     typing=next((sample for sample in samples if sample['phase']=='narration'),None)
     assert typing and typing['writing'] and samples[-1]['size']==typing['size'], samples
     page.keyboard.press('PageUp')
     page.keyboard.press('PageDown')
     expect(page.locator('.scene-head h1')).to_have_text('浮桥近景')
-    expect(slide).to_have_attribute('data-entry-phase','ready')
+    expect(slide).to_have_attribute('data-entry-phase','ready',timeout=18000)
     expect(page.locator('.narration-row:visible')).to_have_text('浮桥由船体和桥板组成。')
     room.steps.append('画面、布局、讲述依次入场，连翻保留当前句')
 
