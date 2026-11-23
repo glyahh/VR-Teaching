@@ -3,6 +3,8 @@
   position: absolute;
   inset: 0;
   isolation: isolate;
+  contain: layout;
+  container-type: inline-size;
   color: #f4f2ed;
   opacity: 0;
   pointer-events: none;
@@ -32,6 +34,8 @@
   grid-template-columns: 1fr;
 }
 .scene[data-exploration] .scene-navigation { justify-content: flex-end; }
+.scene[data-exploration="yudu-river"] .scene-navigation { pointer-events: none; }
+.scene[data-exploration="yudu-river"] .scene-navigation button { pointer-events: auto; }
 .scene[data-exploration] :is(.caption-copy, .practice, .practice-entry) { display: none; }
 .exploration-load-status {
   position: absolute;
@@ -48,15 +52,48 @@
 }
 .projection-mode .lesson-exploration { --dock-bottom: clamp(38px, 8vh, 88px); pointer-events: none; }
 .projection-mode .lesson-exploration #view { cursor: default; }
-.projection-mode .lesson-exploration :is(.river-guide, #inspect) { grid-template-columns: minmax(0, 1fr); }
 .projection-mode .lesson-exploration :is(.dock-actions, #river-recall) { display: none; }
 .projection-mode .scene[data-exploration] .lesson-footer { display: none; }
-.projection-mode .lesson-exploration #river-tools { width: min(1080px, 100% - 2 * var(--inset)); }
-.projection-mode .lesson-exploration #river-instruction {
-  font-size: clamp(24px, 1.78vw, 34px);
-  text-wrap: balance;
-}
 .projection-mode .lesson-exploration .river-label { font-size: clamp(18px, 1.36vw, 26px); }
+
+.desk-live-frame .scene-note, .lesson-exploration .scene-note {
+  position: absolute;
+  z-index: 5;
+  top: var(--scene-note-top,var(--scene-inset));
+  right: var(--scene-inset);
+  width: max-content;
+  max-width: calc(100% - var(--scene-inset) - max(var(--scene-inset),var(--scene-note-clearance,0px)));
+  color: #fff3da;
+  font-weight: 400;
+  line-height: 1.48;
+  text-align: right;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  text-shadow: 0 1px 2px #1c140c, 0 1px 4px #1c140c, 0 2px 9px #1c140cbf;
+  pointer-events: none;
+}
+.lesson-exploration .scene-note { position: fixed; }
+.projection-mode .lesson-exploration :is(#instruction,#river-instruction) { font-size: clamp(22px,1.7vw,33px); }
+.lesson-exploration :is(#inspect,#river-tools) {
+  inset-inline: 0;
+  margin-inline: auto;
+  transform: none;
+  width: max-content;
+  backdrop-filter: none;
+}
+.lesson-exploration :is(#inspect,.river-guide) { grid-template-columns: minmax(0,1fr); gap: 0; }
+.lesson-exploration #river-tools:has(#river-action:not([hidden])) { bottom: var(--river-action-bottom,var(--dock-bottom)); }
+.lesson-exploration #river-tools:has(#river-actions[hidden]) { bottom: var(--dock-bottom); }
+.lesson-exploration #inspect[data-tool=explore],
+.projection-mode .lesson-exploration #inspect { padding: 0; border: 0; background: transparent; }
+.lesson-exploration #inspect[data-tool=explore]::before,
+.projection-mode .lesson-exploration #inspect::before { content: none; }
+.lesson-exploration #river-actions { position: relative; justify-content: center; }
+.lesson-exploration .river-options { position: absolute; bottom: 0; right: calc(100% + 12px); width: max-content; }
+.lesson-exploration #river-comparison :is(label,output) { text-shadow: 0 1px 3px #19120c, 0 2px 6px #19120c; }
+@container (max-width: 760px) {
+  .lesson-exploration .river-options { bottom: calc(100% + 8px); right: auto; left: 50%; translate: -50%; }
+}
 
 .lesson-exploration[data-scene="zunyi-hall"] { --silver: 242 229 204; }
 .scene[data-exploration="zunyi-hall"] > :is(.scene-head, .lesson-footer) {

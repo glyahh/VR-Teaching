@@ -21,7 +21,7 @@
   align-items: center;
   gap: 12px;
   padding: 10px clamp(14px, 3vw, 48px);
-  background: #171c17;
+  background: #201f1b;
   border-bottom: 1px solid #d1bc8f2d;
 }
 .desk-live-page .scene-head h1 { font-size: clamp(23px, 2.15vw, 36px); margin: 0 }
@@ -79,19 +79,14 @@
 .desk-live-transport { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0 }
 .desk-live-page .slide-caption button { padding: 5px 11px; min-height: 33px }
 .desk-live-page .slide-caption .desk-investigate { color: #302314; background: #e7c58e; border-color: #e7c58e }
-.desk-inquiry-sheet, .desk-inquiry-ink, .desk-inquiry-marker, .desk-inquiry-grip, .desk-inquiry-cue { position: absolute; pointer-events: none }
-.desk-inquiry-sheet { z-index: 1 }
-.desk-inquiry-ink { inset: 0; width: 100%; height: 100%; z-index: 2 }
-.desk-inquiry-ink path { fill: none; stroke: #833c2c; stroke-width: 3; stroke-linecap: round; stroke-dasharray: 1 }
-.desk-inquiry-ink text { fill: #542c21; font: 600 24px "STZhongsong","SimSun",serif; text-anchor: middle; opacity: var(--ink-label,0); paint-order: stroke; stroke: #f0ddaf; stroke-width: 2.2px }
-.desk-inquiry-marker, .desk-inquiry-grip { z-index: 3; transform: translate(-50%,-50%); border-radius: 50% }
-.desk-inquiry-marker { width: 50px; height: 50px; border: 2px dashed #ffe1a5; box-shadow: 0 0 0 2px #503826 }
-.desk-inquiry-grip { left: 35.4%; top: 65%; width: 30px; height: 30px; display: grid; place-items: center; font-size: 20px; line-height: 1; color: #fff4d4; background: #463822df; border: 1px solid #f3cf8b }
-.desk-inquiry-cue { z-index: 5; left: 50%; bottom: 5%; transform: translateX(-50%); width: max-content; max-width: min(90%,36em); margin: 0; padding: .42em .88em; color: #fff3d8; background: #211e17eb; border: 1px solid #ca9c6877; border-radius: 9px; font-size: clamp(15px,1.55vw,27px); line-height: 1.45 }
-.desk-inquiry-range { width: clamp(95px,17vw,260px); accent-color: #dab879; cursor: ew-resize }
-.desk-live-frame:is([data-inquiry=leaf],[data-inquiry=found]) { cursor: ew-resize }
+.desk-object-position { position:absolute; width:1px; height:1px; pointer-events:none }
+.desk-inquiry-cue { font-size:clamp(15px,1.55vw,27px) }
+.desk-page-turn { min-width:35px; justify-content:center }
 .desk-live-pins { z-index: 3 }
 .desk-live-evidence { z-index: 4 }
+.desk-handoff { position:absolute; inset:0; z-index:9; overflow:hidden; pointer-events:none }
+.desk-handoff > :is(img,canvas) { position:absolute; inset:0; width:100%; height:100%; object-fit:cover }
+.desk-live-transport .desk-live-clue { background:#242321b8; border-color:#d8c7a07a }
 .presenter-mode .desk-live-page { height: calc(100dvh - 24px); min-height: min(460px, 96dvh) }
 .presenter-mode .desk-live-page .desk-project { display: none }
 .projection-mode .desk-live-page { grid-template-rows: 1fr; height: 100dvh; min-height: 0 }

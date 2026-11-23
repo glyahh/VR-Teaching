@@ -58,14 +58,14 @@ export function createStageViewport(canvas, stage) {
       renderer.forceContextLoss();
     },
 
-    capture(snapshot) {
+    capture(snapshot, camera) {
       if (!active || !canvas.width || !canvas.height) return false;
       const context = snapshot.getContext('2d');
       if (!context) return false;
       const scale = Math.min(1, 1660 / canvas.width, 1000 / canvas.height);
       snapshot.width = Math.max(1, Math.round(canvas.width * scale));
       snapshot.height = Math.max(1, Math.round(canvas.height * scale));
-      active.render();
+      active.render(camera);
       context.drawImage(canvas, 0, 0, snapshot.width, snapshot.height);
       return true;
     },
@@ -93,9 +93,9 @@ export function createStageViewport(canvas, stage) {
           draw(delta, now, dirty);
           if (dirty) view.render();
         },
-        render() {
+        render(look = camera) {
           renderer.shadowMap.needsUpdate = shadows;
-          renderer.render(scene, camera);
+          renderer.render(scene, look);
           dirty = shadows = false;
         },
       };

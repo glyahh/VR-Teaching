@@ -27,6 +27,8 @@ BLENDER = ROOT / '.march-build/blender-4.5.4-windows-x64/blender.exe'
 ACTION = ASSETS / 'desk-action.mp4'
 OUTPUT = ASSETS / 'desk-guide.mp4'
 FPS, SECONDS = 24, 90
+ROUTE_START_SECONDS = 26.8
+ROUTE_DURATION_SECONDS = 13.6
 SIZE = (1280, 720)
 RATE = 24000
 FRAMES = FPS * SECONDS
@@ -224,7 +226,7 @@ def route_art():
 
     def animated(frame):
         # 地名随旁白出现。线的进度按弧长，向西北推进时保持匀顺。
-        part = ease((frame/FPS - 26.8) / 13.6) * distance[-1]
+        part = ease((frame/FPS - ROUTE_START_SECONDS) / ROUTE_DURATION_SECONDS) * distance[-1]
         px, py = (np.interp(part, distance, path[:, i]) for i in range(2))
         left = math.floor(px)
         shot = base.copy()

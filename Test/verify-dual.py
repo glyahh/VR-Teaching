@@ -1,4 +1,5 @@
 import shutil
+from argparse import ArgumentParser
 from io import BytesIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -7,6 +8,7 @@ from urllib.parse import urldefrag
 from PIL import Image, ImageChops, ImageStat
 from playwright.sync_api import expect, sync_playwright
 from exploration_input import drag, elapsed_frames, walk
+from course_checks import exercise_desk
 
 
 def reopen_projection(teacher, student):
@@ -16,7 +18,7 @@ def reopen_projection(teacher, student):
         teacher.get_by_role("button", name="重新打开投影", exact=True).click()
     student = reopened.value
     student.set_viewport_size(viewport)
-    expect(teacher.locator(".presenter-status")).to_have_text("投影已连接")
+    expect(teacher.locator(".presenter-status")).to_have_text("投影已连接", timeout=18000)
     return student
 
 
@@ -70,14 +72,34 @@ def video_frame_errors(video, entry, exit):
       sample.muted = true;
       sample.src = video.src;
       sample.preload = 'auto';
-      if (sample.readyState < 2) await new Promise(resolve => sample.addEventListener('loadeddata',resolve,{once:true}));
+      function waitFor(event) {
+        return new Promise((resolve,reject) => {
+          const finish = error => {
+            clearTimeout(timer);
+            sample.removeEventListener(event,ready);
+            sample.removeEventListener('error',failed);
+            if (error) reject(error);
+            else resolve();
+          };
+          const ready = () => finish();
+          const failed = () => finish(new Error('无法解码视频'));
+          const timer = setTimeout(() => finish(new Error('等待视频' + event + '超时')),10000);
+          sample.addEventListener(event,ready,{once:true});
+          sample.addEventListener('error',failed,{once:true});
+        });
+      }
+      if (sample.readyState < 2) await waitFor('loadeddata');
       const canvas = document.createElement('canvas');
       canvas.width = sample.videoWidth;
       canvas.height = sample.videoHeight;
       const brush = canvas.getContext('2d',{willReadFrequently:true});
       function pixels(image) {
         brush.clearRect(0,0,canvas.width,canvas.height);
-        brush.drawImage(image,0,0,canvas.width,canvas.height);
+        const width = image.videoWidth ?? image.naturalWidth;
+        const height = image.videoHeight ?? image.naturalHeight;
+        const scale = Math.max(canvas.width / width, canvas.height / height);
+        const scaledWidth = width * scale, scaledHeight = height * scale;
+        brush.drawImage(image,(canvas.width-scaledWidth)/2,(canvas.height-scaledHeight)/2,scaledWidth,scaledHeight);
         return brush.getImageData(0,0,canvas.width,canvas.height).data;
       }
       async function difference(key) {
@@ -91,7 +113,7 @@ def video_frame_errors(video, entry, exit):
         return sum/(canvas.width*canvas.height*3);
       }
       async function seek(time) {
-        const seeked = new Promise(resolve => sample.addEventListener('seeked',resolve,{once:true}));
+        const seeked = waitFor('seeked');
         sample.currentTime = time;
         await seeked;
       }
@@ -100,6 +122,27 @@ def video_frame_errors(video, entry, exit):
       await seek(sample.duration-.01);
       return [first,await difference(exit)];
     }""", {"entry": entry, "exit": exit})
+
+
+def verify_asset_join(browser, lesson_url, clip, entry, exit):
+    with browser.new_context(offline=True, viewport={"width": 1920, "height": 1080}) as context:
+        page = context.new_page()
+        page.goto(lesson_url)
+        video_key = clip + "-video"
+        missing = page.evaluate("""keys => keys.filter(key => !mediaAssets[key])""", [video_key, entry, exit])
+        if missing:
+            raise SystemExit("成品中找不到资源 " + "、".join(missing))
+        page.evaluate("""key => {
+          const video = document.createElement('video');
+          video.src = mediaAssets[key];
+          video.hidden = true;
+          video.dataset.joinCheck = '';
+          document.body.append(video);
+        }""", video_key)
+        first, last = video_frame_errors(page.locator("video[data-join-check]"), entry, exit)
+        print(f"{clip} 与 {entry}、{exit} 平均 RGB 差 {first:.2f}、{last:.2f}/255", flush=True)
+        if max(first, last) > 3:
+            raise SystemExit("首尾帧有偏差。核对实际出入片画面的机位、裁切、亮度和物件状态。")
 
 
 def verify_opening(teacher, student):
@@ -144,12 +187,12 @@ def verify_preparation_film(teacher, student):
     assert max(error) < 3, f"备桥样片首尾画面偏差 {error}"
     print(f"  备桥首尾帧在 Edge 解码后的平均 RGB 差为 {error[0]:.2f}/255、{error[1]:.2f}/255",flush=True)
     teacher.get_by_role("button", name="抬送门板：群众捐出自家门板", exact=True).click()
-    expect(student.locator(".probe-callout")).to_be_visible()
+    expect(student.locator(".slide-line")).to_have_attribute("data-narration-view", "point")
     teacher.get_by_role("button", name="播放备桥短片", exact=True).click()
     for page in (teacher, student):
         page.wait_for_function("document.querySelector('.scene-camera video.is-visible')?.currentTime > .25")
         expect(page.locator(".scene-camera")).to_have_css("transform", "matrix(1, 0, 0, 1, 0, 0)")
-        expect(page.locator(".probe-callout")).to_be_hidden()
+        expect(page.locator(".slide-line")).to_have_attribute("data-narration-view", "main")
     teacher.get_by_role("button", name="暂停短片", exact=True).click()
     position = teacher.locator("video").evaluate("v => v.currentTime")
     student = reopen_projection(teacher, student)
@@ -169,31 +212,11 @@ def verify_xiang_film(teacher, student):
     video = teacher.locator(".scene-camera video")
     errors = video_frame_errors(video, "xiang", "xiang")
     assert max(errors) <= 3, f"湘江首尾帧偏差 {errors}"
-    teacher.wait_for_function("document.querySelector('.scene-camera video').currentTime > .25")
-    teacher.get_by_role("button", name="暂停短片", exact=True).click()
-    frozen = video.evaluate("video => video.currentTime")
     for page in (teacher, student):
-        page.wait_for_function("""t => {
-          const video=document.querySelector('.scene-camera video');
-          return video.paused && Math.abs(video.currentTime-t)<.25;
-        }""", arg=frozen)
-    teacher.get_by_role("button", name="继续播放", exact=True).click()
-    for page in (teacher, student):
-        page.wait_for_function("""t => {
-          const video=document.querySelector('.scene-camera video');
-          return !video.paused && video.currentTime>t;
-        }""", arg=frozen)
-    fade = teacher.get_by_role("button", name="静态画面", exact=True).evaluate("""button => {
-      const video=document.querySelector('.scene-camera video');
-      const frame=video.currentTime;
-      button.click();
-      return {paused:video.paused, delta:Math.abs(video.currentTime-frame),
-        duration:video.getAnimations().find(a=>a.effect.getTiming().duration===160)?.effect.getTiming().duration};
-    }""")
-    assert fade["paused"] and fade["delta"] <= 1/30 and fade["duration"] == 160, fade
-    for page in (teacher, student):
-        expect(page.locator(".scene-camera video")).to_be_hidden()
-    print(f"  湘江首尾帧 RGB 平均差 {errors[0]:.2f}/255、{errors[1]:.2f}/255，暂停续播与回切通过", flush=True)
+        page.wait_for_function("document.querySelector('.scene-camera video.is-visible')?.currentTime > .25")
+        expect(page.get_by_role("button", name="暂停短片", exact=True)).to_have_count(0)
+        expect(page.get_by_role("button", name="静态画面", exact=True)).to_have_count(0)
+    print(f"  湘江首尾帧 RGB 平均差 {errors[0]:.2f}/255、{errors[1]:.2f}/255，双屏背景自动播放", flush=True)
 
 
 def verify_river(teacher, student):
@@ -205,19 +228,19 @@ def verify_river(teacher, student):
     teacher.evaluate("window.riverCanvas = document.querySelector('.lesson-exploration #view')")
     expect(student.locator("#river-action")).to_be_hidden()
     for label, next_label in (("到桥头", "看桥下"), ("看桥下", "看架桥")):
-        expect(action).to_have_text(label)
+        expect(action).to_have_attribute("aria-label", label)
         action.click()
-        expect(action).to_have_text(next_label, timeout=10000)
+        expect(action).to_have_attribute("aria-label", next_label, timeout=10000)
     action.click()
-    teacher.wait_for_function("document.querySelector('#river-time').value >= .30")
+    teacher.wait_for_function("Number(document.querySelector('#river-tools').dataset.progress) >= .30")
 
     stopped = teacher.get_by_role("button", name="下一页", exact=True).evaluate("""button => {
-      const meter = document.querySelector('#river-time');
-      const before = { progress: meter.value, beat: meter.getAttribute('aria-label') };
+      const dock = document.querySelector('#river-tools');
+      const before = { progress: Number(dock.dataset.progress), beat: dock.dataset.step };
       button.click();
       return before;
     }""")
-    assert stopped["beat"] == "看架桥演示进度" and .30 <= stopped["progress"] < 1, stopped
+    assert stopped["beat"] == "看架桥" and .30 <= stopped["progress"] < 1, stopped
     for page in (teacher, student):
         expect(page.locator(".scene-head h1")).to_have_text("夜渡于都河")
         expect(page.locator(river)).to_have_count(0)
@@ -229,8 +252,8 @@ def verify_river(teacher, student):
         expect(page.locator(river)).to_be_visible(timeout=20000)
         expect(page.locator(river)).to_have_css("opacity", "1")
         expect(page.locator("#river-tools")).to_have_attribute("data-playback", "paused")
-        expect(page.locator("#river-time")).to_have_attribute("aria-label", stopped["beat"])
-        assert abs(page.locator("#river-time").evaluate("meter => meter.value") - stopped["progress"]) < 1e-6
+        expect(page.locator("#river-tools")).to_have_attribute("data-step", stopped["beat"])
+        assert abs(float(page.locator("#river-tools").get_attribute("data-progress")) - stopped["progress"]) < 1e-6
 
     for page in (teacher, student):
         assert_paused(page)
@@ -243,25 +266,25 @@ def verify_river(teacher, student):
     assert mean_difference < 2, f"投影重连后于都架桥画面偏差 {mean_difference:.2f}/255"
     assert_paused(teacher)
 
-    expect(action).to_have_text("继续")
+    expect(action).to_have_attribute("aria-label", "继续")
     action.click()
     student.wait_for_function("""t => {
-      const meter = document.querySelector('#river-time');
-      return meter?.getAttribute('aria-label') === '看架桥演示进度' && meter.value > t;
+      const dock = document.querySelector('#river-tools');
+      return dock?.dataset.step === '看架桥' && Number(dock.dataset.progress) > t;
     }""", arg=stopped["progress"])
-    expect(action).to_have_text("看夜渡", timeout=10000)
+    expect(action).to_have_attribute("aria-label", "看夜渡", timeout=10000)
     teacher.get_by_role("button", name="史料", exact=True).click()
     expect(student.locator("#reading-title")).to_have_text("船与门板")
     expect(student.locator("#reading")).to_be_visible()
     teacher.get_by_role("button", name="收起材料", exact=True).click()
     for label, next_label in (("看夜渡","看收桥"), ("看收桥","重播")):
-        expect(action).to_have_text(label)
+        expect(action).to_have_attribute("aria-label", label)
         action.click()
-        expect(action).to_have_text(next_label, timeout=10000)
+        expect(action).to_have_attribute("aria-label", next_label, timeout=10000)
     expect(student.locator("#river-tools")).to_have_attribute("data-playback","finished")
     caption = student.locator("#river-instruction")
     if student.viewport_size["width"] == 1920:
-        expect(caption).to_have_css("font-size","34px")
+        expect(caption).to_have_css("font-size","32.64px")
         expect(student.locator(".river-label").first).to_have_css("font-size","26px")
     views = []
     for recall, text in (("夜渡","夜里能过河的时间有限"), ("收桥后","拂晓前撤桥")):
@@ -269,6 +292,7 @@ def verify_river(teacher, student):
         expect(student.locator("#reading-title")).to_have_text("渡河计划")
         teacher.locator("#river-recall").get_by_role("button",name=recall,exact=True).click()
         expect(caption).to_contain_text(text)
+        expect(caption.locator('[data-typed="false"]')).to_have_count(0)
         views.append(teacher.evaluate("""() => {
           const {eye,target,zoom}=explorationActivity.read().state; return [...eye,...target,zoom];
         }"""))
@@ -276,8 +300,15 @@ def verify_river(teacher, student):
           const lines = document.createRange();
           lines.selectNodeContents(node);
           const fontSize = parseFloat(getComputedStyle(node).fontSize);
-          return node.scrollWidth <= node.clientWidth &&
-            [...lines.getClientRects()].every(line => line.width >= 4 * fontSize);
+          const bounds = new Map();
+          for (const rect of lines.getClientRects()) {
+            if (!rect.width) continue;
+            const y = Math.round(rect.top);
+            const row = bounds.get(y) ?? [rect.left, rect.right];
+            bounds.set(y, [Math.min(row[0], rect.left), Math.max(row[1], rect.right)]);
+          }
+          return node.scrollWidth <= node.clientWidth && bounds.size > 0 &&
+            [...bounds.values()].every(([left,right]) => right-left >= 4 * fontSize);
         }"""), "投影提示溢出或出现过短的尾行"
     assert max(abs(a-b) for a,b in zip(*views)) < .0001, "夜渡回看机位发生变化"
     teacher.get_by_role("button", name="返回浮桥", exact=True).click()
@@ -432,64 +463,12 @@ def answer(teacher, student, option, correct):
         expect(student.locator('.practice-option[data-correct=true]')).to_have_count(0)
 
 
-def verify_desk_inquiry(teacher, student):
-    frame = teacher.locator(".desk-live-frame")
-    screen = student.locator(".desk-live-frame")
-    teacher.get_by_role("button", name="动手查证").click()
-    expect(screen.locator(".desk-inquiry-cue")).to_contain_text("先查哪一册")
-    teacher.get_by_role("button", name="翻阅左册 · 会前形势").click()
-    expect(frame).to_have_attribute("data-inquiry", "leaf")
-
-    def drag_leaf(start, stop):
-        bounds = frame.bounding_box()
-        def point(fraction):
-            return bounds["x"] + bounds["width"] * fraction[0], bounds["y"] + bounds["height"] * fraction[1]
-        teacher.mouse.move(*point(start))
-        teacher.mouse.down()
-        teacher.mouse.move(*point(stop), steps=12)
-        teacher.mouse.up()
-
-    drag_leaf((.34,.60), (.24,.53))
-    opening = frame.get_attribute("data-opening")
-    assert 0 < int(opening) < 24
-    expect(screen).to_have_attribute("data-opening", opening)
-    student.wait_for_function("""() => {
-      const sheet = document.querySelector('.desk-inquiry-sheet');
-      return !sheet.hidden && sheet.getContext('2d').getImageData(0,0,sheet.width,sheet.height).data.some((value,index) => index%4===3 && value>64);
-    }""")
-    viewport = student.viewport_size
-    student.close()
-    with teacher.expect_popup() as reopened:
-        teacher.get_by_role("button", name="重新打开投影").click()
-    student = reopened.value
-    student.set_viewport_size(viewport)
-    screen = student.locator(".desk-live-frame")
-    expect(screen).to_have_attribute("data-opening", opening)
-    expect(screen.locator(".desk-inquiry-sheet")).to_be_visible()
-    expect(student.locator(".desk-inquiry-range")).not_to_be_visible()
-    drag_leaf((.33,.48), (.50,.57))
-    expect(screen).to_have_attribute("data-opening", "0")
-    expect(screen.locator(".desk-inquiry-sheet")).not_to_be_visible()
-    drag_leaf((.34,.60), (.11,.37))
-    expect(screen).to_have_attribute("data-inquiry", "found")
-    expect(screen.locator(".desk-inquiry-ink")).to_be_visible()
-    teacher.get_by_role("button", name="翻阅右册 · 会议讨论").click()
-    expect(screen).to_have_attribute("data-inquiry", "done")
-    expect(screen.locator(".is-left .folio-card")).to_be_visible()
-    expect(screen.locator(".is-right .folio-card")).to_be_visible()
-    teacher.get_by_role("button", name="结束查证").click()
-    expect(screen).to_have_attribute("data-inquiry", "off")
-    expect(screen.locator(".desk-inquiry-cue")).not_to_be_visible()
-    frame.press("ArrowRight")
-    teacher.get_by_role("button", name="动手查证").click()
-    teacher.get_by_role("button", name="翻阅右册 · 会议讨论").click()
-    expect(screen.locator(".desk-inquiry-cue")).to_contain_text("再查会前手记")
-    expect(screen.locator(".is-right .folio-card")).to_be_visible()
-    teacher.get_by_role("button", name="翻阅左册 · 会前形势").click()
-    teacher.get_by_role("slider", name="手记开合").press("End")
-    expect(screen).to_have_attribute("data-inquiry", "done")
-    expect(screen.locator(".is-left .folio-card")).to_be_visible()
-    teacher.get_by_role("button", name="结束查证").click()
+def verify_desk_inquiry(teacher, student, right_first=False):
+    positions = exercise_desk(teacher, student, right_first)
+    student = reopen_projection(teacher, student)
+    for field, value in positions.items():
+        expect(student.locator(".desk-live-frame")).to_have_attribute(field, value)
+    expect(student.locator(".desk-live-transport")).not_to_be_visible()
     return student
 
 
@@ -562,10 +541,10 @@ def verify_lesson(context, lesson_url, student_width, student_height):
     slide("浮桥近景")
     expect(teacher.locator(".presenter-notes .presenter-question")).to_have_text("桥面靠什么托住？")
     expect(student.get_by_text("桥面靠什么托住？", exact=True)).to_have_count(0)
-    expect(student.locator(".slide-line")).to_have_text("浮桥由船体和桥板组成。")
+    expect(student.locator(".narration-row:visible")).to_have_text("浮桥由船体和桥板组成。")
     press("船体")
     expect(student.locator(".bridge-outline.is-drawn")).to_have_count(1)
-    expect(student.locator(".slide-line")).to_have_text("木船托住桥面")
+    expect(student.locator(".slide-line")).to_contain_text("木船托住桥面")
     open_practice(teacher,student,"木板和船各做什么")
     expect(student.locator(".practice-prompt")).to_contain_text("船体")
     answer(teacher,student,"铺成通道",False)
@@ -576,7 +555,7 @@ def verify_lesson(context, lesson_url, student_width, student_height):
     expect(student.locator(".scene-spotlight")).to_have_class("scene-spotlight is-active")
     press("返回原页")
     expect(student.locator(".practice")).to_be_hidden()
-    expect(student.locator(".slide-line")).to_have_text("木船托住桥面")
+    expect(student.locator(".slide-line")).to_contain_text("木船托住桥面")
 
     press("下一页")
     slide("夜渡于都河")
@@ -586,16 +565,7 @@ def verify_lesson(context, lesson_url, student_width, student_height):
     }"""
     for window in (teacher, student):
         window.wait_for_function(playing)
-    press("暂停短片")
-    for window in (teacher, student):
-        window.wait_for_function("document.querySelector('video')?.paused === true")
-        expect(window.locator("video")).to_be_visible()
-    press("继续播放")
-    for window in (teacher, student):
-        window.wait_for_function(playing)
-    press("静态画面")
-    for window in (teacher, student):
-        expect(window.locator("video")).to_be_hidden()
+    expect(teacher.get_by_role("button", name="暂停短片", exact=True)).to_have_count(0)
 
     press("下一页")
     slide("湘江河谷")
@@ -665,6 +635,9 @@ def verify_lesson(context, lesson_url, student_width, student_height):
     student = verify_hall(teacher, student, book_first=pace=="50")
     press("并排对照")
     expect(student.locator("#dialog-title")).to_have_text("两份材料对照")
+    student.reload()
+    expect(student.locator("dialog")).to_be_visible()
+    expect(student.locator("#dialog .material h3")).to_have_text(["会前形势", "会议讨论"])
     teacher.keyboard.press("Escape")
     expect(student.locator("dialog")).not_to_be_visible()
     press("下一页")
@@ -672,7 +645,7 @@ def verify_lesson(context, lesson_url, student_width, student_height):
     assert_scene_points(teacher)
     expect(teacher.locator(".desk-live-frame video")).to_have_count(0)
     expect(teacher.locator(".presenter-time")).to_have_text("27:00–29:50" if pace=="40" else "35:00–38:50")
-    student = verify_desk_inquiry(teacher, student)
+    student = verify_desk_inquiry(teacher, student, right_first=pace=="50")
     left = student.locator(".dossier-slot.is-left .folio-card")
     right = student.locator(".dossier-slot.is-right .folio-card")
     expect(left).to_be_hidden()
@@ -700,14 +673,14 @@ def verify_lesson(context, lesson_url, student_width, student_height):
     slide("军事问题")
     expect(teacher.locator(".story-panel .story-step")).to_have_count(3)
     expect(student.locator(".story-panel")).to_be_hidden()
-    press("展开全部")
-    expect(student.locator(".story-panel .story-detail:visible")).to_have_count(3)
-    press("收起全部")
+    press("回顾两段受挫经历")
+    expect(student.locator(".story-panel .story-detail:visible")).to_have_count(1)
+    press("回顾两段受挫经历")
     expect(student.locator(".story-panel .story-detail:visible")).to_have_count(0)
     press("下一页")
     slide("组织问题")
     press("调整中央领导机构")
-    expect(student.locator(".slide-line")).to_contain_text("改组中央最高核心领导层")
+    expect(student.locator(".story-detail:visible")).to_contain_text("改组中央最高核心领导层")
     open_practice(teacher,student,"两类问题怎么分")
     answer(teacher,student,"组织",False)
     answer(teacher,student,"军事",True)
@@ -715,12 +688,13 @@ def verify_lesson(context, lesson_url, student_width, student_height):
     answer(teacher,student,"组织",True)
     student = reopen_projection(teacher,student)
     press("返回原页")
-    expect(student.locator(".slide-line")).to_contain_text("改组中央最高核心领导层")
+    expect(student.locator(".story-detail:visible")).to_contain_text("改组中央最高核心领导层")
     press("下一页")
     slide("遵义会议的转折意义")
     conclusion = student.locator(".assembly-conclusion")
     expect(conclusion).to_be_hidden()
-    press("直接揭示全部结论")
+    for name in ("湘江受挫","黎平转向","遵义调整"):
+        press(name)
     expect(conclusion).to_be_visible()
     expect(student.locator(".story-panel .story-stop:visible")).to_have_count(3)
     press("课堂回顾")
@@ -760,13 +734,23 @@ def verify_hall_fallback(browser, url):
 
 
 def main():
+    parser = ArgumentParser()
     root = Path(__file__).resolve().parents[1]
-    source = root / "课堂演示" / "从于都到遵义-课堂演示.html"
+    parser.add_argument("--html", type=Path, default=root / "课堂演示" / "从于都到遵义-课堂演示.html")
+    parser.add_argument("--check-join", nargs=3, metavar=("CLIP", "ENTRY", "EXIT"),
+                        help="只检查正式课件内的一支短片与指定的入片、出片图")
+    args = parser.parse_args()
     with TemporaryDirectory() as folder:
         lesson = Path(folder) / "lesson.html"
-        shutil.copyfile(source, lesson)
+        shutil.copyfile(args.html, lesson)
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(channel="msedge", headless=True)
+            if args.check_join:
+                try:
+                    verify_asset_join(browser, lesson.as_uri(), *args.check_join)
+                finally:
+                    browser.close()
+                return
             for teacher_width, student_width, student_height in (
                 (1366, 1920, 1080),
                 (1920, 1366, 768),

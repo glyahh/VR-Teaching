@@ -35,6 +35,16 @@ export function readLessonRailStyle() {
   return readFile(new URL('lesson-rails.css', import.meta.url), 'utf8');
 }
 
+export const explorationHtml = {
+  name: 'exploration-html',
+  setup(bundle) {
+    bundle.onLoad({filter:/\.html$/}, async ({path}) => ({
+      contents: (await readFile(path,'utf8')).replace(/\r\n/g,'\n'),
+      loader: 'text',
+    }));
+  },
+};
+
 export async function readExplorationStyle() {
   await assertPresentationDirectory(new URL('./',import.meta.url));
   const [css, rails, grain] = await Promise.all([
@@ -53,7 +63,7 @@ export async function buildExplorationStage() {
     build({
       entryPoints: [fileURLToPath(new URL('exploration-stage.js', import.meta.url))],
       bundle: true, minify: true, write: false, format: 'iife', globalName: 'explorationStage',
-      target: 'edge120', legalComments: 'inline', loader: { '.html': 'text' },
+      target: 'edge120', legalComments: 'inline', plugins: [explorationHtml],
     }),
     readFile(new URL('node_modules/three/LICENSE', import.meta.url), 'utf8'),
   ]);

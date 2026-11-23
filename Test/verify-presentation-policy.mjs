@@ -8,9 +8,13 @@ const previousMarkup = [
   "const hintBar = page.hint ? element('p','scene-hint',page.hint) : undefined;",
   "const credit = element('span','desk-live-credit','教学情境复原');",
   '.evidence-chip[data-locked=true] strong::after{content:"  ✓ 已拼入";}',
+  "const callout = element('article','probe-callout');",
+  "const expandAll = syncControl(allKey,'展开全部',()=>{},'panel-all-btn');",
+  "const revealAll = syncControl('reveal-result','直接揭示全部结论',()=>{});",
+  '<progress id="river-time" max="1" value="0" aria-label="本段演示进度" hidden></progress>',
 ];
 for (const source of previousMarkup) {
-  assert.throws(()=>assertPresentationSource('旧课件片段',source), /删除画面|共用圆点/);
+  assert.throws(()=>assertPresentationSource('旧课件片段',source), /删除画面|共用圆点|课页的 addHotspot|逐项展开|步骤箭头/);
 }
 assert.doesNotThrow(()=>assertPresentationSource('必要材料和提示',
   "element('p','','依据《中国共产党简史》整理。'); syncScenePoint('boat','船体',open,'hotspot');"));

@@ -11,21 +11,28 @@ type LessonSnapshot = {
   reviewAnswer:boolean;
   reviewBack:boolean;
   camera:CameraPosition;
-  material?:string;
-  sceneCue?:string;
+  comparisonOpen:boolean;
+  sceneLesson?:SceneLessonFrame;
+  wujiangCue?:string;
   video?:VideoState;
-  desk?:DeskSnapshot;
+  desk?:DeskFrame;
   exploration?:ExplorationFrame;
   scrub?:number;
+  routeOffset?:number;
+  hallClue?:HallClue;
   practice?:PracticeState;
 };
 type ProjectionMessage = {type:'ready'} | {type:'snapshot'; state:LessonSnapshot}
   | {type:'action'; id:string} | {type:'video'; state:VideoState}
   | {type:'camera'; position:CameraPosition; animate:boolean}
-  | {type:'desk'; state:DeskSnapshot}
+  | {type:'scene-lesson'; frame:SceneLessonFrame; entered:boolean}
+  | {type:'desk-visit'; address:DeskAddress}
+  | {type:'desk'; frame:DeskFrame}
   | {type:'exploration'; update:ExplorationUpdate}
   | {type:'practice'; position:number; state:PracticeState}
-  | {type:'scrub'; value:number};
+  | {type:'scrub'; value:number}
+  | {type:'route-offset'; position:number; value:number}
+  | {type:'hall-clue'; clue:HallClue | undefined};
 
 const projectionToken = /^#projection=([a-f0-9]{32})$/.exec(location.hash)?.[1];
 const projectionMode = Boolean(projectionToken);
@@ -36,14 +43,22 @@ let projectionReady = false;
 let presenterTimer: number | undefined;
 let currentView: LessonView = {kind:'map'};
 let reviewBack = false;
-let activeMaterial: string | undefined;
 let activeSceneCue: string | undefined;
 let cameraPosition: CameraPosition = [1,0,0,...mapHomeAngle];
 let applyCamera: (position:CameraPosition,animate:boolean)=>void;
-let currentVideo: {set:(state:VideoState)=>void; read:()=>VideoState} | undefined;
+let currentVideo: ReturnType<typeof attachVideo> | undefined;
 let scrubValue = 68;
 let applyScrub: ((value:number)=>void) | undefined;
+let routeOffset = 0;
+let applyRouteOffset: ((value:number)=>void) | undefined;
 let onStageDismiss: (()=>void) | undefined;
+type DeskAddress = {position:number; visit:number};
+type DeskFrame = DeskAddress & {revision:number; view:DeskView};
+let deskAddress:DeskAddress | undefined;
+let deskVisit = 0;
+let deskRevision = 0;
+let receivedDeskVisit = 0;
+let receivedDeskRevision = 0;
 
 function syncControl(id:string,label:string,act:()=>void,className = '',icon?:IconName,iconAfter = false) {
   const button = control(label,()=>{
@@ -65,6 +80,37 @@ function sendAction(id:string) {
   sendProjection({type:'action',id});
 }
 
+function beginDeskVisit(position:number) {
+  if (projectionMode) return;
+  deskAddress = {position,visit:++deskVisit};
+  sendProjection({type:'desk-visit',address:deskAddress});
+}
+
+function readDeskFrame(view = currentDesk?.read()):DeskFrame | undefined {
+  if (!projectionMode && view && deskAddress) return {...deskAddress,revision:++deskRevision,view};
+}
+
+function publishDesk(view:DeskView) {
+  const frame=readDeskFrame(view);
+  if (frame) sendProjection({type:'desk',frame});
+}
+
+function acceptDeskVisit(address:DeskAddress | undefined) {
+  if (!address || !currentDesk || currentView.kind!=='scene' || currentView.position!==address.position ||
+    !Number.isSafeInteger(address.visit) || address.visit<=receivedDeskVisit) return;
+  deskAddress={position:address.position,visit:address.visit};
+  receivedDeskVisit=address.visit;
+}
+
+function applyDeskFrame(frame:DeskFrame | undefined, reconnect = false) {
+  if (!frame || !currentDesk || currentView.kind!=='scene' || frame.position!==currentView.position ||
+    !Number.isSafeInteger(frame.revision) || frame.revision<=receivedDeskRevision || !isDeskView(frame.view)) return;
+  if (reconnect) acceptDeskVisit(frame);
+  if (deskAddress?.position!==frame.position || deskAddress.visit!==frame.visit) return;
+  receivedDeskRevision=frame.revision;
+  currentDesk.restore(frame.view);
+}
+
 function sendCamera(position:CameraPosition,animate:boolean) {
   sendProjection({type:'camera',position,animate});
 }
@@ -75,13 +121,17 @@ function sendScrub(value:number) {
 }
 
 function closeMaterial() {
-  if (activeMaterial) sendAction('close-material');
-  activeMaterial = undefined;
+  if (dialog.open && dialog.classList.contains('comparison')) sendAction('close-material');
   dialog.close();
 }
 
 function displayView(view:LessonView) {
+  if (view.kind !== 'map') {
+    releaseMapCard?.();
+    releaseMapCard = undefined;
+  }
   currentView = view;
+  if (view.kind==='opening' && !projectionMode) resetDeskHistory();
   if (view.kind === 'review') reviewBack = view.conclusionPage;
   if (!teacherPanel.hidden) updatePresenterNotes();
 }
@@ -176,13 +226,16 @@ function snapshot(): LessonSnapshot {
   return {
     view:currentView, selected, revealed:[...revealed], lastViewed:[...lastViewed],
     reviewSteps:[...reviewSteps], reviewAnswer, reviewBack, camera:cameraPosition,
-    material:dialog.open ? activeMaterial : undefined, sceneCue:activeSceneCue, video:currentVideo?.read(), desk:currentDesk?.read(),
-    scrub:scrubValue, practice:currentPractice?.read(), exploration:readExplorationUpdate(),
+    comparisonOpen:dialog.open && dialog.classList.contains('comparison'), sceneLesson:currentSceneLesson?.read(),
+    wujiangCue:activeSceneCue?.startsWith('wujiang-') ? activeSceneCue : undefined,
+    video:currentVideo?.read(), desk:readDeskFrame(),
+    scrub:scrubValue, routeOffset, hallClue:retainedHallClue,
+    practice:currentPractice?.read(), exploration:readExplorationUpdate(),
   };
 }
 
 function openTrial() {
-  revealed.delete('trial-result');
+  trialItemsSeen.clear();
   openChapter(events.findIndex(event=>event.id==='zunyi'),'trial');
 }
 
@@ -198,11 +251,15 @@ function applySnapshot(state:LessonSnapshot) {
   reviewAnswer = state.reviewAnswer;
   reviewBack = state.reviewBack;
   if (typeof state.scrub === 'number') scrubValue = state.scrub;
+  routeOffset = typeof state.routeOffset === 'number' && Number.isFinite(state.routeOffset) ? state.routeOffset : 0;
+  retainedHallClue = state.hallClue;
   if (state.view.kind === 'scene') {
     const back = state.reviewBack;
-    openScene(state.view.position,state.view.variant,state.view.variant === 'revisit' ? ()=>openReview(back) : undefined);
+    openScene(state.view.position,state.view.variant,state.view.variant === 'revisit' ? ()=>openReview(back) : undefined,
+      undefined, !!state.sceneLesson?.journey);
     if (typeof state.scrub === 'number') applyScrub?.(state.scrub);
-    if (state.sceneCue) applyAction(state.sceneCue);
+    applySceneLesson(state.sceneLesson,true);
+    if (state.wujiangCue) applyAction(state.wujiangCue);
   } else if (state.view.kind === 'opening') {
     renderOpening(false);
   } else if (state.view.kind === 'review') {
@@ -212,16 +269,9 @@ function applySnapshot(state:LessonSnapshot) {
     applyCamera(state.camera,false);
   }
   if (state.video) currentVideo?.set(state.video);
-  if (state.desk) currentDesk?.restore(state.desk);
+  applyDeskFrame(state.desk,true);
   currentPractice?.restore(state.practice ?? null);
-  const materials: Record<string,()=>void> = {
-    comparison:()=>showZunyiMaterials(),
-    'material-before':()=>showZunyiMaterials(0),
-    'material-during':()=>showZunyiMaterials(1),
-    troops:showTroops, directions:showDirections, crossing:showCrossing,
-    military:()=>showIssue('military'), organization:()=>showIssue('organization'),
-  };
-  if (state.material) materials[state.material]?.();
+  if (state.comparisonOpen) showZunyiMaterials();
   applyExplorationUpdate(state.exploration,true);
   stopMotion();
 }
@@ -242,14 +292,22 @@ window.addEventListener('message',event=>{
     if (!window.opener || event.source !== window.opener || message.token !== projectionToken) return;
     if (message.type === 'snapshot') applySnapshot(message.state);
     else if (message.type === 'action' && typeof message.id === 'string') applyAction(message.id);
+    else if (message.type === 'scene-lesson') applySceneLesson(message.frame,message.entered);
     else if (message.type === 'video') currentVideo?.set(message.state);
-    else if (message.type === 'desk' && message.state) currentDesk?.restore(message.state);
+    else if (message.type === 'desk-visit') acceptDeskVisit(message.address);
+    else if (message.type === 'desk') applyDeskFrame(message.frame);
     else if (message.type === 'exploration') applyExplorationUpdate(message.update);
     else if (message.type === 'practice' && currentView.kind === 'scene' && message.position === currentView.position) {
       currentPractice?.restore(message.state);
     }
     else if (message.type === 'camera' && currentView.kind === 'map') applyCamera(message.position,message.animate);
     else if (message.type === 'scrub') applyScrub?.(message.value);
+    else if (message.type === 'route-offset' && currentView.kind === 'scene' &&
+      currentView.position === message.position && Number.isFinite(message.value)) applyRouteOffset?.(message.value);
+    else if (message.type === 'hall-clue') {
+      retainedHallClue = message.clue;
+      currentDesk?.setClue(message.clue);
+    }
   } else if (projectionWindow && event.source === projectionWindow && message.token === sessionToken && message.type === 'ready') {
     projectionReady = true;
     sendProjection({type:'snapshot',state:snapshot()});
@@ -263,6 +321,6 @@ if (projectionMode) {
   window.opener?.postMessage({type:'ready',token:projectionToken},'*');
 } else {
   window.addEventListener('pagehide',()=>projectionWindow?.close());
+  if (location.hash==='#desk') openDeskPage();
+  else renderMap();
 }
-if (!projectionMode && location.hash==='#desk') openDeskPage();
-else renderMap();

@@ -1,7 +1,7 @@
 import { createExplorationOverlay } from './exploration-overlay.js';
 import { createStageViewport } from './viewport.js';
 import { isRiverView, startRiver } from './river.js';
-import { isHallView, startWalk } from './walk.js';
+import { describeHallClue, isHallView, startWalk } from './walk.js';
 import riverControls from './river-controls.html';
 import walkControls from './walk-controls.html';
 import reading from './exploration-reading.html';
@@ -35,6 +35,11 @@ export function markScenePoint(node, label) {
 export function isExplorationView(view) {
   return view != null && (view.id === 'yudu-river' && isRiverView(view.state) ||
     view.id === 'zunyi-hall' && isHallView(view.state));
+}
+
+/** @param {ExplorationView | null} view */
+export function hallClue(view) {
+  return view?.id === 'zunyi-hall' ? describeHallClue(view.state) : undefined;
 }
 
 /** @param {{
@@ -191,6 +196,12 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
       for (const ready of cache.values()) void ready.then(entry => entry.controller.reset(), () => {});
     },
     capture(snapshot) { return viewport?.capture(snapshot) ?? false; },
+    captureDeskShot(snapshot) {
+      const shot = current?.id === 'zunyi-hall' ? current.controller.deskShot() : undefined;
+      if (shot && (!shot.camera || viewport.capture(snapshot,shot.camera))) {
+        return {anchor:shot.anchor, closeup:shot.camera ? snapshot : undefined};
+      }
+    },
     animate: overlay.animate,
     dispose() {
       close();
@@ -200,3 +211,4 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
     },
   };
 }
+export { createDeskWorld } from './desk-world.js';

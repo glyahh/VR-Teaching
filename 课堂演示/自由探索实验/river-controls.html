@@ -1,12 +1,24 @@
-    <section id="river-tools" class="dock glass" aria-label="渡河推演" hidden>
+    <section id="river-tools" class="dock" aria-label="渡河推演" hidden>
       <div class="river-guide">
-        <span id="river-instruction" aria-live="polite"></span>
+        <span id="river-instruction" class="scene-note" aria-live="polite"></span>
         <div id="river-actions" class="dock-actions">
-          <button id="river-inspect" type="button" class="soft-button" hidden>看构件</button>
-          <button id="river-history" type="button" class="soft-button" hidden>史料</button>
-          <button id="river-action" class="action-button" type="button">
-            <span class="playback-icon" aria-hidden="true"></span><span id="river-action-label"></span>
+          <div class="river-options">
+            <button id="river-inspect" type="button" class="soft-button" hidden>看构件</button>
+            <button id="river-history" type="button" class="soft-button" hidden>史料</button>
+            <button id="river-compare" type="button" class="soft-button" hidden>分流对照</button>
+          </div>
+          <button id="river-action" class="river-playback" type="button" aria-label="到桥头">
+            <span class="playback-icon" aria-hidden="true"></span>
           </button>
+        </div>
+        <div id="river-comparison" class="dock-actions" hidden>
+          <label for="river-allocation">下游渡口</label>
+          <input id="river-allocation" type="range" min="0" step="1" value="0">
+          <output id="river-allocated" for="river-allocation"></output>
+          <button id="river-run-comparison" type="button" class="river-playback" aria-label="播放">
+            <span class="playback-icon" aria-hidden="true"></span>
+          </button>
+          <button id="river-close-comparison" type="button" class="soft-button">返回</button>
         </div>
         <div id="river-parts" class="dock-actions" role="group" aria-label="构件" hidden>
           <button type="button" class="soft-button" data-part="hull">船体</button>
@@ -15,5 +27,4 @@
           <button id="river-inspect-close" type="button" class="action-button">返回</button>
         </div>
       </div>
-      <progress id="river-time" max="1" value="0" aria-label="本段演示进度" hidden></progress>
     </section>

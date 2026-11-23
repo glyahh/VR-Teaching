@@ -1,278 +1,274 @@
-type DeskPose = {yaw:number; pitch:number; zoom:number};
-type DeskEvidence = 'none' | 'left' | 'right' | 'both';
-type DeskState = {pose:DeskPose; evidence:DeskEvidence; inquiry:DeskInquiry|null};
-type DeskSnapshot = DeskState & {revision:number};
+function playDeskHandoff(frame:HTMLElement, handoff:HallHandoff, poster:HTMLImageElement, target:[number,number]) {
+  const layer = element('div','desk-handoff');
+  layer.setAttribute('aria-hidden','true');
+  const outgoing = handoff.closeup ?? handoff.frame;
+  const landing = element('img');
+  landing.src = poster.src;
+  landing.alt = '';
+  landing.hidden = !handoff.anchor;
+  if (handoff.closeup) layer.append(handoff.frame);
+  layer.append(outgoing,landing);
+  frame.append(layer);
+  const point = (at: number[]) => (100*at[0])+'% '+(100*at[1])+'%';
+  const align = ([x,y]: number[]) => {
+    const scale = Math.max(1.46, .5 / Math.min(x,1-x,y,1-y));
+    return 'translate('+(50-x*100)+'%, '+(50-y*100)+'%) scale('+scale+')';
+  };
+  const remove = () => layer.remove();
+  if (handoff.anchor) {
+    outgoing.style.transformOrigin = point(handoff.anchor);
+    landing.style.transformOrigin = point(target);
+    animatePart(landing,[
+      {opacity:0,transform:align(target)}, {opacity:0,transform:align(target),offset:.3},
+      {opacity:1,transform:align(target),offset:.63},{opacity:1,transform:'none'},
+    ],820,0,'linear');
+  }
+  const motion = handoff.anchor ? [
+    {opacity:handoff.closeup ? 0 : 1,transform:'none'},
+    {opacity:1,transform:'none',offset:.21}, {opacity:1,transform:align(handoff.anchor),offset:.36},
+    {opacity:0,transform:align(handoff.anchor),offset:.64}, {opacity:0,transform:align(handoff.anchor)},
+  ] : [{opacity:1},{opacity:0}];
+  const fade = animatePart(outgoing,motion,handoff.anchor ? 820 : 320,0,'linear');
+  if (fade) void fade.finished.then(remove,remove);
+  else remove();
+}
+
 type DeskPlayer = {
   transport:HTMLElement;
-  read:()=>DeskSnapshot;
-  restore:(state:DeskSnapshot)=>void;
+  read:()=>DeskView;
+  restore:(state:DeskView)=>void;
+  setClue:(clue:HallClue | undefined)=>void;
   dismiss:()=>void;
   dispose:()=>void;
 };
 
 let currentDesk:DeskPlayer|undefined;
-let deskRevision = 0;
+let standaloneDesk=location.hash==='#desk';
+const deskHistory=new Map<string,DeskSaved>();
+
+function resetDeskHistory() {
+  deskHistory.clear();
+  standaloneDesk=false;
+}
 
 function releaseDesk() {
   currentDesk?.dispose();
-  currentDesk = undefined;
+  currentDesk=undefined;
+  deskAddress=undefined;
 }
 
-function mountDesk(stage:HTMLElement):DeskPlayer {
-  const home = ():DeskPose => ({yaw:0, pitch:0, zoom:1});
-  const clamp = (value:number, low:number, high:number) => Math.max(low, Math.min(value, high));
-  const state:DeskState = {pose:home(), evidence:'none', inquiry:null};
-  const frame = element('div','desk-live-frame');
-  frame.tabIndex = projectionMode ? -1 : 0;
+function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):DeskPlayer {
+  const historyKey=(standaloneDesk?'standalone:':'lesson:')+position;
+  const frame=element('div','desk-live-frame');
+  frame.tabIndex=projectionMode?-1:0;
+  frame.dataset.space='loading';
   frame.setAttribute('aria-label','会前的桌边，三维观察区');
-  const poster = photo('desk-front','遵义会议室桌边');
-  poster.className = 'desk-live-still';
-  const canvas = element('canvas','desk-live-canvas');
-  canvas.hidden = true;
-  const pins = element('div','desk-live-pins');
-  const materials = element('div','desk-live-evidence');
-  const transport = element('div','desk-live-transport');
-  const frontUV = JSON.parse(mediaAssets['desk-manifest']).anchorUV as Record<'left'|'right',[number,number]>;
-  let space:Awaited<ReturnType<typeof createMeetingSpace>> | undefined;
-  let disposed = false;
-  let lastSend = -Infinity;
-  let lastRevision = -1;
-  let revision = ++deskRevision;
-  let drag:{id:number;x:number;y:number;pose:DeskPose;moved:boolean}|undefined;
-  let leafDrag:{id:number;x:number;y:number;opening:number}|undefined;
+  const poster=photo('desk-front','遵义会议室桌边');
+  poster.className='desk-live-still';
+  const canvas=element('canvas','desk-live-canvas');
+  canvas.hidden=true;
+  const pinLayer=element('div','desk-live-pins');
+  const materials=element('div','desk-live-evidence');
+  const guide=element('p','desk-inquiry-cue scene-note');
+  guide.setAttribute('role','status');
+  const transport=element('div','desk-live-transport');
+  const frontUV=JSON.parse(mediaAssets['desk-manifest']).anchorUV as Record<'left'|'right',Point>;
+  let clue=retainedHallClue;
+  let shownClue:HallClue | undefined;
+  let disposed=false;
 
-  const inquiryView = mountDeskInquiry(frame,opening=>adjustLeaf(opening,true),settleLeaf);
-  const investigate = control('动手查证',()=>{
-    if (state.inquiry) back('none');
-    else back('none',{step:'choose',opening:0,needsClue:false,meetingRead:false});
-  },'desk-investigate','compass');
-  const compare = control('桌面并排对照',()=>reveal(state.evidence==='both'?'none':'both'),'desk-live-compare','layers');
-  const recenter = control('回正',()=>changePose(home()),'desk-live-home','compass');
-  recenter.setAttribute('aria-label','回到正面机位');
-  const hideMaterial = control('收起材料',()=>reveal('none'),'desk-live-close');
-  transport.append(investigate,inquiryView.range,compare,recenter,hideMaterial);
-  const entries = (['left','right'] as const).map(side => {
-    const item = zunyiMaterials[side==='left'?0:1];
-    const label = side==='left'?'翻阅左册 · 会前形势':'翻阅右册 · 会议讨论';
-    const pin = explorationStage.markScenePoint(control('',()=>select(side),'desk-live-pin'),label);
-    pin.dataset.side = side;
-    pins.append(pin);
-    const slot = element('div','dossier-slot is-'+side);
-    const paper = element('article','folio-card');
-    paper.append(element('h3','',item.title),...item.lines.map(line=>element('p','',line)));
+  const entries=(['left','right'] as const).map((side,index)=>{
+    const pin=explorationStage.markScenePoint(control('',()=>select(side),'desk-live-pin'),
+      side==='left'?'翻阅左册 · 会前形势':'翻阅右册 · 会议讨论');
+    pin.dataset.side=side;
+    pinLayer.append(pin);
+    const slot=element('div','dossier-slot is-'+side);
+    const paper=element('article','folio-card');
     slot.append(paper);
     materials.append(slot);
+    fillArticle(paper,zunyiMaterials[index]);
     return {side,pin,slot,paper};
   });
-  frame.append(poster,canvas,pins,materials);
-  stage.append(frame);
-  frame.dataset.space = 'loading';
-  frame.addEventListener('click',event=>event.stopPropagation());
-  frame.addEventListener('keydown',event=>{
-    if (projectionMode || event.target!==frame) return;
-    if (state.inquiry && ['leaf','found'].includes(state.inquiry.step)) {
-      const delta=event.key==='ArrowLeft'||event.key==='ArrowUp'?3:event.key==='ArrowRight'||event.key==='ArrowDown'?-3:0;
-      if (delta) {
-        adjustLeaf(state.inquiry.opening+delta,true);
-        settleLeaf();
-        event.preventDefault();
-        return;
-      }
+
+  const investigate=control('动手查证',()=>session.investigate(),'desk-investigate','compass');
+  const compare=control('桌面并排对照',()=>session.cue(session.read().evidence==='both'?'none':'both',session.read().carried),'desk-live-compare','layers');
+  const recenter=control('回正',()=>session.edit(old=>({...old,camera:deskHome()})),'desk-live-home','compass');
+  recenter.setAttribute('aria-label','回到正面机位');
+  const close=control('收起材料',()=>session.cue('none'),'desk-live-close');
+  const bring=control('',()=>{
+    if (!clue) return;
+    if (session.read().carried) {session.cue('none');return;}
+    if (clue.kind==='route' && session.read().saved.map==='stored') {
+      session.edit(old=>({...old,map:'original'}));
     }
-    const pose = state.pose;
-    if (event.key==='ArrowLeft') changePose({...pose,yaw:pose.yaw-4});
-    else if (event.key==='ArrowRight') changePose({...pose,yaw:pose.yaw+4});
-    else if (event.key==='ArrowUp') changePose({...pose,pitch:pose.pitch+2});
-    else if (event.key==='ArrowDown') changePose({...pose,pitch:pose.pitch-2});
-    else if (event.key==='Home') changePose(home());
-    else return;
-    event.preventDefault();
+    const before=session.read().evidence;
+    session.cue(before==='right' || before==='both'?'both':'left',true);
+  },'desk-live-clue','layers');
+  const mapToggle=control('展开行军图',()=>session.toggleMap(),'desk-live-map','layers');
+  const previousLeaf=control('',()=>session.turn('back'),'desk-page-turn','arrowLeft');
+  const nextLeaf=control('',()=>session.turn('forward'),'desk-page-turn','arrowRight');
+  previousLeaf.setAttribute('aria-label','前一张手记');
+  nextLeaf.setAttribute('aria-label','后一张手记');
+  transport.append(investigate,previousLeaf,nextLeaf,mapToggle,compare,bring,recenter,close);
+
+  const targets=(['page-forward','page-back','cord','cover','before-sheet','discussion-sheet','map','overlay','table'] as const)
+    .map(target=>{
+      const anchor=element('span','desk-object-position');
+      anchor.dataset.deskTarget=target;
+      anchor.setAttribute('aria-hidden','true');
+      anchor.hidden=true;
+      pinLayer.append(anchor);
+      return {target,anchor};
+    });
+
+  frame.append(poster,canvas,pinLayer,materials,guide);
+  stage.append(frame);
+  const session=mountDeskSession(frame,canvas,projectionMode?freshDesk():deskHistory.get(historyKey)??freshDesk(),
+    (view,publish)=>{paint(view);if(publish) publishDesk(view);});
+  if (handoff) requestAnimationFrame(()=>{
+    if (frame.isConnected) playDeskHandoff(frame,handoff,poster,frontUV.right);
   });
 
-  function read():DeskSnapshot {
-    return {...state,pose:{...state.pose},revision};
+  function fillArticle(paper:HTMLElement,item:{title:string;lines:readonly string[]}) {
+    paper.replaceChildren(element('h3','',item.title),...item.lines.map(line=>element('p','',line)));
   }
-  function send(force=true) {
-    if (disposed || projectionMode) return;
-    const now=performance.now();
-    if (!force && now-lastSend < 45) return;
-    lastSend=now;
-    revision=++deskRevision;
-    sendProjection({type:'desk',state:read()});
+  function select(side:'left'|'right') {
+    const view=session.read();
+    if (side==='left' && view.investigating && session.world) {session.turn('forward');return;}
+    if (side==='right' && view.carried) {session.cue('both',true);return;}
+    session.cue(side);
   }
-  function paint(draw:boolean) {
+  function setPosition(node:HTMLElement,point:readonly number[]) {
+    node.style.left=(point[0]*100)+'%';
+    node.style.top=(point[1]*100)+'%';
+  }
+  function usablePoint(point:readonly number[]|undefined):point is readonly number[] {
+    return !!point && point.length===2 && point.every(value=>Number.isFinite(value) && value>=0 && value<=1);
+  }
+  function guidance(view:DeskView) {
+    if (view.preview?.kind==='inspect') return '再点纸页，放回桌面。';
+    if (view.preview?.kind==='sheet') return '移到桌面，松手放下。';
+    if (view.saved.map==='both') return '对照从黎平分开的两条路线。';
+    if (view.saved.sheets.some(sheet=>sheet.id==='discussion') && view.saved.spread>0) return '把手记与会议讨论摆在一起。';
+    if (view.saved.dossier==='open') return '抽出会议讨论页，放到桌上。';
+    if (view.saved.dossier==='untied') return '抬起右册封面。';
+    if (view.saved.spread>0) return '继续翻阅，或松开右册扎绳。';
+    return '抓住书角翻阅，也可以先解开卷宗。';
+  }
+
+  function paint(view:DeskView) {
     if (disposed) return;
-    frame.dataset.evidence=state.evidence;
-    frame.dataset.yaw=state.pose.yaw.toFixed(3);
-    frame.dataset.pitch=state.pose.pitch.toFixed(3);
-    frame.dataset.zoom=state.pose.zoom.toFixed(4);
-    const handling=!!state.inquiry && state.inquiry.step!=='choose';
-    const meetingFirst=state.inquiry?.step==='choose' && state.inquiry.meetingRead;
-    if (space && draw && !canvas.hidden) space.draw(state.pose);
+    const {saved,preview}=view;
+    const drawnView=session.renderView();
+    const camera=drawnView.saved.camera;
+    const usable=!!session.world;
+    frame.dataset.yaw=camera.yaw.toFixed(3);
+    frame.dataset.pitch=camera.pitch.toFixed(3);
+    frame.dataset.zoom=camera.zoom.toFixed(4);
+    frame.dataset.spread=String(saved.spread);
+    frame.dataset.dossier=saved.dossier;
+    frame.dataset.map=saved.map;
+    frame.dataset.gesture=preview?.kind??'';
+    frame.dataset.progress=preview && 'progress' in preview?preview.progress.toFixed(3):'';
+    for (const id of deskMaterials) {
+      const sheet=saved.sheets.find(candidate=>candidate.id===id);
+      frame.setAttribute('data-sheet-'+id,sheet ? [sheet.at.x.toFixed(4),sheet.at.z.toFixed(4)].join(',') : '');
+    }
+
+    const left=saved.spread>0 || view.evidence==='left' || view.evidence==='both';
+    const right=saved.sheets.some(sheet=>sheet.id==='discussion') || view.evidence==='right' || view.evidence==='both';
+    const finished=left && right;
+    frame.dataset.inquiry=view.investigating?(finished?'done':'active'):'off';
+    frame.dataset.evidence=view.evidence;
+    if (!projectionMode && finished) revealed.add('materials-compared');
+    const showLeft=view.evidence==='left' || view.evidence==='both' || (!usable && saved.spread>0);
+    const showRight=view.evidence==='right' || view.evidence==='both' || (!usable && right);
+    materials.hidden=!showLeft&&!showRight;
     for (const {side,pin,slot,paper} of entries) {
-      const point=space && !canvas.hidden ? space.project(side,state.pose) : frontUV[side];
-      pin.hidden=projectionMode || state.evidence!=='none' || (handling && side==='left') ||
-        (meetingFirst && side==='right') || !point.every(value=>Number.isFinite(value)&&value>=0&&value<=1);
+      const projected=session.world?.project(side,drawnView);
+      const point=usablePoint(projected)?projected:frontUV[side];
+      pin.hidden=projectionMode || (side==='left'?showLeft:showRight) || !!preview || usable && view.investigating;
       if (!pin.hidden) {
-        pin.style.left=point[0]*100+'%';
-        pin.style.top=point[1]*100+'%';
+        const dragClearance=usable ? side==='left'?-.062:.062 : 0;
+        setPosition(pin,[deskClamp(point[0]+dragClearance,.025,.975),point[1]]);
       }
-      paper.hidden=!(state.evidence===side || state.evidence==='both' || (meetingFirst && side==='right'));
-      slot.hidden=paper.hidden;
-      if (!paper.hidden) {
-        const paired=state.evidence==='both';
-        const lower=paired && side==='right' ? .73 : .24;
-        const upper=paired && side==='left' ? .27 : .76;
-        slot.style.left=clamp(point[0],lower,upper)*100+'%';
-        slot.style.top=clamp(point[1],.30,.64)*100+'%';
+      slot.hidden=side==='left'?!showLeft:!showRight;
+      if (!slot.hidden) {
+        const paired=showLeft && showRight;
+        const lower=paired && side==='right'?.73:.24;
+        const upper=paired && side==='left'?.27:.76;
+        setPosition(slot,[deskClamp(point[0],lower,upper),deskClamp(point[1],.30,.64)]);
+      }
+      if (side==='left') {
+        const choice=view.carried?clue:undefined;
+        if (shownClue!==choice) {
+          fillArticle(paper,choice??zunyiMaterials[0]);
+          shownClue=choice;
+        }
       }
     }
-    inquiryView.paint(state.inquiry,space && !canvas.hidden ? space.project('right',state.pose) : frontUV.right);
-    materials.hidden=state.evidence==='none' && !meetingFirst;
-    const taskLabel=state.inquiry ? (state.inquiry.step==='done'?'结束查证':'退出查证') : '动手查证';
-    if (investigate.textContent!==taskLabel) setButtonContent(investigate,taskLabel,'compass');
-    compare.hidden=!!state.inquiry;
-    recenter.hidden=!space || handling;
-    hideMaterial.hidden=state.evidence==='none' || !!state.inquiry;
+    for (const {target,anchor} of targets) {
+      const point=session.world?.project(target,drawnView);
+      anchor.hidden=!usablePoint(point);
+      if (usablePoint(point)) setPosition(anchor,point);
+    }
+
+    guide.hidden=!usable || (!view.investigating && !preview);
+    const message=guide.hidden?'':guidance(view);
+    if (guide.textContent!==message) guide.textContent=message;
+    const investigationLabel=view.investigating?(finished?'结束查证':'退出查证'):'动手查证';
+    if (investigate.textContent!==investigationLabel) setButtonContent(investigate,investigationLabel,'compass');
+    investigate.hidden=!usable;
+    previousLeaf.hidden=nextLeaf.hidden=!usable||!view.investigating;
+    previousLeaf.disabled=saved.spread===0;
+    nextLeaf.disabled=saved.spread===deskSpreads;
+    mapToggle.hidden=!usable;
+    const mapLabel=saved.map==='stored'?'展开行军图':saved.map==='both'?'揭开改向线':'叠看两条路线';
+    if (mapToggle.textContent!==mapLabel) setButtonContent(mapToggle,mapLabel,'layers');
+    compare.hidden=view.investigating;
+    bring.hidden=!clue || view.investigating;
+    if (clue && bring.textContent!==clue.title) setButtonContent(bring,clue.title,'layers');
+    bring.setAttribute('aria-pressed',String(view.carried));
+    recenter.hidden=!usable;
+    close.hidden=view.evidence==='none';
   }
+
   function resize() {
     const width=Math.min(stage.clientWidth,stage.clientHeight*16/9);
     if (width<=0 || disposed) return;
     frame.style.width=width+'px';
     const pixels=Math.max(320,Math.min(1600,Math.round(width*Math.min(devicePixelRatio,1.5)/16)*16));
-    if (canvas.width!==pixels) {canvas.width=pixels;canvas.height=pixels*9/16;}
-    paint(true);
+    session.resize(pixels,pixels*9/16);
   }
   const observer=new ResizeObserver(resize);
   observer.observe(stage);
-
-  function back(evidence:DeskEvidence,inquiry:DeskInquiry|null=null) {
-    if (disposed || projectionMode) return;
-    drag=leafDrag=undefined;
-    state.evidence=evidence;
-    state.inquiry=inquiry;
-    if (evidence==='left'||evidence==='both') revealed.add('material-before');
-    if (evidence==='right'||evidence==='both') revealed.add('material-during');
-    if (evidence==='both') revealed.add('materials-compared');
-    paint(true);
-    send();
-  }
-  function reveal(which:DeskEvidence) {
-    back(which);
-  }
-  function select(which:'left'|'right') {
-    if (projectionMode || disposed) return;
-    const task=state.inquiry;
-    if (!task) {reveal(which);return;}
-    if (which==='left' && task.step==='choose') {
-      state.pose=home();
-      back('none',{...task,step:'leaf',opening:0,needsClue:false});
-    } else if (which==='right' && task.step==='found') {
-      back('both',{...task,step:'done',needsClue:false,meetingRead:true});
-    } else if (which==='right' && task.step!=='done') {
-      state.inquiry={...task,needsClue:true,meetingRead:true};
-      revealed.add('material-during');
-      paint(false);send();
-    }
-  }
-  function adjustLeaf(value:number,force:boolean) {
-    const task=state.inquiry;
-    if (projectionMode || !task || (task.step!=='leaf' && task.step!=='found')) return;
-    const opening=clamp(Math.round(value),0,inquiryView.last);
-    if (opening===task.opening) return;
-    const found=task.step==='found' || opening>=Math.ceil(inquiryView.last*.8);
-    state.inquiry={...task,step:found?'found':'leaf',opening,needsClue:false};
-    if (found) revealed.add('material-before');
-    paint(false);send(force);
-  }
-  function settleLeaf() {
-    const task=state.inquiry;
-    if (!projectionMode && task?.step==='found' && task.meetingRead) back('both',{...task,step:'done'});
-  }
-  function changePose(next:DeskPose,push=true) {
-    if (projectionMode || !space || (state.inquiry && state.inquiry.step!=='choose')) return;
-    state.pose={yaw:clamp(next.yaw,-18,18),pitch:clamp(next.pitch,-5,6),zoom:clamp(next.zoom,.92,1.28)};
-    state.evidence='none';
-    paint(true);send(push);
-  }
-  frame.addEventListener('pointerdown',event=>{
-    if (projectionMode || !event.isPrimary || event.button!==0 || (event.target as Element).closest('button,article')) return;
-    const task=state.inquiry;
-    if (task && (task.step==='leaf' || task.step==='found')) {
-      const rect=frame.getBoundingClientRect();
-      if (inquiryView.overPage((event.clientX-rect.x)/rect.width,(event.clientY-rect.y)/rect.height)) {
-        leafDrag={id:event.pointerId,x:event.clientX,y:event.clientY,opening:task.opening};
-        frame.setPointerCapture(event.pointerId);
-        return;
-      }
-    }
-    drag={id:event.pointerId,x:event.clientX,y:event.clientY,pose:{...state.pose},moved:false};
-    frame.setPointerCapture(event.pointerId);
-  });
-  frame.addEventListener('pointermove',event=>{
-    if (leafDrag && leafDrag.id===event.pointerId) {
-      const delta=(leafDrag.x-event.clientX)/(.25*frame.clientWidth)+(leafDrag.y-event.clientY)/(.39*frame.clientHeight);
-      adjustLeaf(leafDrag.opening+delta*inquiryView.last,false);
-      return;
-    }
-    if (!drag || drag.id!==event.pointerId) return;
-    const horizontal=event.clientX-drag.x, vertical=event.clientY-drag.y;
-    if (Math.hypot(horizontal,vertical)>4) drag.moved=true;
-    if (drag.moved) changePose({...drag.pose,yaw:drag.pose.yaw-horizontal*60/frame.clientWidth,pitch:drag.pose.pitch+vertical*21/frame.clientHeight},false);
-  });
-  frame.addEventListener('pointerup',event=>{
-    if (leafDrag?.id===event.pointerId) {leafDrag=undefined;settleLeaf();send();return;}
-    if (!drag || drag.id!==event.pointerId) return;
-    const tap=!drag.moved;
-    drag=undefined;
-    if (!tap) {send();return;}
-    const box=frame.getBoundingClientRect();
-    const horizontal=(event.clientX-box.x)/box.width,vertical=(event.clientY-box.y)/box.height;
-    const picked=space?.pick(horizontal,vertical,state.pose);
-    if (picked) select(picked); else if(state.evidence!=='none' && !state.inquiry)reveal('none');
-  });
-  frame.addEventListener('pointercancel',()=>{drag=undefined;leafDrag=undefined;send();});
-  frame.addEventListener('wheel',event=>{
-    if (projectionMode || !space) return;
-    event.preventDefault();changePose({...state.pose,zoom:state.pose.zoom*Math.exp(-clamp(event.deltaY,-220,220)*.0013)});
-  },{passive:false});
-
-  function restore(remote:DeskSnapshot) {
-    if (!projectionMode || disposed || !remote || remote.revision<=lastRevision) return;
-    lastRevision=remote.revision;
-    const moved=state.pose.yaw!==remote.pose.yaw || state.pose.pitch!==remote.pose.pitch || state.pose.zoom!==remote.pose.zoom;
-    state.pose={...remote.pose};
-    state.evidence=remote.evidence;
-    state.inquiry=remote.inquiry?{...remote.inquiry}:null;
-    paint(moved);
-  }
-
-  canvas.addEventListener('webglcontextlost',event=>{
-    event.preventDefault();
+  function fallback() {
     if (disposed) return;
-    canvas.hidden=true;frame.dataset.space='fixed';
-    if (!projectionMode) state.pose=home();
-    space?.dispose();space=undefined;paint(false);send();
-  });
-  createMeetingSpace(canvas,{
-    manifest:mediaAssets['desk-manifest'], mesh:mediaAssets['desk-mesh'],
-    front:mediaAssets['desk-front'], left:mediaAssets['desk-left'], right:mediaAssets['desk-right'],
-  }).then(result=>{
-    if (disposed) {result.dispose();return;}
-    space=result;canvas.hidden=false;frame.dataset.space='ready';resize();paint(true);
-  }).catch(()=>{
-    if(!disposed){frame.dataset.space='fixed';paint(false);}
-  });
-  paint(false);
+    frame.dataset.space='fixed';
+    canvas.hidden=true;
+    session.releaseWorld();
+    paint(session.read());
+  }
+  canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();fallback();});
+  explorationStage.createDeskWorld(canvas,mediaAssets).then(world=>{
+    if (disposed) {world.dispose();return;}
+    canvas.hidden=false;
+    frame.dataset.space='ready';
+    session.connect(world as DeskWorld);
+    resize();
+  }).catch(fallback);
+  paint(session.read());
+  beginDeskVisit(position);
+  queueMicrotask(()=>{if (!disposed) publishDesk(session.read());});
   return {
-    transport,read,restore,
-    dismiss:()=>back('none'),
-    dispose:()=>{
+    transport,read:session.read,restore:session.restore,
+    setClue(next) {clue=next;paint(session.read());},
+    dismiss:()=>session.cue('none'),
+    dispose() {
       disposed=true;
       observer.disconnect();
-      inquiryView.dispose();
-      space?.dispose();
-      space=undefined;
+      const saved=session.leave();
+      if (!projectionMode) deskHistory.set(historyKey,saved);
     },
   };
 }

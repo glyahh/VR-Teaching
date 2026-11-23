@@ -16,7 +16,8 @@ const movement = new Map([
  *   player: number[], eye: number[], yaw: number, pitch: number, zoom: number,
  *   focused: 'route' | 'record' | null, approach: 'route' | 'record' | null,
  *   routeProgress: number, station: string, seen: string[],
- *   bookPage: number, bookPose: number, reading: boolean, walking: boolean
+ *   bookPage: number, bookPose: number, reading: boolean, walking: boolean,
+ *   lastClue?: 'route' | 'record' | null
  * }} HallView
  */
 
@@ -35,7 +36,19 @@ export function isHallView(view) {
     Array.isArray(view.seen) && view.seen.length <= 2 && [...view.seen].every(evidence) &&
     Number.isInteger(view.bookPage) && view.bookPage >= 0 && view.bookPage <= pages.length &&
     Number.isFinite(view.bookPose) && view.bookPose >= 0 && view.bookPose <= pages.length &&
+    (view.lastClue == null || evidence(view.lastClue)) &&
     typeof view.reading === 'boolean' && typeof view.walking === 'boolean';
+}
+
+export function describeHallClue(view) {
+  if (view.lastClue === 'route') {
+    if (view.station && Object.hasOwn(stations,view.station)) {
+      return {kind:'route', title:view.station, lines:[stations[view.station]]};
+    }
+    return {kind:'route', title:routes.title, lines:[routes.original,routes.changed]};
+  }
+  const page = view.lastClue === 'record' ? pages[view.bookPage - 1] : undefined;
+  return page ? {kind:'record', title:page.title, lines:[page.finding,page.detail]} : undefined;
 }
 
 export async function startWalk(ui, assets) {
@@ -68,6 +81,9 @@ export async function startWalk(ui, assets) {
   let pointer = null;
   let needsMarkers = true;
   let changed = false;
+  /** @type {'route' | 'record' | null} */
+  let lastClue = null;
+  const projectedDossier = new THREE.Vector3();
 
   const markers = Object.entries(spots).map(([id, site]) => {
     const button = ui.marker(site.label);
@@ -174,6 +190,7 @@ export async function startWalk(ui, assets) {
     const next = THREE.MathUtils.clamp(value, 0, pages.length);
     if (next !== bookPage) ui.closeReading({ immediate: true, restoreFocus: false });
     bookPage = next;
+    if (!ui.projection && bookPage > 0) lastClue = 'record';
     if (bookPage > 0 && !seen.has('record')) {
       seen.add('record');
       world.setRoute(routeProgress, true, station);
@@ -190,10 +207,12 @@ export async function startWalk(ui, assets) {
 
   function readSelection() {
     if (focused === 'route') {
+      if (!ui.projection) lastClue = 'route';
       const item = station ? { title: station } : routes;
       ui.read(item, station ? stations[station] : routeProgress >= 0.5 ? routes.changed : routes.original,
         station ? '' : routes.compare);
     } else if (focused === 'record' && bookPage) {
+      if (!ui.projection) lastClue = 'record';
       const item = pages[bookPage - 1];
       ui.read(item, item.finding, item.detail);
     }
@@ -203,6 +222,7 @@ export async function startWalk(ui, assets) {
   function setRoute(value) {
     routeProgress = THREE.MathUtils.clamp(value, 0, 1);
     seen.add('route');
+    if (!ui.projection) lastClue = 'route';
     world.setRoute(routeProgress, seen.has('record'), station);
     redraw();
   }
@@ -370,7 +390,7 @@ export async function startWalk(ui, assets) {
       player: player.toArray(), eye: eye.toArray(), yaw, pitch, zoom: camera.zoom,
       focused, approach: approachTarget, routeProgress, station, seen: [...seen],
       bookPage, bookPose, reading: !ui.reading.hidden && !ui.reading.inert,
-      walking: ui.stage.hasAttribute('data-walking'),
+      walking: ui.stage.hasAttribute('data-walking'), lastClue,
     };
   }
 
@@ -393,6 +413,7 @@ export async function startWalk(ui, assets) {
     seen.clear();
     view.seen.forEach(id => seen.add(id));
     bookPage = view.bookPage;
+    lastClue = view.lastClue ?? null;
     if (bookPose !== view.bookPose) {
       paintBook(view.bookPose);
       viewport.updateShadows();
@@ -406,6 +427,7 @@ export async function startWalk(ui, assets) {
   }
 
   function reset() {
+    lastClue = null;
     seen.clear();
     pointer = null;
     routeProgress = bookPage = bookPose = 0;
@@ -487,6 +509,24 @@ export async function startWalk(ui, assets) {
 
   return {
     read, restore, reset,
+    deskShot() {
+      if (!world.dossier) return;
+      const dossier = world.dossier.getWorldPosition(targetPoint);
+      projectedDossier.copy(dossier).project(camera);
+      const x = (1+projectedDossier.x)/2, y = (1-projectedDossier.y)/2;
+      if (projectedDossier.z > -1 && projectedDossier.z < 1 && x > .24 && x < .76 && y > .24 && y < .76) {
+        direction.subVectors(dossier, camera.position);
+        rayToMarker.far = direction.length() - .05;
+        rayToMarker.set(camera.position, direction.normalize());
+        if (!rayToMarker.intersectObjects(world.occluders, false).length) return {anchor:[x,y]};
+      }
+      const detail = camera.clone();
+      detail.position.copy(dossier).add(new THREE.Vector3(.04,.77,1.03));
+      detail.lookAt(dossier);
+      detail.zoom = 1.32;
+      detail.updateProjectionMatrix();
+      return {anchor:[.5,.5],camera:detail};
+    },
     activate(view) {
       ui.inspect.hidden = false;
       if (view) restore(view);

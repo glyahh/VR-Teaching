@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
 import { assertDemoTemplate } from '../page-policy.mjs';
-import { readExplorationStyle, readExplorationAssets } from './exploration-assets.mjs';
+import { explorationHtml, readExplorationStyle, readExplorationAssets } from './exploration-assets.mjs';
 
 const here = new URL('./', import.meta.url);
 const root = new URL('../../', here);
@@ -21,7 +21,7 @@ const [template, css, hallControls, riverControls, reading, sharedStyle, threeNo
   build({
     entryPoints: [fileURLToPath(new URL('main.js', here))],
     bundle: true, minify: true, write: false, format: 'iife',
-    target: 'edge120', legalComments: 'inline', loader: { '.html': 'text' },
+    target: 'edge120', legalComments: 'inline', plugins: [explorationHtml],
   }),
 ]);
 

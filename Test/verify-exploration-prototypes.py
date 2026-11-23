@@ -39,20 +39,22 @@ def mode(page, title):
     expect(page.locator("#restart")).to_be_enabled(timeout=30000)
 
 
-def check_reading_layout(page, dock, actions, caption):
+def check_reading_layout(page, dock, actions, caption, *, framed=True):
     width = page.viewport_size["width"]
     for selector in [".heading", ".toolbar", dock, actions, caption, "#reading", "#reading-title"]:
         node = page.locator(selector)
         box = node.bounding_box()
         assert 0 <= box["x"] and box["x"] + box["width"] <= width + 1, (selector, box)
     assert abs(center(page.locator(dock))[0] - width / 2) < 1
-    assert page.locator(dock).evaluate("""node => {
+    assert page.locator(dock).evaluate("""(node, framed) => {
       const style = getComputedStyle(node);
       const grain = getComputedStyle(node, '::before');
+      if (!framed) return style.borderWidth === '0px' && style.backdropFilter === 'none' &&
+        style.backgroundColor === 'rgba(0, 0, 0, 0)' && grain.backgroundImage === 'none';
       return style.borderWidth === '1px' && style.borderStyle === 'solid' &&
         style.boxShadow === 'none' && style.backdropFilter.includes('blur(') &&
         grain.backgroundImage !== 'none' && Number(grain.opacity) > 0 && grain.pointerEvents === 'none';
-    }"""), "主提示框应使用单层细边和背景磨砂"
+    }""", framed), ("材料厅提示框应使用细边和磨砂" if framed else "河岸按钮组应直接透出场景")
     panel = page.locator("#reading").bounding_box()
     header = page.locator(".hud").bounding_box()
     dock_box = page.locator(dock).bounding_box()
@@ -66,7 +68,7 @@ def check_reading_layout(page, dock, actions, caption):
         assert hint["y"] + hint["height"] <= buttons["y"]
     else:
         assert hint["x"] + hint["width"] < buttons["x"]
-    assert buttons["y"] + buttons["height"] < dock_box["y"] + dock_box["height"]
+    assert buttons["y"] + buttons["height"] <= dock_box["y"] + dock_box["height"]
 
 
 def verify_walk(page):
@@ -242,7 +244,7 @@ def verify_river(page):
     mode(page, "于都河岸")
     action = page.locator("#river-action")
     caption = page.locator("#river-instruction")
-    meter = page.locator("#river-time")
+    progress = page.locator("#river-tools")
     east = page.locator(".river-label").filter(has_text="东门渡口")
     downstream = page.locator(".river-label").filter(has_text="下游渡口")
     supply = page.locator(".river-label").filter(has_text="备料岸")
@@ -266,25 +268,24 @@ def verify_river(page):
     }""")
 
     def wait_at(text):
-        expect(action).to_have_text(text, timeout=60000)
-        expect(meter).to_be_hidden()
+        expect(action).to_have_attribute("aria-label", text, timeout=60000)
+        expect(progress.locator("progress")).to_have_count(0)
         elapsed_frames(page, 1.55)
-        expect(action).to_have_text(text)
-        expect(meter).to_be_hidden()
+        expect(action).to_have_attribute("aria-label", text)
+        expect(progress.locator("progress")).to_have_count(0)
 
-    expect(action).to_have_text("到桥头")
+    expect(action).to_have_attribute("aria-label", "到桥头")
     expect(caption).to_contain_text("于都河上没有固定桥，八万多人得在夜里过河")
     expect(page.locator("#scene-previous")).to_be_hidden()
-    dock = page.locator("#river-tools").bounding_box()
-    initial_height = dock["height"]
-    sample = (round(dock["x"]) + 20, round(dock["y"]) + 17, 37, 22)
-    # 排除场景边缘的遮罩，直接比较玻璃底板透出的明暗。
+    bounds = action.bounding_box()
+    initial_height = bounds["height"]
+    sample = (round(bounds["x"]) + 6, round(bounds["y"]) + 8, 6, 22)
     backing = page.add_style_tag(content="#view, #stage::after { visibility: hidden; } #stage { background: #181818; }")
     dark_glass = region(page, *sample)
     backing.evaluate("style => style.textContent += '#stage { background: #f2f2f2; }'")
     bright_glass = region(page, *sample)
     backing.evaluate("style => style.remove()")
-    assert mean_difference(dark_glass, bright_glass) > 16, "主提示条的底色盖住了玻璃背后的明暗"
+    assert mean_difference(dark_glass, bright_glass) > 16, "箭头按钮底色挡住了背景"
     expect(downstream).to_be_hidden()
     expect(supply).to_be_hidden()
 
@@ -296,30 +297,30 @@ def verify_river(page):
     assert abs(current[0] - x) > 16 or abs(current[1] - y) > 16, "环绕拖动没有改变画面"
     drag(page, 78, 0, start=(631, 250), button="right")
     elapsed_frames(page, 0.38)
-    expect(action).to_have_text("到桥头")
+    expect(action).to_have_attribute("aria-label", "到桥头")
     home.click()
     page.screenshot(path=QA / "分段演示-入口.png")
 
     page.locator("#view").click(position={"x": 700, "y": 427})
-    expect(action).to_have_text("暂停")
-    page.wait_for_function("document.querySelector('#river-time').value > 0.18")
+    expect(action).to_have_attribute("aria-label", "暂停")
+    page.wait_for_function("Number(document.querySelector('#river-tools').dataset.progress) > 0.18")
     action.click()
-    expect(action).to_have_text("继续")
-    assert page.locator('#river-tools').bounding_box()['height'] == initial_height
-    frozen = meter.evaluate("node => node.value")
+    expect(action).to_have_attribute("aria-label", "继续")
+    assert action.bounding_box()["height"] == initial_height
+    frozen = float(progress.get_attribute("data-progress"))
     snapshot = region(page, 400, 240, 490, 280)
     elapsed_frames(page, 0.47)
-    assert meter.evaluate("node => node.value") == frozen, "暂停后演示仍在推进"
+    assert float(progress.get_attribute("data-progress")) == frozen, "暂停后演示仍在推进"
     assert mean_difference(snapshot, region(page, 400, 240, 490, 280)) < 0.35, "暂停后场景画面发生了变化"
     mode(page, "遵义材料厅")
     expect(page.locator("#stage")).to_have_attribute("data-area", "材料厅")
     expect(page.locator("#summary")).to_be_visible()
     expect(page.locator("#reading")).to_be_hidden()
     elapsed_frames(page, 0.50)
-    assert meter.evaluate("node => node.value") == frozen, "切走河岸后进度变化了"
+    assert float(progress.get_attribute("data-progress")) == frozen, "切走河岸后进度变化了"
     mode(page, "于都河岸")
-    expect(action).to_have_text("继续")
-    assert meter.evaluate("node => node.value") == frozen, "返回河岸后播放位置没有保留"
+    expect(action).to_have_attribute("aria-label", "继续")
+    assert float(progress.get_attribute("data-progress")) == frozen, "返回河岸后播放位置没有保留"
     expect(page.locator("#scene-previous")).to_be_hidden()
     assert mean_difference(snapshot, region(page, 400, 240, 490, 280)) < 0.50, "返回时河岸机位或画面变了"
     page.screenshot(path=QA / "连续切换-河岸恢复.png")
@@ -353,12 +354,12 @@ def verify_river(page):
     expect(caption).to_contain_text("等待铺上纵梁")
     elapsed_frames(page, 0.46)
     page.get_by_role("button", name="返回", exact=True).click()
-    expect(action).to_have_text("看架桥")
+    expect(action).to_have_attribute("aria-label", "看架桥")
     expect(part_button).to_be_focused()
     assert mean_difference(ready_view, region(page, 350, 195, 590, 340)) < 0.55, "返回后未恢复演示画面"
 
     action.click()
-    page.wait_for_function("document.querySelector('#river-time').value > 0.46")
+    page.wait_for_function("Number(document.querySelector('#river-tools').dataset.progress) > 0.46")
     page.screenshot(path=QA / "于都夜渡-抬板.png")
     wait_at("看夜渡")
     expect(caption).to_contain_text("铰链孔")
@@ -369,7 +370,7 @@ def verify_river(page):
     elapsed_frames(page, 0.52)
     page.screenshot(path=QA / "B-门板观察.png")
     page.keyboard.press("Escape")
-    expect(action).to_have_text("看夜渡")
+    expect(action).to_have_attribute("aria-label", "看夜渡")
     history = page.get_by_role("button", name="史料", exact=True)
     history.click()
     expect(page.locator("#detail")).to_contain_text("船主误工的三十块")
@@ -384,7 +385,7 @@ def verify_river(page):
     night = region(page, 320, 220, 550, 320)
     page.screenshot(path=QA / "于都夜渡-夜渡.png")
     action.click()
-    page.wait_for_function("document.querySelector('#river-time').value > 0.44")
+    page.wait_for_function("Number(document.querySelector('#river-tools').dataset.progress) > 0.44")
     page.screenshot(path=QA / "于都夜渡-撤桥中.png")
     wait_at("重播")
     expect(caption).to_contain_text("白天的浮桥容易被敌机发现")
@@ -394,7 +395,7 @@ def verify_river(page):
     print("五段实际播放秒数", [round(value, 2) for value in times], flush=True)
     dawn = region(page, 320, 220, 550, 320)
     assert mean_difference(night, dawn) > 4, "收桥前后画面没有明显变化"
-    assert page.locator('#river-tools').bounding_box()['height'] == initial_height
+    assert action.bounding_box()["height"] == initial_height
     page.screenshot(path=QA / "于都夜渡-拂晓.png")
 
     close = page.get_by_role("button", name="收起材料", exact=True)
@@ -418,13 +419,13 @@ def verify_river(page):
         page.set_viewport_size({"width": width, "height": height})
         history.click()
         elapsed_frames(page, 0.35)
-        check_reading_layout(page, "#river-tools", "#river-actions", "#river-instruction")
+        check_reading_layout(page, "#river-tools", "#river-actions", "#river-instruction", framed=False)
         page.screenshot(path=QA / f"于都夜渡-史料-{width}.png")
         close.click()
         expect(page.locator("#reading")).to_be_hidden()
     page.set_viewport_size({"width": 1366, "height": 768})
     action.click()
-    expect(action).to_have_text("暂停")
+    expect(action).to_have_attribute("aria-label", "暂停")
     expect(caption).to_contain_text("沿土路")
     expect(history).to_be_hidden()
     print("B 通过。五段停留、原位续播、同机位回看、史料揭示、三种尺寸及重播。", flush=True)

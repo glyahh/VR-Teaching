@@ -2,6 +2,8 @@ declare const explorationStage: typeof import('../自由探索实验/exploration
 type Exploration = ReturnType<typeof explorationStage.createExploration>;
 type ExplorationView = NonNullable<ReturnType<Exploration['read']>>;
 type ExplorationId = ExplorationView['id'];
+type HallClue = NonNullable<ReturnType<typeof explorationStage.hallClue>>;
+type HallHandoff = { frame: HTMLCanvasElement; anchor?: number[]; closeup?: HTMLCanvasElement };
 type ExplorationAddress = { position: number; visit: number; version: number };
 type ExplorationFrame = ExplorationAddress & { kind: 'view'; view: ExplorationView | null };
 type ExplorationUpdate = ExplorationFrame | (ExplorationAddress & { kind: 'visit' });
@@ -25,6 +27,18 @@ let explorationVersion = 0;
 let receivedExplorationVisit = 0;
 let receivedExplorationVersion = 0;
 let explorationPublishTimer: number | undefined;
+let retainedHallClue: HallClue | undefined;
+
+function captureExplorationView(id: ExplorationId) {
+  if (reducedMotion.matches || explorationActivity?.read()?.id !== id) return;
+  const frame = document.createElement('canvas');
+  if (explorationActivity.capture(frame)) return frame;
+}
+
+function captureHallHandoff(): HallHandoff | undefined {
+  const frame = captureExplorationView('zunyi-hall');
+  if (frame) return {frame, ...explorationActivity?.captureDeskShot(document.createElement('canvas'))};
+}
 
 function readExplorationUpdate(): ExplorationFrame | undefined {
   const page = currentExplorationPage;
@@ -84,10 +98,11 @@ function releaseExplorationPage() {
   currentExplorationPage = undefined;
 }
 
-function mountExplorationPage({ id, position, scene, stage, tools, bottom, pauseMedia, backdrop }: {
+function mountExplorationPage({ id, position, scene, stage, tools, bottom, pauseMedia, backdrop, openDesk }: {
   id: ExplorationId; position: number; scene: HTMLElement; stage: HTMLElement;
   tools: HTMLElement; bottom: HTMLElement; pauseMedia: () => void;
   backdrop?: { key: string; image: HTMLImageElement };
+  openDesk?: () => void;
 }) {
   const labels = explorationLabels[id];
   const activity = () => explorationActivity ??= explorationStage.createExploration({
@@ -100,20 +115,44 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
   status.hidden = true;
   scene.append(status);
 
+  const header = scene.querySelector<HTMLElement>('.scene-head');
+  const identity = header?.querySelector<HTMLElement>('.scene-identity');
+  const next = bottom.querySelector<HTMLElement>('[data-lesson-action=next]');
   function positionDock() {
-    const gap = stage.getBoundingClientRect().bottom - bottom.getBoundingClientRect().top;
-    scene.style.setProperty('--exploration-dock-bottom', Math.ceil(gap + 14) + 'px');
+    const frame = stage.getBoundingClientRect();
+    if (!projectionMode) {
+      const gap = frame.bottom - bottom.getBoundingClientRect().top;
+      scene.style.setProperty('--exploration-dock-bottom', Math.ceil(gap + 14) + 'px');
+      const nav = next?.getBoundingClientRect();
+      if (nav?.height) scene.style.setProperty('--river-action-bottom', (frame.bottom - nav.bottom) + 'px');
+    }
+    const buttons = tools.getBoundingClientRect();
+    const top = buttons.height ? buttons.bottom - frame.top + Math.max(0,buttons.top - frame.top) :
+      (header?.offsetHeight ?? 0) + 12;
+    const title = identity?.getBoundingClientRect();
+    const clearance = title && title.bottom > frame.top + top ? title.right - frame.left + 12 : 0;
+    scene.style.setProperty('--scene-note-top', top + 'px');
+    scene.style.setProperty('--scene-note-clearance', clearance + 'px');
   }
-  const dockSize = projectionMode ? undefined : new ResizeObserver(positionDock);
-  dockSize?.observe(bottom);
+  const dockSize = new ResizeObserver(positionDock);
+  for (const node of [stage, tools, bottom, header, identity]) if (node) dockSize.observe(node);
 
   function close(restoreBackdrop = true) {
     ++request;
+    if (id === 'zunyi-hall' && !projectionMode && surface === 'exploration') {
+      const clue = explorationStage.hallClue(explorationActivity?.read() ?? null);
+      if (clue) {
+        retainedHallClue = clue;
+        sendProjection({type:'hall-clue', clue});
+      }
+    }
     explorationActivity?.close();
-    if (restoreBackdrop && surface === 'exploration' && backdrop) attachCinemagraph(backdrop.key, backdrop.image);
+    const resume = restoreBackdrop && surface !== 'static';
+    if (resume && surface === 'exploration' && backdrop) attachCinemagraph(backdrop.key, backdrop.image);
     surface = 'static';
     status.hidden = true;
     scene.removeAttribute('data-exploration');
+    if (resume) currentVideo?.resumeBackground();
     syncButtons();
   }
 
@@ -132,16 +171,29 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
     if (id === 'yudu-river') explorationActivity?.home();
     else explorationActivity?.restart();
   }, '', 'reset');
+  const desk = openDesk ? syncControl('hall-desk','会议桌',() => {
+    if (surface === 'exploration') openDesk();
+  },'journey-control','layers') : undefined;
+  if (desk) {
+    desk.hidden = true;
+    tools.prepend(desk);
+  }
   if (toggle && reset) {
     reset.hidden = true;
     tools.prepend(toggle, reset);
   }
 
   function syncButtons() {
-    if (!toggle || !reset) return;
     const open = surface === 'exploration';
-    setButtonContent(toggle, surface === 'static' ? labels.enter : labels.leave,
-      surface === 'static' ? 'compass' : 'arrowLeft');
+    if (desk) desk.hidden = !open;
+    if (!toggle || !reset) return;
+    if (surface === 'static') {
+      toggle.classList.remove('icon-button');
+      toggle.removeAttribute('aria-label');
+      toggle.removeAttribute('title');
+      setButtonContent(toggle,labels.enter,'compass');
+    } else setIconButton(toggle,labels.leave,'arrowLeft');
+    setIconButton(reset,labels.reset,'reset');
     toggle.setAttribute('aria-expanded', String(open));
     reset.hidden = !open;
   }
@@ -158,9 +210,9 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
       stopCinemagraphs();
       surface = 'exploration';
       scene.dataset.exploration = id;
-      if (!projectionMode) positionDock();
       status.hidden = true;
       syncButtons();
+      positionDock();
       publishExplorationView(true);
     } catch {
       if (loading !== request) return;
@@ -185,7 +237,7 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
     },
     release() {
       close(false);
-      dockSize?.disconnect();
+      dockSize.disconnect();
     },
   };
   if (visit !== null) {

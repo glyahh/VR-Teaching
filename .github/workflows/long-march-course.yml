@@ -1,0 +1,42 @@
+name: 长征离线课件
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  course:
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.21.0"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm --prefix "课堂演示/自由探索实验" ci
+      - run: npm --prefix "课堂演示/自由探索实验" run check:course
+      - run: node "Test/verify-presentation-policy.mjs"
+      - run: node "课堂演示/build.mjs" --check
+      - run: python -m pip install playwright==1.63.0 Pillow==12.2.0
+      - name: 断网 Edge 回归
+        run: |
+          foreach ($feature in @('entry','narration','disclosures','journeys','controls')) {
+            python -B "Test/course_cli.py" --output ".march-build/ci/$feature" run $feature
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          python -B "Test/course_cli.py" --output ".march-build/ci/reduced-motion" --reduced-motion run entry
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: 长征课 Edge 验收
+          path: .march-build/ci/
+          include-hidden-files: true
+          if-no-files-found: ignore

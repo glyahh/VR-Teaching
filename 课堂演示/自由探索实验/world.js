@@ -229,7 +229,7 @@ export async function createWorld(assets) {
   scene.add(sky, sun, roomLight);
 
   return {
-    scene, occluders, chart, notebook, demonstration,
+    scene, occluders, chart, notebook, demonstration, dossier:desk.getObjectByName('牛皮纸封卷'),
     setBook,
     setRoute(progress, compared, station) {
       knob.position.x = THREE.MathUtils.lerp(-0.54, 0.54, progress);

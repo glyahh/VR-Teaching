@@ -98,15 +98,15 @@ button.scene-point:hover:not(:disabled) { background: transparent; }
 :is(.exploration-stage .action-button, .exploration-stage .soft-button, .toolbar button):active:not(:disabled) { transform: scale(0.976); }
 .exploration-stage .soft-button { background: rgb(246 249 255 / 0.073); border-color: rgb(var(--silver) / 0.21); }
 
-#inspect, #river-tools {
-  --glass-tint: rgb(32 36 34 / 0.83);
-  --glass-fill: #414643;
+#inspect {
+  --glass-tint: rgb(32 31 30 / 0.66);
+  --glass-fill: #49453f;
   --glass-blur: 16px;
   width: min(780px, 100% - 2 * var(--inset));
   padding: 14px 16px;
   color: #fffaf0;
 }
-#inspect::before, #river-tools::before {
+#inspect::before {
   content: "";
   position: absolute; z-index: -1; inset: 0;
   border-radius: inherit; pointer-events: none;
@@ -122,29 +122,35 @@ button.scene-point:hover:not(:disabled) { background: transparent; }
 #instruction, #river-instruction {
   min-width: 0; font-size: clamp(16px, 1.56vw, 30px); line-height: 1.35;
 }
-#river-instruction { font-size: clamp(16px, 1.56vw, 24px); min-height: 2.7em; display: grid; align-content: center; }
-#river-action { width: clamp(108px, 9vw, 163px); padding-inline: 8px; font-size: clamp(15px, 1.2vw, 24px); }
-#river-tools[data-playback="paused"] { border-color: rgb(var(--warm) / 0.43); }
-.playback-icon {
-  flex: 0 0 auto; width: 10px; height: 11px; background-color: currentColor;
-  clip-path: polygon(0 0, 100% 50%, 0 100%); opacity: 0.8;
+#river-tools { width: max-content; color: #fffaf0; }
+#river-instruction {
+  font-size: clamp(16px, 1.56vw, 24px); text-wrap: balance;
+  text-shadow: 0 1px 3px #19120c, 0 2px 6px #19120c;
 }
-#river-tools[data-playback="playing"] .playback-icon {
+.river-options { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.river-options:has(> button:not([hidden])) { margin-inline-end: 2px; }
+.exploration-stage .river-playback {
+  display: inline-grid; place-items: center; box-sizing: border-box;
+  width: 44px; min-width: 44px; min-height: 44px; padding: 0;
+  border: 1px solid rgb(249 232 201 / 0.52); border-radius: 9px;
+  background: rgb(239 219 180 / 0.1); color: #fff0cf;
+}
+.exploration-stage .river-playback:hover:not(:disabled) { background: rgb(239 219 180 / 0.1); border-color: #fff0cf; }
+.playback-icon {
+  display: block; width: 14px; height: 15px; background: currentColor;
+  clip-path: polygon(0 0,100% 50%,0 100%);
+}
+.river-playback[data-icon="next"] .playback-icon {
+  width: 18px; height: 16px; clip-path: polygon(0 43%,70% 43%,43% 12%,54% 0,100% 50%,54% 100%,43% 88%,70% 57%,0 57%);
+}
+.river-playback[data-icon="pause"] .playback-icon {
   clip-path: none;
   background: linear-gradient(90deg, currentColor 0 33%, transparent 33% 67%, currentColor 67% 100%);
 }
-#river-tools[data-playback="finished"] .playback-icon {
-  height: 12px; width: 12px; background: transparent; border: 2px solid currentColor;
+.river-playback[data-icon="repeat"] .playback-icon {
+  height: 15px; width: 15px; background: transparent; border: 2px solid currentColor;
   border-right-color: transparent; border-radius: 50%; clip-path: none;
 }
-#river-time {
-  appearance: none; position: absolute; bottom: 4px; inset-inline: 16px;
-  width: calc(100% - 32px); height: 3px; margin: 0;
-  border: 0; border-radius: 999px; overflow: hidden; background: rgb(224 236 247 / 0.24);
-}
-#river-time::-webkit-progress-bar { background: rgb(224 236 247 / 0.18); }
-#river-time::-webkit-progress-value { background: #f0d3a0; }
-#river-time::-moz-progress-bar { background: #f0d3a0; }
 
 #reading {
   --glass-tint: rgb(244 237 223 / 0.96);
@@ -170,6 +176,10 @@ button.scene-point:hover:not(:disabled) { background: transparent; }
 .exploration-stage .recall button { min-height: 44px; padding: 6px 12px; border: 1px solid #b3a78f; border-radius: 9px; background: #eee1cb; color: #30281c; }
 .exploration-stage .recall button[aria-pressed="true"] { background: #4b3e30; color: #fff5df; border-color: #4b3e30; }
 .exploration-stage .recall button:focus-visible { outline-color: #8c6234; }
+
+#river-comparison { gap: 9px; }
+#river-comparison label, #river-comparison output { white-space: nowrap; font-variant-numeric: tabular-nums; }
+#river-allocation { width: clamp(85px, 10vw, 155px); min-height: 44px; accent-color: #f3d799; cursor: pointer; }
 
 #river-parts [aria-pressed="true"] { background: #e9ddc6; color: #292722; }
 

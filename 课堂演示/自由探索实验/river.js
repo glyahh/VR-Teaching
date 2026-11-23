@@ -10,9 +10,17 @@ import { createCrowd, createWorkers } from './river-people.js';
  *   index: number, phase: 'waiting' | 'playing' | 'paused' | 'finished', elapsed: number,
  *   water: number, eye: number[], target: number[], zoom: number,
  *   selected: 'east' | 'downstream' | null, part: 'hull' | 'beam' | 'board' | null,
- *   recall: 'night' | 'dawn', reading: boolean
+ *   recall: 'night' | 'dawn', reading: boolean, comparison?: Comparison | null
  * }} RiverView
  */
+
+/** @typedef {{groups: number, elapsed: number, phase: 'ready' | 'playing' | 'paused' | 'finished'}} Comparison */
+
+function isComparison(value) {
+  return !!value && Number.isInteger(value.groups) && value.groups >= 0 && value.groups <= groupCount &&
+    Number.isFinite(value.elapsed) && value.elapsed >= 0 && value.elapsed <= roundDuration &&
+    ['ready','playing','paused','finished'].includes(value.phase);
+}
 
 /** @returns {view is RiverView} */
 export function isRiverView(view) {
@@ -25,7 +33,8 @@ export function isRiverView(view) {
     triplet(view.eye) && triplet(view.target) && Number.isFinite(view.zoom) && view.zoom > 0 &&
     [null, 'east', 'downstream'].includes(view.selected) &&
     [null, 'hull', 'beam', 'board'].includes(view.part) &&
-    ['night', 'dawn'].includes(view.recall) && typeof view.reading === 'boolean';
+    ['night', 'dawn'].includes(view.recall) && typeof view.reading === 'boolean' &&
+    (view.comparison == null || (view.phase === 'finished' && isComparison(view.comparison)));
 }
 
 export async function startRiver(ui, assets) {
@@ -41,7 +50,7 @@ export async function startRiver(ui, assets) {
   controls.minPolarAngle = 0.10;
   controls.maxPolarAngle = 1.45;
   controls.minZoom = 0.59;
-  controls.maxZoom = 7.1;
+  controls.maxZoom = 15.5;
   controls.maxTargetRadius = 64;
   controls.screenSpacePanning = false;
   controls.enableDamping = !ui.projection;
@@ -57,14 +66,19 @@ export async function startRiver(ui, assets) {
   const tools = ui.stage.querySelector('#river-tools');
   const caption = tools.querySelector('#river-instruction');
   const action = tools.querySelector('#river-action');
-  const actionLabel = tools.querySelector('#river-action-label');
-  const meter = tools.querySelector('#river-time');
   const historyButton = tools.querySelector('#river-history');
   const recall = ui.reading.querySelector('#river-recall');
   const actionGroup = tools.querySelector('#river-actions');
   const inspectButton = tools.querySelector('#river-inspect');
   const parts = tools.querySelector('#river-parts');
   const closeParts = tools.querySelector('#river-inspect-close');
+  const compareButton = tools.querySelector('#river-compare');
+  const comparisonControls = tools.querySelector('#river-comparison');
+  const allocation = tools.querySelector('#river-allocation');
+  const allocated = tools.querySelector('#river-allocated');
+  const runComparison = tools.querySelector('#river-run-comparison');
+  const closeComparison = tools.querySelector('#river-close-comparison');
+  allocation.max = String(groupCount);
   const people = createCrowd(world.scene, crowdModels, groupCount * 2);
   const workers = createWorkers(world.scene, workerModel, 8);
   workers.show(0);
@@ -91,6 +105,10 @@ export async function startRiver(ui, assets) {
   let tap = null;
   let started = false;
   let following = true;
+  /** @type {Comparison | null} */
+  let comparison = null;
+  let comparisonRound = firstRound;
+  let viewBeforeComparison = null;
 
   function notify() {
     ui.changed?.(true);
@@ -110,10 +128,10 @@ export async function startRiver(ui, assets) {
     viewport.invalidate();
   }
 
-  function cameraTo(target, zoom, direction = duskView, duration = 0.9) {
+  function cameraTo(target, zoom, direction = duskView, duration = 0.9, delay = 0) {
     const offset = direction.clone().setLength(duskView.length());
     focus = { from: controls.target.clone(), to: target, eye: camera.position.clone(),
-      destination: target.clone().add(offset), zoom: camera.zoom, targetZoom: zoom, elapsed: 0, duration };
+      destination: target.clone().add(offset), zoom: camera.zoom, targetZoom: zoom, elapsed: -delay, duration };
   }
 
   const { east, downstream } = world.floats;
@@ -226,6 +244,10 @@ export async function startRiver(ui, assets) {
   ];
 
   function home() {
+    if (comparison) {
+      leaveComparison();
+      return;
+    }
     if (inspection) closeInspection(false);
     selected = null;
     resetView();
@@ -335,32 +357,117 @@ export async function startRiver(ui, assets) {
     if (button) choosePart(button.dataset.part);
   });
 
+  function paintPlayback(button, icon, label) {
+    button.dataset.icon = icon;
+    button.setAttribute('aria-label', label);
+    button.title = label;
+  }
+
+  function showProgress() {
+    tools.dataset.progress = String(comparison ? comparison.elapsed / roundDuration :
+      beats[index] ? elapsed / beats[index].duration : 0);
+  }
+
   function controlsForBeat(animate = true) {
-    actionGroup.hidden = !!inspection;
-    parts.hidden = !inspection;
+    actionGroup.hidden = !!inspection || !!comparison;
+    parts.hidden = !inspection || !!comparison;
+    comparisonControls.hidden = !comparison;
+    if (comparison) {
+      tools.dataset.playback = comparison.phase;
+      tools.dataset.comparing = '';
+      allocation.value = String(comparison.groups);
+      allocation.disabled = comparison.phase === 'playing';
+      allocated.textContent = comparison.groups + ' 组';
+      paintPlayback(runComparison, {ready:'play', playing:'pause', paused:'play', finished:'repeat'}[comparison.phase],
+        {ready:'播放', playing:'暂停', paused:'继续', finished:'重播'}[comparison.phase]);
+      showProgress();
+      caption.textContent = comparison.phase === 'finished'
+        ? '未过河 ' + (groupCount - countArrivals(comparisonRound, comparison.elapsed)) + ' 组'
+        : '课堂推演';
+      return;
+    }
+    delete tools.dataset.comparing;
     if (inspection) return;
     inspectButton.hidden = phase !== 'waiting' || (index !== 1 && index !== 2);
     const previousCaption = caption.textContent;
-    const previousAction = actionLabel.textContent;
     if (phase === 'playing' || phase === 'paused') {
       caption.textContent = beats[index].caption;
-      actionLabel.textContent = phase === 'playing' ? '暂停' : '继续';
+      paintPlayback(action, phase === 'playing' ? 'pause' : 'play', phase === 'playing' ? '暂停' : '继续');
     } else {
       caption.textContent = index < 0 ? '中央红军要秘密转移。于都河上没有固定桥，八万多人得在夜里过河。' :
         phase === 'finished' && recallTime === 'night' ? beats[3].hold : beats[index].hold;
-      actionLabel.textContent = phase === 'finished' ? '重播' : beats[index + 1].label;
+      paintPlayback(action, phase === 'finished' ? 'repeat' : 'next', phase === 'finished' ? '重播' : beats[index + 1].label);
     }
     tools.dataset.playback = phase;
     if (animate && previousCaption && previousCaption !== caption.textContent) {
       ui.animate(caption, [{ opacity: 0.3, transform: 'translateY(5px)' }, { opacity: 1, transform: 'none' }], 240);
     }
-    if (animate && previousAction && previousAction !== actionLabel.textContent) {
-      ui.animate(actionLabel, [{ opacity: 0.42, transform: 'translateX(-3px)' }, { opacity: 1, transform: 'none' }], 210);
-    }
-    meter.hidden = phase !== 'playing' && phase !== 'paused';
-    if (!meter.hidden) meter.setAttribute('aria-label', beats[index].label + '演示进度');
+    tools.dataset.step = beats[index]?.label ?? '';
+    showProgress();
     historyButton.hidden = !(phase === 'finished' || (index === 2 && phase === 'waiting'));
+    compareButton.hidden = phase !== 'finished';
   }
+
+  function showComparison() {
+    world.lightAt(1 + ease(comparison.elapsed, roundDuration - 1.2, roundDuration) * .55);
+    drawRound(comparisonRound, comparison.elapsed);
+    world.water.uniforms.elapsed.value = nightWater + (ui.reduced.matches ? 0 : comparison.elapsed);
+    showProgress();
+    viewport.invalidate();
+  }
+
+  function setComparison(next) {
+    const groupsChanged = !comparison || comparison.groups !== next.groups;
+    const phaseChanged = !comparison || comparison.phase !== next.phase;
+    if (!comparison) {
+      world.setBridges(true);
+      workers.show(0);
+      viewport.updateShadows();
+    }
+    if (groupsChanged) comparisonRound = arrangeRound(next.groups);
+    comparison = next;
+    if (groupsChanged || phaseChanged) controlsForBeat(false);
+    showComparison();
+  }
+
+  function leaveComparison() {
+    comparison = null;
+    if (!ui.projection) controls.enabled = true;
+    if (viewBeforeComparison) applyCameraView(viewBeforeComparison);
+    controls.enableDamping = !ui.projection;
+    viewBeforeComparison = null;
+    drawRecall();
+    controlsForBeat(false);
+    compareButton.focus({preventScroll:true});
+    notify();
+  }
+
+  ui.on(compareButton, 'click', () => {
+    if (phase !== 'finished') return;
+    ui.closeReading({immediate:true, restoreFocus:false});
+    viewBeforeComparison = cameraView();
+    focus = null;
+    controls.enabled = false;
+    controls.enableDamping = false;
+    controls.update();
+    applyCameraView({eye:wide.clone().add(duskView).toArray(), target:wide.toArray(), zoom:1.28});
+    setComparison({groups:0, elapsed:0, phase:'ready'});
+    allocation.focus({preventScroll:true});
+    notify();
+  });
+  ui.on(allocation, 'input', () => {
+    if (!comparison || comparison.phase === 'playing') return;
+    setComparison({groups:Number(allocation.value), elapsed:0, phase:'ready'});
+    notify();
+  });
+  ui.on(runComparison, 'click', () => {
+    if (!comparison) return;
+    const next = comparison.phase === 'playing' ? 'paused' : 'playing';
+    setComparison({...comparison, elapsed:comparison.phase === 'finished' ? 0 : comparison.elapsed, phase:next});
+    previousFrame = performance.now();
+    notify();
+  });
+  ui.on(closeComparison, 'click', leaveComparison);
 
   function prepareBeat() {
     world.setBridges(index >= 3);
@@ -373,6 +480,8 @@ export async function startRiver(ui, assets) {
 
   function resetScene() {
     if (inspection) closeInspection(false);
+    comparison = viewBeforeComparison = null;
+    controls.enabled = !ui.projection;
     index = -1;
     phase = 'waiting';
     elapsed = riverTime = lastWaterFrame = 0;
@@ -382,7 +491,6 @@ export async function startRiver(ui, assets) {
     world.water.uniforms.elapsed.value = 0;
     resetView();
     prepareBeat();
-    meter.value = 0;
     controlsForBeat();
   }
 
@@ -393,7 +501,6 @@ export async function startRiver(ui, assets) {
     elapsed = 0;
     phase = 'playing';
     previousFrame = performance.now();
-    meter.value = 0;
     prepareBeat();
     beats[index].enter();
     beats[index].draw(0);
@@ -511,6 +618,7 @@ export async function startRiver(ui, assets) {
     if (event.code !== 'Escape') return;
     event.preventDefault();
     if (!ui.reading.hidden) ui.closeReading();
+    else if (comparison) return leaveComparison();
     else if (inspection) closeInspection();
     else resetView();
     notify();
@@ -519,7 +627,7 @@ export async function startRiver(ui, assets) {
   function advanceCamera(delta) {
     if (!focus) return;
     focus.elapsed += delta;
-    const blend = ui.reduced.matches ? 1 : Math.min(1, focus.elapsed / focus.duration);
+    const blend = ui.reduced.matches ? 1 : THREE.MathUtils.clamp(focus.elapsed / focus.duration, 0, 1);
     const eased = blend * blend * (3 - 2 * blend);
     point.copy(focus.from).lerp(focus.to, eased);
     controls.target.copy(point);
@@ -536,7 +644,7 @@ export async function startRiver(ui, assets) {
     elapsed = next;
     beat.draw(elapsed);
     advanceCamera(delta);
-    meter.value = elapsed / beat.duration;
+    showProgress();
     if (!ui.reduced.matches && riverTime - lastWaterFrame >= 0.077) {
       world.water.uniforms.elapsed.value = riverTime;
       lastWaterFrame = riverTime;
@@ -553,8 +661,16 @@ export async function startRiver(ui, assets) {
   function frame(_delta, now) {
     const previousPhase = phase;
     const delta = Math.max(0, now - previousFrame) / 1000;
-    if (!ui.projection && phase === 'playing') advanceBeat(delta);
-    else if (inspection && focus) {
+    if (!ui.projection && comparison?.phase === 'playing') {
+      comparison.elapsed = Math.min(roundDuration, comparison.elapsed + delta);
+      if (comparison.elapsed === roundDuration) {
+        comparison.phase = 'finished';
+        controlsForBeat(false);
+      }
+      showComparison();
+      ui.changed?.(comparison.phase === 'finished');
+    } else if (!ui.projection && phase === 'playing') advanceBeat(delta);
+    else if (focus && (inspection || index < 0)) {
       advanceCamera(delta);
       viewport.invalidate();
     }
@@ -592,6 +708,7 @@ export async function startRiver(ui, assets) {
       water: world.water.uniforms.elapsed.value,
       part: inspection?.part ?? null,
       reading: !ui.reading.hidden && !ui.reading.inert,
+      comparison: comparison ? {...comparison} : null,
     };
   }
 
@@ -604,6 +721,7 @@ export async function startRiver(ui, assets) {
     const recallChanged = view.recall !== recallTime;
     const phaseChanged = view.phase !== phase;
     const timeChanged = view.elapsed !== elapsed;
+    const closingComparison = comparison && !view.comparison;
     if (inspection && (beatChanged || !view.part)) closeInspection(false);
     index = view.index;
     phase = view.phase;
@@ -611,15 +729,18 @@ export async function startRiver(ui, assets) {
     selected = view.selected;
     recallTime = view.recall;
     if (beatChanged) prepareBeat();
-    if (phase === 'finished' && (beatChanged || recallChanged || phaseChanged)) {
+    if (view.comparison) {
+      setComparison({...view.comparison});
+    } else if (phase === 'finished' && (beatChanged || recallChanged || phaseChanged || closingComparison)) {
+      comparison = null;
       drawRecall();
     } else if (beat && (beatChanged || timeChanged)) {
       beat.draw(elapsed);
       viewport.updateShadows();
     }
     world.water.uniforms.elapsed.value = view.water;
-    meter.value = beat ? elapsed / beat.duration : 0;
-    if (beatChanged || phaseChanged || recallChanged) controlsForBeat(false);
+    if (!comparison) showProgress();
+    if (beatChanged || phaseChanged || recallChanged || closingComparison) controlsForBeat(false);
     if (view.part && !inspection) openInspection(view.part);
     else if (view.part && view.part !== inspection?.part) choosePart(view.part);
     if (view.reading && (ui.reading.hidden || ui.reading.inert || beatChanged || phaseChanged)) showHistory();
@@ -636,18 +757,30 @@ export async function startRiver(ui, assets) {
     activate(view) {
       if (!ui.projection) {
         controls.connect(ui.canvas);
-        controls.enabled = true;
+        controls.enabled = !comparison;
+        controls.enableDamping = !comparison;
       }
       previousFrame = performance.now();
       tools.hidden = false;
       if (!started) {
         resetScene();
         started = true;
+        if (!ui.projection && !ui.reduced.matches && ui.stage.classList.contains('lesson-exploration')) {
+          const bow = east.bays[1].hull.position.clone().add(new THREE.Vector3(0.42, 0.30, 0.54));
+          applyCameraView({
+            eye:bow.clone().add(new THREE.Vector3(-2.8, 1, 5.1)).toArray(), target:bow.toArray(), zoom:15.5,
+          });
+          cameraTo(wide, 1, duskView, 0.68, 0.24);
+        }
       } else controlsForBeat(false);
       if (view) restore(view);
       viewport.activate();
     },
     pauseForSwitch() {
+      if (comparison?.phase === 'playing') {
+        comparison.phase = 'paused';
+        controlsForBeat(false);
+      }
       if (phase === 'playing') {
         phase = 'paused';
         controlsForBeat(false);
