@@ -39,10 +39,27 @@ def narration(room, url):
     page = room.teacher
     page.goto(url)
     screen = room.project()
+    page.evaluate("""() => {
+      function finishWhileTyping() {
+        const scene = document.querySelector('.classroom-slide[data-entry-phase=ready]');
+        if (!scene?.querySelector('.slide-line[data-narration-writing=true]')) {
+          requestAnimationFrame(finishWhileTyping);
+          return;
+        }
+        const bounds = scene.querySelector('.scene-stage').getBoundingClientRect();
+        const clientX = bounds.left + bounds.width * .56;
+        const clientY = bounds.top + bounds.height * .30;
+        const target = document.elementFromPoint(clientX, clientY);
+        const pointer = {bubbles:true, isPrimary:true, pointerId:1, pointerType:'mouse', button:0, clientX, clientY};
+        target.dispatchEvent(new PointerEvent('pointerdown', {...pointer, buttons:1}));
+        target.dispatchEvent(new PointerEvent('pointerup', pointer));
+        window.finishedTypingClick = true;
+      }
+      requestAnimationFrame(finishWhileTyping);
+    }""")
     begin(page)
+    page.wait_for_function("window.finishedTypingClick")
     first = "第五次反“围剿”失败后，中央红军开始战略转移。"
-    expect(caption(page)).to_have_attribute("data-narration-writing", "true")
-    page.mouse.click(*blank(page))
     narrated(page, first)
     expect(caption(screen).locator(".visually-hidden")).to_have_text(first)
     expect(caption(page)).to_have_attribute("data-narration-count", "1")
