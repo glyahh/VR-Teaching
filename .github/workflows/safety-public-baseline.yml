@@ -1,0 +1,89 @@
+name: 安全带公开基准验证
+on:
+  push:
+    branches: ['verify/safety-harness-20261124']
+    paths: ['.github/workflows/safety-public-baseline.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-baseline:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install sherpa-onnx==1.12.14 playwright==1.52.0
+      - name: Public reference ASR and Edge capabilities
+        shell: pwsh
+        run: |
+          @'
+          import json, hashlib, time, urllib.request, wave, tempfile
+          from pathlib import Path
+          import numpy as np
+          import sherpa_onnx as s
+          from playwright.sync_api import sync_playwright
+          out=Path("safety-public-results");out.mkdir(exist_ok=True)
+          report={"scope":"public reference baseline; NOT course acceptance","models":{}}
+          def save():
+              (out/"report.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf8")
+          def get(repo, rev, name, target):
+              p=out/target/name;p.parent.mkdir(exist_ok=True,parents=True)
+              url=f"https://huggingface.co/csukuangfj/{repo}/resolve/{rev}/{name}"
+              urllib.request.urlretrieve(url,p)
+              report.setdefault("assets",[]).append({"url":url,"bytes":p.stat().st_size,"sha256":hashlib.sha256(p.read_bytes()).hexdigest()})
+              save()
+              return str(p)
+          z="sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23"
+          zr="204ad334e2e683fd295359930cc16fc0432a23ac"
+          pa="sherpa-onnx-streaming-paraformer-bilingual-zh-en"
+          pr="8e40c43232a1c5c66c82111efc5820d3accca11b"
+          wavs=[get(z,zr,"test_wavs/"+n,"zip") for n in ["0.wav","1.wav","8k.wav"]]
+          def run(rec,label):
+              rows=[]
+              for f in wavs:
+                  with wave.open(f,"rb") as w:
+                      rate=w.getframerate();assert w.getnchannels()==1 and w.getsampwidth()==2
+                      data=np.frombuffer(w.readframes(w.getnframes()),dtype="<i2").astype(np.float32)/32768
+                  stream=rec.create_stream();start=time.perf_counter()
+                  for i in range(0,len(data),rate//10):
+                      stream.accept_waveform(rate,data[i:i+rate//10])
+                      while rec.is_ready(stream):rec.decode_stream(stream)
+                  stream.accept_waveform(rate,np.zeros(int(rate*.8),np.float32));stream.input_finished()
+                  while rec.is_ready(stream):rec.decode_stream(stream)
+                  rows.append({"file":Path(f).name,"text":rec.get_result(stream),"seconds":len(data)/rate,"decode_ms":round((time.perf_counter()-start)*1000,2)})
+              report["models"][label]=rows;save()
+          try:
+              rec=s.OnlineRecognizer.from_transducer(tokens=get(z,zr,"tokens.txt","zip"),encoder=get(z,zr,"encoder-epoch-99-avg-1.int8.onnx","zip"),decoder=get(z,zr,"decoder-epoch-99-avg-1.onnx","zip"),joiner=get(z,zr,"joiner-epoch-99-avg-1.int8.onnx","zip"),num_threads=1)
+              run(rec,"zipformer");del rec
+              rec=s.OnlineRecognizer.from_paraformer(tokens=get(pa,pr,"tokens.txt","para"),encoder=get(pa,pr,"encoder.int8.onnx","para"),decoder=get(pa,pr,"decoder.int8.onnx","para"),num_threads=1)
+              run(rec,"paraformer");del rec
+          except Exception as e:
+              report["asr_error"]=repr(e);save()
+          try:
+              with tempfile.TemporaryDirectory() as d, sync_playwright() as p:
+                  f=Path(d)/"probe.html";f.write_text("<!doctype html><button id='pop' onclick='window.open(location.href+\x22#projection\x22)'>Projection</button><video autoplay muted></video>",encoding="utf8")
+                  b=p.chromium.launch(channel="msedge",headless=True,args=["--use-fake-device-for-media-stream","--use-fake-ui-for-media-stream"])
+                  ctx=b.new_context(offline=True)
+                  requests=[];ctx.on("request",lambda r:requests.append(r.url) if r.url.startswith(("http:","https:")) else None)
+                  page=ctx.new_page();page.goto(f.as_uri())
+                  caps=page.evaluate("""async()=>{const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});const v=document.querySelector('video');v.srcObject=stream;await v.play();const tracks=stream.getTracks();const size=[v.videoWidth,v.videoHeight];tracks.forEach(t=>t.stop());v.srcObject=null;const worker=new Worker(URL.createObjectURL(new Blob(['onmessage=()=>postMessage(42)'],{type:'text/javascript'})));const n=await new Promise((res,rej)=>{worker.onmessage=e=>res(e.data);worker.onerror=rej;worker.postMessage(0)});worker.terminate();return {secure:isSecureContext,size,tracks:tracks.map(t=>[t.kind,t.readyState]),worker:n}}""")
+                  with page.expect_popup() as pop:page.locator("#pop").click()
+                  screen=pop.value;screen.wait_for_load_state()
+                  token=screen.evaluate("()=>new Promise(resolve=>{window.addEventListener('message',e=>resolve(e.data),{once:true});window.opener.postMessage('ready','*')})",timeout=5000) if False else None
+                  report["edge"]={"version":b.version,"capabilities":caps,"popup":not screen.is_closed(),"http_requests":requests}
+                  b.close();save()
+          except Exception as e:
+              report["edge_error"]=repr(e);save()
+          print(json.dumps(report,ensure_ascii=False))
+          if "asr_error" in report or "edge_error" in report:raise SystemExit(1)
+          '@ | Set-Content -Encoding utf8 safety-public-baseline.py
+          python safety-public-baseline.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: safety-public-baseline-report
+          path: safety-public-results/report.json
