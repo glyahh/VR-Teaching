@@ -20,14 +20,14 @@
   grid-row: 1;
   align-items: center;
   gap: 12px;
-  padding: 10px clamp(14px, 3vw, 48px);
+  padding: 8px clamp(14px, 3vw, 48px);
   background: #201f1b;
   border-bottom: 1px solid #d1bc8f2d;
 }
-.desk-live-page .scene-head h1 { font-size: clamp(23px, 2.15vw, 36px); margin: 0 }
+.desk-live-page .scene-head h1 { font-family: var(--font-serif); font-size: clamp(23px, 2.15vw, 36px); margin: 0 }
 .desk-live-page .scene-identity { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px }
 .desk-live-page .scene-date { font-size: 13px }
-.desk-live-page .scene-actions button { min-height: 34px; padding: 5px 10px }
+.desk-live-page .scene-actions button { min-height: 40px; padding: 6px 12px }
 .desk-live-page .scene-stage {
   position: relative;
   inset: auto;
@@ -68,20 +68,35 @@
   pointer-events: none;
 }
 .desk-live-evidence .dossier-slot { position: absolute; width: min(42%, 510px); transform: translate(-50%, -40%); pointer-events: auto }
+.desk-live-frame[data-evidence="right"] .desk-inquiry-cue {
+  left: var(--scene-inset);
+  right: auto;
+  text-align: left;
+}
+.desk-live-frame[data-evidence="both"] .desk-inquiry-cue {
+  left: 50%;
+  right: auto;
+  translate: -50%;
+  text-align: center;
+  max-width: min(46ch, calc(100% - 2 * var(--scene-inset)));
+}
+.desk-live-frame[data-evidence="both"] .desk-live-evidence .dossier-slot {
+  transform: translate(-50%, -32%);
+}
 .desk-live-evidence .folio-card { width: 100%; max-height: 48dvh; overflow-y: auto; padding: clamp(9px,1.1vw,18px) }
-.desk-live-evidence .folio-card h3 { font-size: clamp(17px,1.6vw,26px) }
+.desk-live-evidence .folio-card h3 { font-family: var(--font-serif); font-size: clamp(17px,1.6vw,26px) }
 .desk-live-evidence .folio-card p { font-size: clamp(13px,1.3vw,20px) }
 .desk-live-page .lesson-footer {
   position: static;
   grid-row: 3;
-  padding: 8px clamp(18px, 3vw, 48px) 12px;
+  padding: 6px clamp(18px, 3vw, 48px) 10px;
 }
 .desk-live-transport { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0 }
-.desk-live-page .slide-caption button { padding: 5px 11px; min-height: 33px }
+.desk-live-page .slide-caption button { padding: 6px 12px; min-height: 40px }
 .desk-live-page .slide-caption .desk-investigate { color: #302314; background: #e7c58e; border-color: #e7c58e }
 .desk-object-position { position:absolute; width:1px; height:1px; pointer-events:none }
 .desk-inquiry-cue { font-size:clamp(15px,1.55vw,27px) }
-.desk-page-turn { min-width:35px; justify-content:center }
+.desk-page-turn { min-width:40px; justify-content:center }
 .desk-live-pins { z-index: 3 }
 .desk-live-evidence { z-index: 4 }
 .desk-handoff { position:absolute; inset:0; z-index:9; overflow:hidden; pointer-events:none }
@@ -92,6 +107,8 @@
 .projection-mode .desk-live-page { grid-template-rows: 1fr; height: 100dvh; min-height: 0 }
 .projection-mode .desk-live-page .scene-stage { grid-row: 1; background: #080a08 }
 .projection-mode .desk-live-page :is(.scene-head,.lesson-footer) { display: none }
+.projection-mode .desk-live-evidence .folio-card { max-height: 68dvh }
+.projection-mode .desk-inquiry-cue { font-size: clamp(22px, 1.75vw, 34px) }
 .projection-mode .desk-live-evidence h3 { font-size: clamp(21px, 1.9vw, 38px) }
 .projection-mode .desk-live-evidence p { font-size: clamp(16px, 1.45vw, 29px) }
 @media (max-width: 900px) {

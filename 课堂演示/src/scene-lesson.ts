@@ -73,6 +73,13 @@ function mountSceneLesson(address: SceneAddress, scene: HTMLElement, host: HTMLE
       time: progress.kind === 'typing' ? progress : undefined };
   }
 
+  function syncReadingState() {
+    const reading = narration.kind === 'point' || openItem !== null;
+    if (reading) scene.dataset.reading = 'true';
+    else delete scene.dataset.reading;
+    window.dispatchEvent(new Event('lesson-reading'));
+  }
+
   function setNarration(next: NarrationView, animate = true) {
     const previousPoint = narration.kind === 'point' ? narration.id : undefined;
     const nextPoint = next.kind === 'point' ? next.id : undefined;
@@ -80,6 +87,7 @@ function mountSceneLesson(address: SceneAddress, scene: HTMLElement, host: HTMLE
     if (nextPoint && (previousPoint !== nextPoint || next !== narration)) cues.get(nextPoint)?.enter?.(animate);
     narration = next;
     renderer?.show(display(next), next);
+    syncReadingState();
   }
 
   function read(): SceneLessonFrame {
@@ -213,6 +221,7 @@ function mountSceneLesson(address: SceneAddress, scene: HTMLElement, host: HTMLE
         stage.style.setProperty('--dawn-brightness', String(.84 + count * .09 + (summary.hidden ? 0 : .08)));
         fitSummary();
       }
+      syncReadingState();
     };
     if (summary) {
       const resized = new ResizeObserver(fitSummary);
@@ -250,6 +259,10 @@ function mountSceneLesson(address: SceneAddress, scene: HTMLElement, host: HTMLE
       openItem = frame.items.open;
       drawItems?.();
     },
-    dispose() { life.abort(); },
+    dispose() {
+      life.abort();
+      delete scene.dataset.reading;
+      window.dispatchEvent(new Event('lesson-reading'));
+    },
   };
 }

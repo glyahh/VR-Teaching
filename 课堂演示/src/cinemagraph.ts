@@ -176,6 +176,7 @@ out vec4 outColor;
 
 uniform sampler2D u_tex;
 uniform float u_time;
+uniform float u_intensity;
 uniform vec2 u_res;
 uniform int u_count;
 uniform vec4 u_rect[${MAX_CINEMAGRAPH_ZONES}];
@@ -250,6 +251,7 @@ void main() {
   float smokeLayer = 0.0;
   float rainLayer = 0.0;
   float flameGlow = 0.0;
+  float flameHalo = 0.0;
 
   for (int i = 0; i < ${MAX_CINEMAGRAPH_ZONES}; i++) {
     if (i >= u_count) break;
@@ -277,14 +279,19 @@ void main() {
         uvOffset -= (dir * gust + perp * (gust * 0.24)) * strength * m * hinge;
       }
     } else if (kind < 2.5) {
-      // WATER: calm river flow & specular glints on open water
+      // WATER: calm river flow & specular glints aligned with channel angle
       float m = rectMask(uv, r, 0.60) * excl * edgeFade;
       if (m > 0.001) {
-        vec2 p = uv * vec2(26.0, 76.0 / max(param, 0.45));
+        vec2 d = uv - r.xy;
+        float c = cos(ang);
+        float s = sin(ang);
+        vec2 rotUv = vec2(c * d.x + s * d.y, -s * d.x + c * d.y) + r.xy;
+        vec2 p = rotUv * vec2(26.0, 76.0 / max(param, 0.45));
         float w1 = sin(dot(p, vec2(1.0, 0.32)) - u_time * 1.05 + sin(p.y * 0.42 + u_time * 0.42) * 1.55);
         float w2 = cos(dot(p * 1.55, vec2(-0.72, 0.85)) - u_time * 0.82);
         float w3 = sin(p.y * 1.75 + p.x * 0.55 - u_time * 1.30);
-        vec2 ripple = vec2(w1 * 0.65 + w2 * 0.35, (w2 * 0.52 + w3 * 0.48) * 0.45);
+        vec2 localRipple = vec2(w1 * 0.65 + w2 * 0.35, (w2 * 0.52 + w3 * 0.48) * 0.45);
+        vec2 ripple = vec2(c * localRipple.x - s * localRipple.y, s * localRipple.x + c * localRipple.y);
         uvOffset += ripple * strength * m;
         waterGlint += (w1 * 0.6 + w2 * 0.4) * m;
         waterMaskTotal = max(waterMaskTotal, m);
@@ -306,7 +313,7 @@ void main() {
       float xDist = abs(q.x - rise * (dir.x * 0.55)) / plumeHalfW;
       float shape = (1.0 - smoothstep(0.25, 1.0, xDist))
                   * smoothstep(0.0, 0.14, rise)
-                  * (1.0 - smoothstep(0.62, 1.0, rise));
+                  * (1.0 - smoothstep(0.62, 1.0, rise)) * excl;
       if (shape > 0.001) {
         float curl = fbm(vec2(uv.x * 24.0 - u_time * 0.12, uv.y * 20.0 + u_time * 0.34));
         float wisp = smoothstep(0.24, 0.76, curl);
@@ -331,55 +338,80 @@ void main() {
         rainLayer += max(s1 * f1, s2 * f2 * 0.75) * m * strength;
       }
     } else {
-      // FLAME: calm organic wick shimmer strictly inside the lamp glass
-      float m = ellipseMask(uv, r) * edgeFade;
-      if (m > 0.001) {
+      // FLAME: calm organic wick shimmer with local warm ambient breathing
+      float halo = ellipseMask(uv, vec4(r.xy, r.zw * 2.8)) * edgeFade;
+      if (halo > 0.001) {
         float fl = sin(u_time * 2.8 + r.x * 41.0) * 0.52
                  + sin(u_time * 5.4 + r.y * 23.0) * 0.33
                  + sin(u_time * 8.2) * 0.15;
-        float sway = param > 0.01 ? sin(u_time * 0.75 + r.x * 19.0) * 0.0006 * param : 0.0;
-        uvOffset += vec2(sway + fl * 0.0004, abs(fl) * 0.0006) * m;
-        flameGlow += fl * strength * m;
+        float m = ellipseMask(uv, r) * edgeFade;
+        if (m > 0.001) {
+          float sway = param > 0.01 ? sin(u_time * 0.75 + r.x * 19.0) * 0.0006 * param : 0.0;
+          uvOffset += vec2(sway + fl * 0.0004, abs(fl) * 0.0006) * m;
+          flameGlow += fl * strength * m;
+        }
+        flameHalo += (0.5 + 0.5 * fl) * halo * 0.05;
       }
     }
   }
 
-  vec3 baseCol = texture(u_tex, clamp(uv + uvOffset, 0.001, 0.999)).rgb;
+  float intensity = clamp(u_intensity, 0.0, 1.0);
+  vec3 baseCol = texture(u_tex, clamp(uv + uvOffset * intensity, 0.001, 0.999)).rgb;
   float luma = dot(baseCol, vec3(0.299, 0.587, 0.114));
 
   if (waterMaskTotal > 0.001) {
     float hi = smoothstep(0.26, 0.74, luma);
-    baseCol += baseCol * (waterGlint * 0.11 * hi);
+    baseCol += baseCol * (waterGlint * 0.11 * hi * intensity);
   }
 
   if (mistLayer > 0.001) {
     float skyWeight = smoothstep(0.20, 0.58, luma);
     vec3 mistTint = mix(baseCol, vec3(0.78, 0.84, 0.90), 0.38);
-    baseCol = mix(baseCol, mistTint, clamp(mistLayer * skyWeight * 0.56, 0.0, 0.22));
+    baseCol = mix(baseCol, mistTint, clamp(mistLayer * skyWeight * 0.56 * intensity, 0.0, 0.22));
   }
 
   if (smokeLayer > 0.001) {
     vec3 smokeCol = vec3(0.73, 0.79, 0.85);
-    baseCol = mix(baseCol, smokeCol, clamp(smokeLayer * 0.54, 0.0, 0.36));
+    baseCol = mix(baseCol, smokeCol, clamp(smokeLayer * 0.54 * intensity, 0.0, 0.36));
   }
 
   if (rainLayer > 0.001) {
-    baseCol += vec3(0.72, 0.82, 0.92) * clamp(rainLayer * 0.45, 0.0, 0.28);
+    baseCol += vec3(0.72, 0.82, 0.92) * clamp(rainLayer * 0.45 * intensity, 0.0, 0.28);
   }
 
   if (abs(flameGlow) > 0.001) {
     float core = smoothstep(0.45, 0.90, luma);
-    baseCol += vec3(1.0, 0.76, 0.38) * (flameGlow * 0.16 * core);
+    baseCol += vec3(1.0, 0.76, 0.38) * (flameGlow * 0.16 * core * intensity);
+  }
+
+  if (flameHalo > 0.001) {
+    baseCol += vec3(1.0, 0.72, 0.34) * (flameHalo * (1.0 - 0.35 * luma) * intensity);
   }
 
   outColor = vec4(clamp(baseCol, 0.0, 1.0), 1.0);
 }`;
 
-let activeCinemagraphs: (() => void)[] = [];
+type CinemagraphController = {
+  stop: () => void;
+  setIntensity: (target: number) => void;
+  setPaused: (paused: boolean) => void;
+};
+
+let activeCinemagraphs: CinemagraphController[] = [];
+let cinemagraphTargetIntensity = 1;
 
 function stopCinemagraphs() {
-  for (const stop of activeCinemagraphs) stop();
+  for (const item of activeCinemagraphs) item.stop();
   activeCinemagraphs = [];
+}
+
+function setCinemagraphIntensity(target: number) {
+  cinemagraphTargetIntensity = Math.max(0, Math.min(1, target));
+  for (const item of activeCinemagraphs) item.setIntensity(cinemagraphTargetIntensity);
+}
+
+function setCinemagraphsPaused(paused: boolean) {
+  for (const item of activeCinemagraphs) item.setPaused(paused);
 }
 
 function compileShader(gl: WebGL2RenderingContext, type: number, src: string) {
@@ -396,23 +428,39 @@ function compileShader(gl: WebGL2RenderingContext, type: number, src: string) {
 
 function attachCinemagraph(imageKey: string, img: HTMLImageElement, extraClass = '') {
   const zones = sceneCinemagraphs[imageKey];
-  if (!zones?.length || reducedMotion.matches) return undefined;
+  if (!zones?.length) return undefined;
 
-  const canvas = element('canvas', 'scene-motion' + (extraClass ? ' ' + extraClass : ''));
-  canvas.setAttribute('aria-hidden', 'true');
-  img.after(canvas);
-
+  let canvas: HTMLCanvasElement | null = null;
   let disposed = false;
+  let started = false;
+  let paused = reducedMotion.matches;
   let rafId = 0;
   let gl: WebGL2RenderingContext | null = null;
   let program: WebGLProgram | null = null;
   let texture: WebGLTexture | null = null;
   let vbo: WebGLBuffer | null = null;
+  let timeLoc: WebGLUniformLocation | null = null;
+  let intensityLoc: WebGLUniformLocation | null = null;
+  let width = 0;
+  let height = 0;
+  let shown = false;
+  let simTime = 0;
+  let lastNow = 0;
+  let currentIntensity = cinemagraphTargetIntensity;
+  let targetIntensity = cinemagraphTargetIntensity;
+
+  const stopLoop = () => {
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
+    lastNow = 0;
+  };
 
   const cleanup = () => {
     if (disposed) return;
     disposed = true;
-    if (rafId) cancelAnimationFrame(rafId);
+    stopLoop();
     if (gl) {
       if (texture) gl.deleteTexture(texture);
       if (vbo) gl.deleteBuffer(vbo);
@@ -420,16 +468,56 @@ function attachCinemagraph(imageKey: string, img: HTMLImageElement, extraClass =
       gl.getExtension('WEBGL_lose_context')?.loseContext();
       gl = null;
     }
-    canvas.remove();
+    canvas?.remove();
+    canvas = null;
   };
-  activeCinemagraphs.push(cleanup);
 
-  const start = () => {
-    if (disposed || !canvas.isConnected || !img.naturalWidth) return;
-    const w = Math.min(img.naturalWidth, 1280);
-    const h = Math.round((w * img.naturalHeight) / img.naturalWidth);
-    canvas.width = w;
-    canvas.height = h;
+  const draw = (now: number) => {
+    rafId = 0;
+    if (disposed || !gl || !canvas?.isConnected) {
+      cleanup();
+      return;
+    }
+    if (paused || reducedMotion.matches) {
+      lastNow = 0;
+      return;
+    }
+    if (!document.hidden) {
+      const dt = lastNow ? Math.min((now - lastNow) * 0.001, 0.1) : 0;
+      lastNow = now;
+      currentIntensity += (targetIntensity - currentIntensity) * Math.min(1, dt * 6);
+      simTime += dt * (0.25 + 0.75 * currentIntensity);
+      gl.viewport(0, 0, width, height);
+      gl.uniform1f(timeLoc, simTime);
+      gl.uniform1f(intensityLoc, currentIntensity);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      if (!shown) {
+        shown = true;
+        canvas.classList.add('is-ready');
+      }
+    } else {
+      lastNow = 0;
+    }
+    rafId = requestAnimationFrame(draw);
+  };
+
+  const startLoop = () => {
+    if (disposed || paused || reducedMotion.matches || !gl || rafId) return;
+    lastNow = 0;
+    rafId = requestAnimationFrame(draw);
+  };
+
+  const init = () => {
+    if (disposed || started || paused || reducedMotion.matches || !img.isConnected || !img.naturalWidth) return;
+    started = true;
+    canvas = element('canvas', 'scene-motion' + (extraClass ? ' ' + extraClass : ''));
+    canvas.setAttribute('aria-hidden', 'true');
+    img.after(canvas);
+
+    width = Math.min(img.naturalWidth, 1280);
+    height = Math.round((width * img.naturalHeight) / img.naturalWidth);
+    canvas.width = width;
+    canvas.height = height;
 
     gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, powerPreference: 'low-power' });
     if (!gl) {
@@ -491,35 +579,40 @@ function attachCinemagraph(imageKey: string, img: HTMLImageElement, extraClass =
     gl.uniform1i(gl.getUniformLocation(program, 'u_count'), count);
     gl.uniform4fv(gl.getUniformLocation(program, 'u_rect'), rectData);
     gl.uniform4fv(gl.getUniformLocation(program, 'u_meta'), metaData);
-    gl.uniform2f(gl.getUniformLocation(program, 'u_res'), w, h);
-    const timeLoc = gl.getUniformLocation(program, 'u_time');
-
-    const t0 = performance.now();
-    let shown = false;
-    const draw = (now: number) => {
-      if (disposed || !gl || !canvas.isConnected) {
-        cleanup();
-        return;
-      }
-      if (!document.hidden && !reducedMotion.matches) {
-        gl.viewport(0, 0, w, h);
-        gl.uniform1f(timeLoc, (now - t0) * 0.001);
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-        if (!shown) {
-          shown = true;
-          canvas.classList.add('is-ready');
-        }
-      }
-      rafId = requestAnimationFrame(draw);
-    };
-    rafId = requestAnimationFrame(draw);
+    gl.uniform2f(gl.getUniformLocation(program, 'u_res'), width, height);
+    timeLoc = gl.getUniformLocation(program, 'u_time');
+    intensityLoc = gl.getUniformLocation(program, 'u_intensity');
+    startLoop();
   };
 
   const scheduleStart = () => {
-    if (!disposed) requestAnimationFrame(start);
+    if (!disposed && !paused && !reducedMotion.matches) requestAnimationFrame(init);
   };
+
+  const controller: CinemagraphController = {
+    stop: cleanup,
+    setIntensity(next) {
+      targetIntensity = Math.max(0, Math.min(1, next));
+    },
+    setPaused(next) {
+      paused = next;
+      if (paused) {
+        stopLoop();
+        if (canvas) canvas.hidden = true;
+      } else {
+        if (canvas) {
+          canvas.hidden = false;
+          startLoop();
+        } else if (img.complete && img.naturalWidth > 0) {
+          scheduleStart();
+        }
+      }
+    },
+  };
+  activeCinemagraphs.push(controller);
+
   if (img.complete && img.naturalWidth > 0) scheduleStart();
   else img.addEventListener('load', scheduleStart, { once: true });
 
-  return canvas;
+  return controller;
 }

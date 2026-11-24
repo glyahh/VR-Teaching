@@ -171,10 +171,12 @@ def opening(room, url):
     assert abs(film.evaluate('video => video.currentTime')-frozen) < .1
     button(page, '继续播放').click()
     page.wait_for_function('time => document.querySelector(".opening-page video").currentTime > time',arg=frozen)
+    for target in (page, room.screen):
+        target.locator('.opening-page video').evaluate('v => { v.currentTime = Math.max(0, v.duration - 1.2); }')
     page.wait_for_function('''() => {
       const video=document.querySelector('.opening-page video');
-      return video.duration>20 && video.currentTime>=video.duration-.22;
-    }''',timeout=35000)
+      return video.duration>85 && video.currentTime>=video.duration-.22;
+    }''',timeout=15000)
     room.shot('开场收尾')
     button(page, '进入课堂').click()
     expect(room.screen.locator('.scene-head h1')).to_have_text('于都集结')

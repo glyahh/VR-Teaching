@@ -1,6 +1,6 @@
 type LessonMode = 'lesson' | 'trial' | 'revisit';
 type Point = [number, number];
-type IconName = 'plus'|'minus'|'reset'|'play'|'pause'|'image'|'check'|'info'|'arrowLeft'|'arrowRight'|'expand'|'compress'|'compass'|'layers'|'sliders'|'map'|'screens';
+type IconName = 'plus'|'minus'|'reset'|'play'|'pause'|'image'|'check'|'info'|'arrowLeft'|'arrowRight'|'expand'|'compress'|'compass'|'layers'|'sliders'|'moveHorizontal'|'map'|'screens';
 
 const app = document.querySelector<HTMLElement>('#app')!;
 const dialog = document.querySelector<HTMLDialogElement>('#dialog')!;
@@ -25,6 +25,7 @@ const iconPaths: Record<IconName, string[]> = {
   compass: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z','M16.24 7.76l-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z'],
   layers: ['M12 2l9 4.5-9 4.5-9-4.5L12 2z','M3 12l9 4.5 9-4.5','M3 17.5l9 4.5 9-4.5'],
   sliders: ['M4 21v-7','M4 10V3','M12 21v-9','M12 8V3','M20 21v-5','M20 12V3','M1 14h6','M9 8h6','M17 16h6'],
+  moveHorizontal: ['M18 8l4 4-4 4','M6 8l-4 4 4 4','M2 12h20'],
   map: ['M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6z', 'M9 4v14', 'M15 6v14'],
   screens: ['M9 4h12v11h-5', 'M3 9h12v11H3z'],
 };
@@ -127,8 +128,18 @@ function diagramPath(d: string, className = '') {
   return path;
 }
 
+function syncCinemagraphReading() {
+  const reading = dialog.open || Boolean(app.querySelector(
+    '[data-practicing="true"], [data-reading="true"], .story-panel [aria-expanded="true"], .slide-line[data-narration-view="point"]'
+  ));
+  setCinemagraphIntensity(reading ? 0.2 : 1);
+}
+window.addEventListener('lesson-reading', syncCinemagraphReading);
+createTerrainSurface(() => {});
+
 reducedMotion.addEventListener('change',event=>{
-  if (event.matches) { stopMotion(); stopCinemagraphs(); }
+  if (event.matches) stopMotion();
+  setCinemagraphsPaused(event.matches);
   currentVideo?.applyMotionPreference();
 });
 
@@ -140,6 +151,7 @@ function modal(title: string, ...nodes: HTMLElement[]) {
   document.querySelector('#dialog-title')!.textContent = title;
   document.querySelector('#dialog-content')!.replaceChildren(...nodes);
   if (!dialog.open) dialog.showModal();
+  syncCinemagraphReading();
   closeDialog.focus();
 }
 closeDialog.onclick = () => closeMaterial();
@@ -156,6 +168,7 @@ dialog.addEventListener('close', () => {
   dialog.classList.remove('comparison');
   if (dialogOpener?.isConnected) dialogOpener.focus({preventScroll:true});
   dialogOpener = null;
+  syncCinemagraphReading();
   currentVideo?.resumeBackground();
 });
 
@@ -198,8 +211,10 @@ document.addEventListener('keydown', event => {
     return;
   }
   if (event.target instanceof Element && event.target.closest('input,select,textarea,[contenteditable]')) return;
-  if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && event.target instanceof Element &&
-    event.target.closest('.lesson-exploration[data-scene="zunyi-hall"]')) return;
+  if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && (
+    (event.target instanceof Element && event.target.closest('.lesson-exploration[data-scene="zunyi-hall"]')) ||
+    app.querySelector('.desk-live-page .desk-live-frame[data-inquiry="active"]')
+  )) return;
   const button = ['ArrowLeft', 'PageUp'].includes(event.key) ? pageButtons.previous
     : ['ArrowRight', 'PageDown'].includes(event.key) ? pageButtons.next : undefined;
   if (!button?.isConnected) return;
@@ -485,6 +500,7 @@ function renderMap(restoreFocus = false) {
     zoom=1;
     pan=[0,0];
     mapAngle=mapHomeAngle;
+    resetMapCard?.();
     moveCamera(true,true);
   }
   const resetView = control('',resetMapCamera);
@@ -675,7 +691,32 @@ function openDeskPage() {
   if (position>=0) openScene(position);
 }
 
+function captureMapExit(): HTMLCanvasElement | undefined {
+  if (currentView.kind !== 'map' || reducedMotion.matches) return;
+  const map = app.querySelector<HTMLElement>('.map');
+  const glCanvas = map?.querySelector<HTMLCanvasElement>('.terrain-surface.is-relief canvas');
+  if (!map || !glCanvas || !glCanvas.width || !glCanvas.height) return;
+  const mapRect = map.getBoundingClientRect();
+  const glRect = glCanvas.getBoundingClientRect();
+  if (!mapRect.width || !mapRect.height || !glRect.width || !glRect.height) return;
+  const shot = element('canvas', 'outgoing-image');
+  shot.width = Math.max(1, Math.round(mapRect.width));
+  shot.height = Math.max(1, Math.round(mapRect.height));
+  shot.setAttribute('aria-hidden', 'true');
+  const ctx = shot.getContext('2d');
+  if (!ctx) return;
+  ctx.fillStyle = '#161f19';
+  ctx.fillRect(0, 0, shot.width, shot.height);
+  try {
+    ctx.drawImage(glCanvas, glRect.left - mapRect.left, glRect.top - mapRect.top, glRect.width, glRect.height);
+  } catch {
+    return;
+  }
+  return shot;
+}
+
 function renderOpening(autoplay = true) {
+  const mapExit = captureMapExit();
   releaseSceneLesson();
   disposePageEntry();
   releaseExplorationPage();
@@ -700,11 +741,11 @@ function renderOpening(autoplay = true) {
   const landing = photo('yudu-assembly','于都集结');
   void landing.decode().catch(()=>{});
   title.tabIndex = -1;
-  const openingPicture = photo('yudu-bank','于都河岸');
+  const openingPicture = photo('terrain','长征地形总览');
   camera.append(openingPicture,element('div','scene-spotlight'));
   media.append(camera,element('div','scene-shade'));
   stage.append(media);
-  const player = attachVideo({mode:'opening',key:'opening'},'yudu-bank',camera,controls);
+  const player = attachVideo({mode:'opening',key:'opening'},'terrain',camera,controls);
   const backToMap = syncControl('map','',()=>{
     player.pause();
     renderMap(true);
@@ -719,6 +760,14 @@ function renderOpening(autoplay = true) {
   controls.append(next);
   scene.append(stage,heading);
   app.replaceChildren(scene);
+  if (mapExit) {
+    Object.assign(mapExit.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none', zIndex: '2' });
+    stage.append(mapExit);
+    const fade = animatePart(mapExit, [{ opacity: 1 }, { opacity: 0 }], 220);
+    const remove = () => mapExit.remove();
+    if (fade) fade.finished.then(remove, remove);
+    else remove();
+  }
   const sizeMedia = ()=>{media.style.width=Math.max(stage.clientWidth,stage.clientHeight*16/9)+'px';};
   mapResize = new ResizeObserver(sizeMedia);
   mapResize.observe(stage);
@@ -728,7 +777,7 @@ function renderOpening(autoplay = true) {
   if (!projectionMode) {
     title.focus({preventScroll:true});
     if (autoplay) {
-      const state: VideoState = {mode:'playing',time:0};
+      const state: VideoState = {mode:'playing',time:0,at:sceneNow()};
       void player.set(state);
       sendProjection({type:'video',state});
     }
@@ -931,7 +980,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     const divider = element('div','curtain-divider');
     divider.setAttribute('aria-hidden','true');
     const handle = element('div','curtain-handle');
-    handle.append(svgIcon('sliders'));
+    handle.append(svgIcon('moveHorizontal'));
     divider.append(handle);
     camera.append(divider);
 
@@ -1199,7 +1248,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   navigation.append(next);
 
   if (liveDesk) {
-    stage.setAttribute('aria-label','精修会议桌实景');
+    stage.setAttribute('aria-label','遵义会议桌实景');
   } else {
     stage.append(media);
   }
@@ -1218,6 +1267,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   if (variant === 'lesson') footer.append(chapterNav(chapter,jump));
   scene.append(stage, heading, footer);
   app.replaceChildren(scene);
+  syncCinemagraphReading();
   if (page.exploration) {
     const backdrop = page.video?.mode === 'loop' ? undefined : {key: page.image, image: picture};
     const openDesk = page.exploration === 'zunyi-hall' && chapterPages[position+1]?.page.activity === 'materials'
@@ -1329,6 +1379,7 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
   let generation = 0;
   let intent: VideoState = {mode:'static',time:0};
   let posterFade: Animation | undefined;
+  let syncDeadline = 0;
   const startLabel = clip.mode === 'transition' ? '播放备桥短片' : '播放短片';
   const cutLabel = clip.mode === 'transition' ? element('span','scene-shot-label',clip.caption.text) : undefined;
   if (cutLabel && clip.mode === 'transition') {
@@ -1339,9 +1390,60 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
       cutLabel.hidden = video.hidden || video.currentTime < start || video.currentTime >= end;
     });
   }
+  function targetTimeOf(state: VideoState) {
+    if (state.mode !== 'playing' || typeof state.at !== 'number' || !Number.isFinite(state.at)) return state.time;
+    const raw = state.time + Math.max(0, (sceneNow() - state.at) / 1000);
+    if (Number.isFinite(video.duration) && video.duration > 0) {
+      return background ? raw % video.duration : Math.min(video.duration, raw);
+    }
+    return raw;
+  }
+  function waitMediaEvent(name: 'loadeddata' | 'seeked', timeoutMs = 350) {
+    return new Promise<void>(resolve => {
+      const done = () => {
+        clearTimeout(timer);
+        video.removeEventListener(name, done);
+        video.removeEventListener('error', done);
+        resolve();
+      };
+      const timer = window.setTimeout(done, timeoutMs);
+      video.addEventListener(name, done, { once: true });
+      video.addEventListener('error', done, { once: true });
+    });
+  }
+  if (projectionMode) {
+    video.addEventListener('timeupdate', () => {
+      if (!syncDeadline || intent.mode !== 'playing' || typeof intent.at !== 'number' || video.paused || video.ended) {
+        if (video.playbackRate !== 1) video.playbackRate = 1;
+        return;
+      }
+      if (sceneNow() > syncDeadline) {
+        syncDeadline = 0;
+        if (video.playbackRate !== 1) video.playbackRate = 1;
+        return;
+      }
+      const target = targetTimeOf(intent);
+      let drift = target - video.currentTime;
+      if (background && Number.isFinite(video.duration) && video.duration > 0) {
+        const half = video.duration / 2;
+        if (drift > half) drift -= video.duration;
+        else if (drift < -half) drift += video.duration;
+      }
+      if (Math.abs(drift) > 1.2) {
+        video.currentTime = target;
+        video.playbackRate = 1;
+      } else if (Math.abs(drift) > 0.25) {
+        video.playbackRate = drift > 0 ? 1.08 : 0.92;
+      } else if (Math.abs(drift) <= 0.1) {
+        video.playbackRate = 1;
+        syncDeadline = 0;
+      }
+    });
+  }
   const play = background ? undefined : control('',()=>{
-    const state: VideoState = {mode:intent.mode === 'playing' && !video.ended ? 'paused' : 'playing',
-      time:intent.mode === 'static' || video.hidden || video.ended ? 0 : video.currentTime};
+    const playing = !(intent.mode === 'playing' && !video.ended);
+    const time = intent.mode === 'static' || video.hidden || video.ended ? 0 : video.currentTime;
+    const state: VideoState = playing ? {mode:'playing',time,at:sceneNow()} : {mode:'paused',time};
     void setVideo(state);
     sendProjection({type:'video',state});
   });
@@ -1349,6 +1451,8 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
     if (background && reducedMotion.matches) state = {mode:'static',time:0};
     const request = ++generation;
     intent = state;
+    syncDeadline = 0;
+    video.playbackRate = 1;
     if (state.mode === 'static') { showPoster(clip.key === 'xiang'); return; }
     if (posterFade) {
       video.hidden = true;
@@ -1365,34 +1469,47 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
       await Promise.allSettled(media.getAnimations().map(animation=>animation.finished));
       if (request !== generation || !video.isConnected) return;
     }
-    if (entering ? video.currentTime !== state.time : Math.abs(video.currentTime-state.time) > .12) {
-      video.currentTime = state.time;
-    }
     video.hidden = false;
     if (state.mode === 'paused') {
       video.pause();
+      if (entering && video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        await waitMediaEvent('loadeddata', 350);
+        if (request !== generation || !video.isConnected) return;
+      }
+      const needSeek = entering ? video.currentTime !== state.time : Math.abs(video.currentTime - state.time) > .02;
+      if (needSeek) {
+        const sought = entering ? waitMediaEvent('seeked', 350) : undefined;
+        video.currentTime = state.time;
+        if (sought) {
+          await sought;
+          if (request !== generation || !video.isConnected) return;
+        }
+      }
       video.classList.add('is-visible');
       return;
     }
     try {
-      if (entering && clip.mode === 'transition') {
-        if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-          // The original image stays on screen while the frame decodes.
-          await new Promise<void>(resolve=>{
-            const ready = () => {
-              video.removeEventListener('loadeddata',ready);
-              video.removeEventListener('error',ready);
-              resolve();
-            };
-            video.addEventListener('loadeddata',ready);
-            video.addEventListener('error',ready);
-          });
-        }
+      if (entering && video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        // The original image stays on screen while the frame decodes.
+        await waitMediaEvent('loadeddata', 4000);
         if (request !== generation || !video.isConnected) return;
-        video.classList.add('is-visible');
       }
+      const target = targetTimeOf(state);
+      const shouldSeek = entering ? Math.abs(video.currentTime - target) > .04 : Math.abs(video.currentTime - target) > .12;
+      if (shouldSeek) {
+        const sought = entering && target > .04 ? waitMediaEvent('seeked', 350) : undefined;
+        video.currentTime = target;
+        if (sought) {
+          await sought;
+          if (request !== generation || !video.isConnected) return;
+        }
+      }
+      if (entering && clip.mode === 'transition') video.classList.add('is-visible');
       await video.play();
-      if (request === generation && video.isConnected && !video.hidden && !video.paused) video.classList.add('is-visible');
+      if (request === generation && video.isConnected && !video.hidden && !video.paused) {
+        video.classList.add('is-visible');
+        if (projectionMode && typeof state.at === 'number') syncDeadline = sceneNow() + 4000;
+      }
       if (!video.isConnected) video.pause();
     } catch {
       if (request === generation && video.isConnected) showPoster();
@@ -1406,11 +1523,12 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
   function resumeBackground() {
     if (!background || reducedMotion.matches || !video.isConnected || intent.mode === 'playing' ||
       dialog.open || video.closest('[data-exploration]')) return;
-    void setVideo({mode:'playing',time:intent.mode === 'paused' ? intent.time : 0});
+    void setVideo({mode:'playing',time:intent.mode === 'paused' ? intent.time : 0,at:sceneNow()});
   }
-  const player = {set: setVideo, read: ()=>({
-    mode: intent.mode, time:video.hidden || intent.mode === 'static' ? intent.time : video.currentTime,
-  }),
+  const player = {set: setVideo, read: (): VideoState => {
+    const time = video.hidden || intent.mode === 'static' ? intent.time : video.currentTime;
+    return intent.mode === 'playing' ? {mode:'playing',time,at:sceneNow()} : {mode:intent.mode,time};
+  },
     pause() {
       if (intent.mode !== 'playing') return;
       void setVideo({mode:'paused',time:video.currentTime});
@@ -1445,6 +1563,8 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
   function showPoster(fade = false) {
     const request = ++generation;
     intent = {mode:'static',time:0};
+    syncDeadline = 0;
+    video.playbackRate = 1;
     video.pause();
     if (cutLabel) cutLabel.hidden = true;
     if (still) {
@@ -1467,6 +1587,6 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
       void posterFade.finished.then(finish, () => {});
     } else finish();
   }
-  if (background && !reducedMotion.matches) void setVideo({mode:'playing',time:0});
+  if (background && !reducedMotion.matches) void setVideo({mode:'playing',time:0,at:sceneNow()});
   return player;
 }

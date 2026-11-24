@@ -63,8 +63,13 @@
   height: 8px;
   border-radius: 50%;
   background: #c5ab80;
-  box-shadow: 0 0 0 4px #262019;
+  box-shadow: 0 0 0 3px rgb(20 18 14 / 0.58), 0 0 8px rgb(16 14 10 / 0.45);
+  transition: background-color 180ms ease, box-shadow 180ms ease;
   pointer-events: none;
+}
+body:not(.projection-mode) .story-stop[data-revealed="true"]::before {
+  background: #e2c590;
+  box-shadow: 0 0 0 2px rgb(232 196 133 / 0.36), 0 0 0 4px rgb(20 18 14 / 0.5);
 }
 .story-step {
   display: grid;
@@ -91,14 +96,41 @@
 }
 .story-step strong, .story-step h3 {
   margin: 0;
-  font: 700 clamp(17px, 1.65vw, 30px)/1.3 "STZhongsong", "Songti SC", "SimSun", serif;
+  font: 700 clamp(17px, 1.65vw, 30px)/1.3 var(--font-serif, "STZhongsong", "Songti SC", "Noto Serif CJK SC", "SimSun", serif);
 }
 .story-step:has(time) { min-height: 64px; }
-button.story-step:hover:not(:disabled), button.story-step[aria-pressed="true"] {
-  background: #fff3d313;
+button.story-step[aria-expanded] {
+  position: relative;
+  padding-inline-end: 30px;
+}
+button.story-step[aria-expanded]::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 12px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-inline-end: 1.5px solid #d7c09db8;
+  border-block-end: 1.5px solid #d7c09db8;
+  transform: translateY(-65%) rotate(45deg);
+  transition: transform 180ms ease, border-color 180ms ease;
+  pointer-events: none;
+}
+button.story-step[aria-expanded="true"]::after {
+  border-color: #ffe1a4;
+  transform: translateY(-25%) rotate(-135deg);
+}
+.projection-mode button.story-step[aria-expanded]::after { display: none; }
+button.story-step:hover:not(:disabled),
+button.story-step[aria-pressed="true"],
+button.story-step[aria-expanded="true"] {
+  background: #fff3d316;
   border-color: transparent;
 }
-.story-stop:has([aria-pressed="true"])::before { background: #ffe1a4; }
+.story-stop:has([aria-pressed="true"], [aria-expanded="true"])::before {
+  background: #ffe1a4;
+  box-shadow: 0 0 0 3px rgb(255 225 164 / 0.32), 0 0 10px rgb(255 214 140 / 0.55);
+}
 .story-detail {
   margin: 0;
   padding: 0 10px 10px 24px;

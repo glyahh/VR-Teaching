@@ -23,7 +23,7 @@ const practices: Record<PracticeId, Practice> = {
     source: '教学摘要 · 中央红军长征出发纪念园讲解词',
     questions: [
       { prompt: '桥板在浮桥上起什么作用？', options: ['铺成通道','托住桥面'], answer: 0, focus: 'plank',
-        retry: '看亮起的上方铺面。部队从哪一层通过？', evidence: '木板铺成通道。于都群众捐出门板等木料。' },
+        retry: '看亮起的上方铺面。部队从哪一层通过？', evidence: '木板铺在上面，拼成过河通道；不少桥板正是于都乡亲卸下的门板。' },
       { prompt: '船体在浮桥上起什么作用？', options: ['铺成通道','托住桥面'], answer: 1, focus: 'boat',
         retry: '看亮起的下方船身。桥板下面是什么？', evidence: '木船在桥板下，为浮桥提供承托。' },
     ],
@@ -38,7 +38,7 @@ const practices: Record<PracticeId, Practice> = {
       { prompt: '3 万余人对应哪个时点？', options: ['渡过湘江后','长征出发时'], answer: 0, focus: 'after',
         retry: '比较两行的日期，找渡过湘江后的记录。', evidence: '3 万余人对应渡过湘江后。' },
       { prompt: '这两组数字的差额涵盖哪个范围？', options: ['出发至渡过湘江之间','仅湘江战役期间'], answer: 0, focus: 'dates',
-        retry: '回看最早一组数字。它的时点早于湘江战役。', evidence: '差额涵盖两个记录时点之间的行程和多种减员。' },
+        retry: '回看最早一组数字。它的时点早于湘江战役。', evidence: '少掉的人数是从出发到渡过湘江一路上累计的减员，不只发生在湘江一战。' },
     ],
   },
   'crossing-evidence': {
@@ -47,8 +47,8 @@ const practices: Record<PracticeId, Practice> = {
     source: '教学摘要 · 党史和文献研究院《红军长征过广西》及《中国共产党简史》',
     questions: [
       { prompt: '哪条材料支持“渡过湘江”？', options: ['两个时点的兵力对照','全州、兴安一带的渡江记录'], answer: 1, column: '渡江结果',
-        retry: '找一条直接记录渡江地点和行动结果的材料。', evidence: '渡江记录表明，中央红军渡过湘江，突破第四道封锁线。' },
-      { prompt: '哪条材料能看出出发后到渡江后的兵力变化？', options: ['两个时点的兵力对照','全州、兴安一带的渡江记录'], answer: 0, column: '付出代价',
+        retry: '找直接写明红军在哪里过江、有没有突破封锁线的材料。', evidence: '渡江记录表明，中央红军渡过湘江，突破第四道封锁线。' },
+      { prompt: '哪条材料能看出从出发到渡江后的兵力变化？', options: ['两个时点的兵力对照','全州、兴安一带的渡江记录'], answer: 0, column: '付出代价',
         retry: '找一条同时记录出发时和渡江后人数的材料。', evidence: '兵力从长征出发时的 8.6 万余人减至渡过湘江后的 3 万余人。' },
     ],
   },
@@ -59,8 +59,8 @@ const practices: Record<PracticeId, Practice> = {
     questions: [
       { prompt: '黎平会议决定改向哪里？', options: ['贵州北部','湘西北'], answer: 0, focus: 'routes',
         retry: '看舆图上的「原计划」和「会议决定」，找会议决定所指的方向。', evidence: '原计划赴湘西北会合，黎平会议决定改向贵州北部。' },
-      { prompt: '哪条材料有助于解释为何重新讨论方向？', options: ['两条路线的终点','渡江后兵力和行军处境'], answer: 1,
-        retry: '找能说明部队当时面临什么困难的材料。', evidence: '渡江后兵力锐减，原定会合方向又有重兵堵截，需要重新研判去向。' },
+      { prompt: '哪条材料能说明为什么必须重新讨论方向？', options: ['两条路线的终点','渡江后兵力和行军处境'], answer: 1,
+        retry: '找能说明部队当时面临什么困难的材料。', evidence: '渡江后兵力锐减，原定方向又有重兵堵截，继续硬闯代价太大，必须另选去路。' },
     ],
   },
   'zunyi-issues': {
@@ -69,9 +69,9 @@ const practices: Record<PracticeId, Practice> = {
     source: '教学摘要 · 党史和文献研究院《遵义会议决议》解读',
     questions: [
       { prompt: '总结第五次反“围剿”失败与长征初期受挫的教训，归入哪类？', options: ['军事','组织'], answer: 0,
-        retry: '找出摘要里的两段受挫经历，想想会议总结的是哪类指挥教训。', evidence: '这是军事问题。会议针对两段受挫总结军事领导与指挥上的教训。' },
+        retry: '找出摘要里的两段受挫经历，想想会议总结的是哪类指挥教训。', evidence: '属于军事问题。会议针对这两段受挫，集中总结了军事领导和作战指挥上的教训。' },
       { prompt: '调整中央领导机构，归入哪类？', options: ['军事','组织'], answer: 1,
-        retry: '圈出关键对象“中央领导机构”，再选一次。', evidence: '这是组织问题。会议调整中央领导机构，选举毛泽东为中央政治局常委。' },
+        retry: '留意“中央领导机构”这几个字，它涉及的是哪一类调整？', evidence: '属于组织问题。会议调整了中央领导机构，选举毛泽东为中央政治局常委。' },
     ],
   },
 };
@@ -86,15 +86,19 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
   let choice: number | undefined;
   const panel = element('section','practice');
   panel.hidden = true;
+  const head = element('div','practice-head');
   const heading = element('h2','practice-title',practice.title);
   heading.tabIndex = -1;
+  const counter = element('span','practice-step');
+  counter.setAttribute('aria-hidden','true');
+  head.append(heading,counter);
   const prompt = element('p','practice-prompt');
   const options = element('div','practice-options');
   const feedback = element('p','practice-feedback');
   feedback.setAttribute('role','status');
   const board = element('div','practice-board');
   const source = element('p','practice-source',practice.source);
-  panel.append(heading,prompt,options,feedback,board,source);
+  panel.append(head,prompt,options,feedback,board,source);
 
   const entry = control('展开练习',()=>{
     if (state) {
@@ -148,30 +152,38 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
     scene.dataset.practicing = String(Boolean(state));
     scene.dataset.practiceFocus = item?.focus ?? '';
     showReference?.(state?.retry || answered ? item?.focus : undefined);
+    window.dispatchEvent(new Event('lesson-reading'));
     if (!state || !item) {
       if (wasOpen && !projectionMode) entry.focus({preventScroll:true});
       return;
     }
+    counter.textContent = (state.question + 1) + ' / ' + practice.questions.length;
+    counter.hidden = practice.questions.length < 2;
     prompt.textContent = item.prompt;
     options.replaceChildren(...item.options.map((value,index)=>{
+      const correct = answered && index === item.answer;
       if (projectionMode) {
-        const option = element('span','practice-option',value);
-        option.dataset.correct = String(answered && index === item.answer);
+        const option = element('span','practice-option');
+        if (correct) option.append(svgIcon('check'),element('span','',value));
+        else option.textContent = value;
+        option.dataset.correct = String(correct);
         return option;
       }
       const option = control(value,()=>{
         choice = index;
         Array.from(options.children).forEach((node,i)=>node.setAttribute('aria-pressed',String(i===index)));
         confirm.disabled = false;
-      },'practice-option');
+      },'practice-option',correct ? 'check' : undefined);
       option.disabled = answered;
-      option.dataset.correct = String(answered && index === item.answer);
+      option.dataset.correct = String(correct);
       option.setAttribute('aria-pressed','false');
       return option;
     }));
     feedback.hidden = !(state.retry || (answered && !item.column));
     feedback.dataset.retry = String(state.retry);
-    feedback.textContent = state.retry ? item.retry : answered ? item.evidence : '';
+    if (state.retry) feedback.replaceChildren(svgIcon('info'),element('span','',item.retry));
+    else if (answered && !item.column) feedback.replaceChildren(svgIcon('check'),element('span','',item.evidence));
+    else feedback.replaceChildren();
     source.hidden = !state.shown.length;
     board.replaceChildren(...practice.questions.flatMap(({column,evidence},index)=>{
       if (!column) return [];

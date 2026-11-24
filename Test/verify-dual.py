@@ -151,10 +151,10 @@ def verify_opening(teacher, student):
         expect(page.locator(video)).to_be_visible()
         page.wait_for_function("document.querySelector('.opening-page video')?.currentTime > .25")
     seconds = teacher.locator(video).evaluate("node=>node.duration")
-    assert 20 < seconds < 25, seconds
+    assert 88 < seconds < 102, seconds
     assert not teacher.locator(video).evaluate("node=>node.muted")
     assert student.locator(video).evaluate("node=>node.muted")
-    first, last = video_frame_errors(teacher.locator(video), "yudu-bank", "yudu-assembly")
+    first, last = video_frame_errors(teacher.locator(video), "terrain", "yudu-assembly")
     assert max(first,last) < 3, (first,last)
     teacher.get_by_role("button",name="暂停短片",exact=True).click()
     frozen = teacher.locator(video).evaluate("node=>node.currentTime")

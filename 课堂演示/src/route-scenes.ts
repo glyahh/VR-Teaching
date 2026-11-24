@@ -60,8 +60,11 @@ function playSpatialJourney(scene: HTMLElement, journey: SpatialJourney, signal:
     const node = element('span','spatial-station',name);
     const pin = element('span','spatial-map-pin');
     names.append(pin,node);
-    return [{ node, pin, point: position(point), side, close: index >= leg.first && index <= leg.last }];
+    return [{ name, node, pin, point: position(point), side, close: index >= leg.first && index <= leg.last }];
   });
+  const labelRank = (item: typeof labels[number]) => item.close ? 0 : item.name === '遵义' ? 1 : item.name === '于都' ? 2 : 3;
+  const labelOrder = labels.map((_, index) => index).sort((a, b) => labelRank(labels[a]) - labelRank(labels[b]) || a - b);
+  const chosenSlot = labels.map(() => -1);
   const points = route.map(position);
   const section = points.slice(leg.first, leg.last + 1);
   const past = sampleTerrainPath(points.slice(0, leg.first + 1));
@@ -127,7 +130,7 @@ function playSpatialJourney(scene: HTMLElement, journey: SpatialJourney, signal:
     const blend = (a: number, b: number) => a + (b - a) * pull;
     const width = layer.clientWidth, height = layer.clientHeight;
     if (!width || !height) return;
-    if (width !== layout.width || height !== layout.height) {
+    if (width !== layout.width || height !== layout.height || sizes.some(size => !size.width || !size.height)) {
       layout = { width, height };
       sizes = labels.map(({node}) => ({ width: node.offsetWidth, height: node.offsetHeight }));
     }
@@ -144,25 +147,86 @@ function playSpatialJourney(scene: HTMLElement, journey: SpatialJourney, signal:
     earlier.style.opacity = '.53';
     trace.setAttribute('d',tracedPath(reveal));
 
-    const used: { x: number; y: number; w: number; h: number }[] = [];
-    labels.forEach(({node,pin,side,close}, index) => {
-      const level = close ? clamp((elapsed - 120) / 160) : clamp((pull - .34) / .25);
+    type Box = { x: number; y: number; w: number; h: number };
+    const used: Box[] = [];
+    const inBounds = (rect: Box) =>
+      rect.x >= 8 && rect.y >= 8 && rect.x + rect.w <= width - 8 && rect.y + rect.h <= height - 8;
+    const clearOfUsed = (rect: Box) => used.every(box =>
+      rect.x + rect.w + 5 < box.x || box.x + box.w + 5 < rect.x ||
+      rect.y + rect.h + 4 < box.y || box.y + box.h + 4 < rect.y);
+    const overlapArea = (rect: Box) => used.reduce((sum, box) => {
+      const ox = Math.max(0, Math.min(rect.x + rect.w + 5, box.x + box.w + 5) - Math.max(rect.x, box.x));
+      const oy = Math.max(0, Math.min(rect.y + rect.h + 4, box.y + box.h + 4) - Math.max(rect.y, box.y));
+      return sum + ox * oy;
+    }, 0);
+    const clampRect = (rect: Box): Box => ({
+      x: Math.max(8, Math.min(Math.max(8, width - rect.w - 8), rect.x)),
+      y: Math.max(8, Math.min(Math.max(8, height - rect.h - 8), rect.y)),
+      w: rect.w, h: rect.h,
+    });
+    const slotsFor = (w: number, h: number, side?: 'left' | 'bottom'): [number, number][] => {
+      const aboveRight: [number, number] = [9, -h - 11];
+      const aboveCenter: [number, number] = [-w / 2, -h - 13];
+      const aboveLeft: [number, number] = [-9 - w, -h - 11];
+      const belowRight: [number, number] = [9, 11];
+      const belowCenter: [number, number] = [-w / 2, 13];
+      const belowLeft: [number, number] = [-9 - w, 11];
+      const toLeft: [number, number] = [-11 - w, -h / 2];
+      const toRight: [number, number] = [11, -h / 2];
+      if (side === 'bottom') return [belowCenter, belowRight, belowLeft, aboveCenter, aboveRight, toLeft, toRight, aboveLeft];
+      if (side === 'left') return [toLeft, aboveLeft, belowLeft, aboveCenter, belowCenter, aboveRight, belowRight, toRight];
+      return [aboveRight, aboveCenter, aboveLeft, toRight, belowRight, belowCenter, toLeft, belowLeft];
+    };
+
+    for (const index of labelOrder) {
+      const { name, node, pin, side, close: isClose } = labels[index];
+      const level = isClose ? clamp((elapsed - 120) / 160) : clamp((pull - .34) / .25);
       const [u,v] = anchors[index];
       const x = left + worldWidth * u / 100, y = top + worldHeight * v / 100;
-      const { width: w, height: h } = sizes[index];
-      const above = [9,-h-13], below = [9,12], toLeft = [-9-w,-h/2];
-      const offsets = side === 'bottom' ? [below,above,toLeft] : side === 'left' ? [toLeft,above,below] : [above,below,toLeft];
-      const label = level > 0 && offsets.map(([dx,dy]) => ({ x: x+dx, y: y+dy, w, h })).find(rect =>
-        rect.x >= 8 && rect.y >= 8 && rect.x + w < width - 8 && rect.y + h < height - 8 &&
-        used.every(box => rect.x + w + 5 < box.x || box.x + box.w + 5 < rect.x ||
-          rect.y + h + 4 < box.y || box.y + box.h + 4 < rect.y));
-      node.style.opacity = pin.style.opacity = String(label ? level : 0);
-      if (label) {
-        Object.assign(node.style, { left: label.x + 'px', top: label.y + 'px' });
-        Object.assign(pin.style, { left: x + 'px', top: y + 'px' });
-        used.push(label);
+      const pinVisible = level > 0 && x >= 4 && x <= width - 4 && y >= 4 && y <= height - 4;
+      pin.style.opacity = String(pinVisible ? level : 0);
+      if (pinVisible) Object.assign(pin.style, { left: x + 'px', top: y + 'px' });
+      if (level <= 0) {
+        node.style.opacity = '0';
+        chosenSlot[index] = -1;
+        continue;
       }
-    });
+      const { width: w, height: h } = sizes[index];
+      const candidates = slotsFor(w, h, side).map(([dx, dy]): Box => ({ x: x + dx, y: y + dy, w, h }));
+      let picked: Box | undefined;
+      const locked = chosenSlot[index];
+      if (locked >= 0 && locked < candidates.length && inBounds(candidates[locked]) && clearOfUsed(candidates[locked])) {
+        picked = candidates[locked];
+      }
+      if (!picked) {
+        const hit = candidates.findIndex(rect => inBounds(rect) && clearOfUsed(rect));
+        if (hit >= 0) {
+          chosenSlot[index] = hit;
+          picked = candidates[hit];
+        }
+      }
+      if (!picked) {
+        const clamped = candidates.map(clampRect);
+        const hit = clamped.findIndex(clearOfUsed);
+        if (hit >= 0) {
+          chosenSlot[index] = hit;
+          picked = clamped[hit];
+        } else if (isClose || name === '遵义') {
+          let bestIndex = 0, bestArea = Infinity;
+          clamped.forEach((rect, slotIndex) => {
+            const area = overlapArea(rect);
+            if (area < bestArea) { bestArea = area; bestIndex = slotIndex; }
+          });
+          chosenSlot[index] = bestIndex;
+          picked = clamped[bestIndex];
+        }
+      }
+      node.style.opacity = String(picked ? level : 0);
+      if (picked) {
+        Object.assign(node.style, { left: picked.x + 'px', top: picked.y + 'px' });
+        used.push(picked);
+      }
+    }
     layer.dataset.phase = elapsed < pullbackStart ? 'near' : elapsed < overviewStart ? 'pullback' : 'overview';
     layer.dataset.routeProgress = reveal.toFixed(3);
   }

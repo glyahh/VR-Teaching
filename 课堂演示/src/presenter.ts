@@ -1,6 +1,6 @@
 type LessonView = {kind:'map'} | {kind:'opening'} | {kind:'review'; conclusionPage:boolean}
   | {kind:'scene'; position:number; variant:LessonMode};
-type VideoState = {mode:'static'|'paused'|'playing'; time:number};
+type VideoState = {mode:'static'|'paused'|'playing'; time:number; at?:number};
 type CameraPosition = [zoom:number, x:number, y:number, azimuth:number, tilt:number];
 type LessonSnapshot = {
   view:LessonView;
@@ -47,7 +47,7 @@ let activeSceneCue: string | undefined;
 let cameraPosition: CameraPosition = [1,0,0,...mapHomeAngle];
 let applyCamera: (position:CameraPosition,animate:boolean)=>void;
 let currentVideo: ReturnType<typeof attachVideo> | undefined;
-let scrubValue = 68;
+let scrubValue = 50;
 let applyScrub: ((value:number)=>void) | undefined;
 let routeOffset = 0;
 let applyRouteOffset: ((value:number)=>void) | undefined;

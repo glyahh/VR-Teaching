@@ -1,5 +1,6 @@
 let mapCardOffset: Point = [0,0];
 let releaseMapCard: (() => void) | undefined;
+let resetMapCard: (() => void) | undefined;
 
 function mountMapCard(map: HTMLElement, card: HTMLElement, footer: HTMLElement) {
   const life = new AbortController();
@@ -84,6 +85,19 @@ function mountMapCard(map: HTMLElement, card: HTMLElement, footer: HTMLElement) 
     const time = Math.max(16,last.at - first.at);
     glide((last.offset[0]-first.offset[0])/time,(last.offset[1]-first.offset[1])/time);
   }
+  function reset() {
+    cancelAnimationFrame(frame);
+    frame = 0;
+    drag = undefined;
+    delete card.dataset.dragging;
+    measure();
+    place(0,0);
+  }
+  resetMapCard = reset;
+  card.addEventListener('dblclick', event => {
+    if (event.target instanceof Element && event.target.closest('button,a,input,select,label')) return;
+    reset();
+  }, { signal });
   card.addEventListener('pointerup', end, { signal });
   card.addEventListener('pointercancel', end, { signal });
   card.addEventListener('lostpointercapture', end, { signal });
@@ -92,6 +106,7 @@ function mountMapCard(map: HTMLElement, card: HTMLElement, footer: HTMLElement) 
   for (const node of [map,card,footer]) resize.observe(node);
   measure();
   return () => {
+    if (resetMapCard === reset) resetMapCard = undefined;
     life.abort();
     resize.disconnect();
     cancelAnimationFrame(frame);

@@ -8,6 +8,7 @@ const mapHomeAngle: TerrainAngle = [0, 32];
 type TerrainSurface = {
   element: HTMLDivElement;
   ready: boolean;
+  lost?: boolean;
   onChange: () => void;
   orient: (angle: TerrainAngle) => void;
   project: (point: Point) => Point;
@@ -15,7 +16,7 @@ type TerrainSurface = {
 let terrainSurface: TerrainSurface | undefined;
 
 function createTerrainSurface(onChange: () => void): TerrainSurface {
-  if (terrainSurface) {
+  if (terrainSurface && !terrainSurface.lost) {
     terrainSurface.onChange = onChange;
     return terrainSurface;
   }
@@ -102,31 +103,81 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
     context.deleteShader(shader);
     return null;
   }
-  const program = gl.createProgram();
-  const vertex = compile(gl,gl.VERTEX_SHADER,vertexSource);
-  const fragment = compile(gl,gl.FRAGMENT_SHADER,fragmentSource);
-  if (!program || !vertex || !fragment) return terrain;
-  gl.attachShader(program,vertex);
-  gl.attachShader(program,fragment);
-  gl.linkProgram(program);
-  gl.deleteShader(vertex);
-  gl.deleteShader(fragment);
-  if (!gl.getProgramParameter(program,gl.LINK_STATUS)) return terrain;
-  const orientation = gl.getUniformLocation(program,'orientation');
+  const programLocation: { orientation: WebGLUniformLocation | null } = { orientation: null };
   const cells = (terrainColumns-1)*(terrainRows-1);
+  let meshVertices: Float32Array | undefined;
+  let meshIndices: Uint16Array | undefined;
+
+  function setupProgram() {
+    if (!gl || gl.isContextLost() || !meshVertices || !meshIndices || !elevation.complete || !elevation.naturalWidth) return false;
+    const program = gl.createProgram();
+    const vertex = compile(gl,gl.VERTEX_SHADER,vertexSource);
+    const fragment = compile(gl,gl.FRAGMENT_SHADER,fragmentSource);
+    if (!program || !vertex || !fragment) {
+      if (vertex) gl.deleteShader(vertex);
+      if (fragment) gl.deleteShader(fragment);
+      if (program) gl.deleteProgram(program);
+      return false;
+    }
+    gl.attachShader(program,vertex);
+    gl.attachShader(program,fragment);
+    gl.linkProgram(program);
+    gl.deleteShader(vertex);
+    gl.deleteShader(fragment);
+    if (!gl.getProgramParameter(program,gl.LINK_STATUS)) {
+      gl.deleteProgram(program);
+      return false;
+    }
+    programLocation.orientation = gl.getUniformLocation(program,'orientation');
+    canvas.width = 1784;
+    canvas.height = 952;
+    gl.viewport(0,0,canvas.width,canvas.height);
+    gl.enable(gl.DEPTH_TEST);
+    gl.useProgram(program);
+    gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER,meshVertices,gl.STATIC_DRAW);
+    const point = gl.getAttribLocation(program,'point');
+    gl.enableVertexAttribArray(point);
+    gl.vertexAttribPointer(point,3,gl.FLOAT,false,0,0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,gl.createBuffer());
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,meshIndices,gl.STATIC_DRAW);
+    gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,elevation);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+    gl.uniform2f(gl.getUniformLocation(program,'sampleStep'),1/elevation.width,1/elevation.height);
+    draw();
+    return gl.getError() === gl.NO_ERROR;
+  }
 
   function draw() {
-    if (!gl || gl.isContextLost()) return;
+    if (!gl || gl.isContextLost() || !programLocation.orientation) return;
     gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-    gl.uniform4fv(orientation,basis);
+    gl.uniform4fv(programLocation.orientation,basis);
     gl.drawElements(gl.TRIANGLES,cells*6,gl.UNSIGNED_SHORT,0);
   }
 
-  canvas.addEventListener('webglcontextlost',()=>{
+  canvas.addEventListener('webglcontextlost', event => {
+    event.preventDefault();
     terrain.ready = false;
+    terrain.lost = true;
     surface.classList.remove('is-relief');
     surface.style.backgroundImage = `url(${mediaAssets.terrain})`;
-    canvas.remove();
+    canvas.hidden = true;
+    if (terrainSurface === terrain) terrainSurface = undefined;
+    terrain.onChange();
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    if (!setupProgram()) return;
+    terrain.lost = false;
+    terrain.ready = true;
+    canvas.hidden = false;
+    surface.classList.add('is-relief');
+    surface.style.backgroundImage = '';
+    if (!terrainSurface) terrainSurface = terrain;
     terrain.onChange();
   });
   const elevation = new Image();
@@ -140,8 +191,8 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
     if (!samples) return;
     samples.drawImage(elevation,0,0);
     const pixels = samples.getImageData(0,0,sampler.width,sampler.height).data;
-    const vertices = new Float32Array(elevations.length*3);
-    const indices = new Uint16Array(cells*6);
+    meshVertices = new Float32Array(elevations.length*3);
+    meshIndices = new Uint16Array(cells*6);
     let cursor = 0;
     for (let row=0;row<terrainRows;row++) {
       const v = row/(terrainRows-1);
@@ -153,36 +204,15 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
         const offset = (pixelY*sampler.width+pixelX)*4;
         const z = Math.max(0,pixels[offset]*256+pixels[offset+1]-2048)/18800;
         elevations[index] = z;
-        vertices.set([u,v,z],index*3);
+        meshVertices.set([u,v,z],index*3);
         if (row < terrainRows-1 && col < terrainColumns-1) {
           const lower = index+terrainColumns;
-          indices.set([index,index+1,lower,index+1,lower+1,lower],cursor);
+          meshIndices.set([index,index+1,lower,index+1,lower+1,lower],cursor);
           cursor += 6;
         }
       }
     }
-    canvas.width = 1784;
-    canvas.height = 952;
-    gl.viewport(0,0,canvas.width,canvas.height);
-    gl.enable(gl.DEPTH_TEST);
-    gl.useProgram(program);
-    gl.bindBuffer(gl.ARRAY_BUFFER,gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER,vertices,gl.STATIC_DRAW);
-    const point = gl.getAttribLocation(program,'point');
-    gl.enableVertexAttribArray(point);
-    gl.vertexAttribPointer(point,3,gl.FLOAT,false,0,0);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,gl.createBuffer());
-    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,indices,gl.STATIC_DRAW);
-    gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
-    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
-    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGB,gl.RGB,gl.UNSIGNED_BYTE,elevation);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
-    gl.uniform2f(gl.getUniformLocation(program,'sampleStep'),1/elevation.width,1/elevation.height);
-    draw();
-    if (gl.getError() !== gl.NO_ERROR) return;
+    if (!setupProgram()) return;
     terrain.ready = true;
     surface.classList.add('is-relief');
     surface.style.backgroundImage = '';
