@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install sherpa-onnx==1.12.14 playwright==1.52.0
+      - run: python -m pip install sherpa-onnx==1.12.40 playwright==1.52.0
       - name: Public reference ASR and Edge capabilities
         shell: pwsh
         run: |
@@ -41,7 +41,7 @@ jobs:
           zr="204ad334e2e683fd295359930cc16fc0432a23ac"
           pa="sherpa-onnx-streaming-paraformer-bilingual-zh-en"
           pr="8e40c43232a1c5c66c82111efc5820d3accca11b"
-          wavs=[get(z,zr,"test_wavs/"+n,"zip") for n in ["0.wav","1.wav","8k.wav"]]
+          wavs=[]
           def run(rec,label):
               rows=[]
               for f in wavs:
@@ -57,6 +57,7 @@ jobs:
                   rows.append({"file":Path(f).name,"text":rec.get_result(stream),"seconds":len(data)/rate,"decode_ms":round((time.perf_counter()-start)*1000,2)})
               report["models"][label]=rows;save()
           try:
+              wavs=[get(z,zr,"test_wavs/"+n,"zip") for n in ["0.wav","1.wav","8k.wav"]]
               rec=s.OnlineRecognizer.from_transducer(tokens=get(z,zr,"tokens.txt","zip"),encoder=get(z,zr,"encoder-epoch-99-avg-1.int8.onnx","zip"),decoder=get(z,zr,"decoder-epoch-99-avg-1.onnx","zip"),joiner=get(z,zr,"joiner-epoch-99-avg-1.int8.onnx","zip"),num_threads=1)
               run(rec,"zipformer");del rec
               rec=s.OnlineRecognizer.from_paraformer(tokens=get(pa,pr,"tokens.txt","para"),encoder=get(pa,pr,"encoder.int8.onnx","para"),decoder=get(pa,pr,"decoder.int8.onnx","para"),num_threads=1)
@@ -73,11 +74,17 @@ jobs:
                   caps=page.evaluate("""async()=>{const stream=await navigator.mediaDevices.getUserMedia({video:true,audio:true});const v=document.querySelector('video');v.srcObject=stream;await v.play();const tracks=stream.getTracks();const size=[v.videoWidth,v.videoHeight];tracks.forEach(t=>t.stop());v.srcObject=null;const worker=new Worker(URL.createObjectURL(new Blob(['onmessage=()=>postMessage(42)'],{type:'text/javascript'})));const n=await new Promise((res,rej)=>{worker.onmessage=e=>res(e.data);worker.onerror=rej;worker.postMessage(0)});worker.terminate();return {secure:isSecureContext,size,tracks:tracks.map(t=>[t.kind,t.readyState]),worker:n}}""")
                   with page.expect_popup() as pop:page.locator("#pop").click()
                   screen=pop.value;screen.wait_for_load_state()
-                  token=screen.evaluate("()=>new Promise(resolve=>{window.addEventListener('message',e=>resolve(e.data),{once:true});window.opener.postMessage('ready','*')})",timeout=5000) if False else None
+                  page.evaluate("()=>window.addEventListener('message',e=>{if(e.source===window.frames[0])return;if(e.data==='ready')e.source.postMessage('snapshot','*')})")
+                  message=screen.evaluate("()=>new Promise((resolve,reject)=>{const id=setTimeout(()=>reject(Error('no handshake')),5000);window.addEventListener('message',e=>{if(e.source===window.opener&&e.data==='snapshot'){clearTimeout(id);resolve(e.data)}},{once:true});window.opener.postMessage('ready','*')})")
+                  assert message=="snapshot" and caps["secure"] and caps["worker"]==42 and all(x[1]=="ended" for x in caps["tracks"]) and not requests
                   report["edge"]={"version":b.version,"capabilities":caps,"popup":not screen.is_closed(),"http_requests":requests}
                   b.close();save()
           except Exception as e:
               report["edge_error"]=repr(e);save()
+          reference="对我做了介绍那么我想说的是大家如果对我的研究感兴趣"
+          for key,rows in report["models"].items():
+              rows[0]["matches_upstream_reference"]=(rows[0]["text"]==reference)
+          save()
           print(json.dumps(report,ensure_ascii=False))
           if "asr_error" in report or "edge_error" in report:raise SystemExit(1)
           '@ | Set-Content -Encoding utf8 safety-public-baseline.py
