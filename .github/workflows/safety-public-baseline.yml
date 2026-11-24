@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: python -m pip install numpy==1.26.4 sherpa-onnx==1.12.40 playwright==1.52.0
+      - run: python -m pip install numpy==1.26.4 soundfile==0.13.1 sherpa-onnx==1.12.40 playwright==1.52.0
       - name: Public reference ASR and Edge capabilities
         shell: pwsh
         run: |
@@ -83,7 +83,8 @@ jobs:
               report["edge_error"]=repr(e);save()
           # Independent, annotated public Mandarin speech: deterministic offsets,
           # both recognizers receive the same decoded audio. Do not tune on these rows.
-          import re, subprocess, io, urllib.parse, random
+          import re, io, urllib.parse, traceback
+          import soundfile as sf
           def normalized(t):return "".join(c.lower() for c in str(t) if c.isalnum())
           def edit(a,b):
               d=list(range(len(b)+1))
@@ -110,8 +111,9 @@ jobs:
                           raise ValueError("Unexpected dataset schema "+str(list(row)))
                       src=audio["src"];f=out/("aishell-"+str(entry["row_idx"])+".audio")
                       urllib.request.urlretrieve(src,f)
-                      pcm=subprocess.check_output(["ffmpeg","-v","error","-i",str(f),"-ac","1","-ar","16000","-f","f32le","pipe:1"])
-                      arr=np.frombuffer(pcm,dtype="<f4").copy()
+                      arr,rate=sf.read(str(f),dtype="float32",always_2d=True)
+                      if rate!=16000:raise ValueError("Unexpected sample rate "+str(rate))
+                      arr=arr.mean(axis=1).astype(np.float32)
                       if not len(arr):raise ValueError("empty audio")
                       ds.append((entry["row_idx"],text_ref,arr,hashlib.sha256(f.read_bytes()).hexdigest()))
               assert len(ds)==36
@@ -146,7 +148,7 @@ jobs:
               if "asr_error" not in report:benchmark()
               else:raise RuntimeError("reference model unavailable")
           except Exception as e:
-              report["benchmark_error"]=repr(e);save()
+              report["benchmark_error"]=repr(e);traceback.print_exc();save()
           reference="对我做了介绍那么我想说的是大家如果对我的研究感兴趣"
           for key,rows in report["models"].items():
               rows[0]["matches_upstream_reference"]=(rows[0]["text"]==reference)
