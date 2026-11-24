@@ -64,6 +64,7 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
   });
   const closeButton = overlay.reading.querySelector('#close');
   const cache = new Map();
+  const controllers = new Set();
   let viewport;
   let current;
   let selection;
@@ -72,7 +73,7 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
     overlay.closeReading();
     if (current) onChange?.(true);
   }
-  if (!projection) closeButton.addEventListener('click', closeMaterial);
+  if (!projection && closeButton) closeButton.addEventListener('click', closeMaterial);
 
   function getScene(id) {
     if (cache.has(id)) return cache.get(id);
@@ -107,6 +108,7 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
       },
     }, assets).then(controller => {
       entry.controller = controller;
+      controllers.add(controller);
       return entry;
     }).catch(error => {
       markers.remove();
@@ -205,7 +207,10 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
     animate: overlay.animate,
     dispose() {
       close();
-      closeButton.removeEventListener('click', closeMaterial);
+      for (const controller of controllers) controller.dispose?.();
+      controllers.clear();
+      cache.clear();
+      if (!projection) closeButton?.removeEventListener('click', closeMaterial);
       overlay.dispose();
       viewport?.dispose();
     },

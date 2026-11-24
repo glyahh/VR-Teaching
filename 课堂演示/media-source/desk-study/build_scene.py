@@ -110,6 +110,8 @@ def stool(group,mats):
         box(group,"凳侧枨",(side*.122,0,.187),(.027,.377,.032),mats["frame"],.003,root)
     width,rows=.23,48
     vertices,faces=[],[]
+    drape_rng=random.Random(1935)
+    pleats=[(drape_rng.uniform(.14,.86),drape_rng.uniform(.06,.16),drape_rng.uniform(.0045,.0095),drape_rng.uniform(-.15,.15)) for _ in range(5)]
     for station in range(rows+1):
         portion=station/rows
         if portion<=.63:
@@ -117,12 +119,16 @@ def stool(group,mats):
             height=.485
         else:
             bend=(portion-.63)/.37
-            along=.25+.017*math.sin(bend*math.pi/2)
+            along=.25+.018*math.sin(bend*math.pi/2)
             height=.485-.19*bend
         for cross in range(26):
             across=cross/25
-            fold=.009*math.sin(7.5*math.pi*across+1.3*portion)+.003*math.cos(15*across+7*portion)
-            vertices.append(((across-.5)*width+.016*portion,along+max(0,portion-.63)*fold*2,height+fold*(.5+portion*.5)))
+            fold=sum(amp*math.exp(-((across-(center+drift*portion))/span)**2) for center,span,amp,drift in pleats)
+            fold+=.0024*math.sin(11.3*across+3.7*portion+.6)+.0015*math.cos(19.1*across-5.2*portion)
+            hem=max(0,portion-.63)*(.012*math.sin(4.7*across+1.1)+.006*math.cos(9.3*across))
+            vertices.append(((across-.5)*width+.018*portion+.004*math.sin(5.1*portion+across),
+                             along+max(0,portion-.63)*fold*1.7+hem*.35,
+                             height+fold*(.45+portion*.55)-hem))
     for station in range(rows):
         for cross in range(25):
             offset=station*26+cross
@@ -167,10 +173,22 @@ def room(group,mats):
         roof_tile=box(group,"远檐瓦垄",(-3.07+index*.086,2.90,.400),(.028,.86,.022),mats["slate"],.007)
         roof_tile.rotation_euler.x=ridge.rotation_euler.x
     rng=random.Random(5)
-    for index in range(11):
-        origin=-1.9+index*.097
-        wire(group,"院中细枝",[(origin,2.42,.15),(origin-.04,2.43,.47),(origin+rng.uniform(-.15,.12),2.44,.71),
-             (origin+rng.uniform(-.29,.18),2.46,.86+rng.random()*.29)],.003,mats["bark"],smooth=True)
+    for index in range(9):
+        origin=-1.88+index*.125+rng.uniform(-.045,.045)
+        depth=2.56+rng.uniform(-.08,.14)
+        p0=(origin,depth,.14)
+        p1=(origin+rng.uniform(-.09,.06),depth+rng.uniform(-.03,.04),.44+rng.uniform(-.05,.06))
+        p2=(p1[0]+rng.uniform(-.14,.11),depth+rng.uniform(-.04,.05),.72+rng.uniform(-.06,.08))
+        p3=(p2[0]+rng.uniform(-.18,.15),depth+rng.uniform(-.05,.06),.96+rng.uniform(-.08,.24))
+        wire(group,"院中主枝",[p0,p1,p2,p3],.0029,mats["bark"],smooth=True)
+        for fork_base,reach,radius in ((p1,.22,.0018),(p2,.19,.0014)):
+            side=1 if rng.random()>.48 else -1
+            mid=(fork_base[0]+side*reach*.55,fork_base[1]+rng.uniform(-.03,.04),fork_base[2]+reach*.65)
+            tip=(mid[0]+side*reach*.62+rng.uniform(-.05,.05),mid[1]+rng.uniform(-.03,.04),mid[2]+reach*.58+rng.uniform(-.04,.07))
+            wire(group,"院中侧枝",[fork_base,mid,tip],radius,mats["bark"],smooth=True)
+            if rng.random()>.35:
+                twig=(mid[0]-side*reach*.32,mid[1]+rng.uniform(-.02,.03),mid[2]+reach*.46)
+                wire(group,"院中细叉",[mid,twig],.0010,mats["bark"],smooth=True)
 
 
 def aim(obj,target):
@@ -201,6 +219,7 @@ def lights(group):
     area("穿窗天光",(-1.12,1.36,1.75),(-.16,-.08,.79),55,"b6cefc",.93,1.13)
     area("室内柔反射",(-.72,-1.02,1.82),(.1,.05,.77),14,"ecdbc8",1.20,.85)
     area("杯沿反光",(1.30,.45,1.57),(.32,.06,.82),7,"e0d9c7",.71,1.04)
+    area("右侧桌下暖反射",(1.25,-1.15,.65),(.42,.15,.22),.75,"e8bc8a",1.30,.85)
     area("院中散光",(-1.3,2.01,2.55),(-1.35,3.1,1.0),37,"9ab9e7",1.9)
 
 

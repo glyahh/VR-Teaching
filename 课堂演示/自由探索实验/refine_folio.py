@@ -21,16 +21,16 @@ paper_normal = paper_source / "Paper001_1K-JPG_NormalGL.jpg"
 paper_rough = paper_source / "Paper001_1K-JPG_Roughness.jpg"
 
 
-def paper(name, image, normal=paper_normal, strength=0.20):
+def paper(name, image, normal=paper_normal, strength=0.20, *, backface_culling=True):
     return surface(name, (0.64, 0.56, 0.41), 0.92, {
         "Base Color": out / (image + ".jpg"), "Normal": normal, "Roughness": paper_rough,
-    }, normal_strength=strength)
+    }, normal_strength=strength, backface_culling=backface_culling)
 
 
 outer = paper("书衣 · 青灰旧纸及编纹", "folio-cover", out / "coarse-cloth-normal.jpg", 0.33)
-lining = paper("封面内沿 · 压实旧纸", "folio-lining")
+lining = paper("封面内沿 · 压实旧纸", "folio-lining", backface_culling=False)
 plate = paper("贴签 · 会前手记", "folio-label", strength=0.12)
-contents = paper("卷首 · 会前形势", "folio-reading", strength=0.11)
+contents = paper("卷首 · 会前形势", "folio-reading", strength=0.11, backface_culling=False)
 edge_mats = [surface("纸叶切边 · " + name, color, 0.96) for name, color in [
     ("灰黄", (0.61, 0.511, 0.341)), ("原纸", (0.69, 0.584, 0.405)),
     ("麦色", (0.66, 0.55, 0.35)), ("压紧", (0.559, 0.464, 0.315)),

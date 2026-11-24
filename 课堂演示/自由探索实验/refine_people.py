@@ -63,6 +63,11 @@ def expose_skin():
     mod.vertex_group = exposed.name
     body.modifiers.move(len(body.modifiers) - 1, 0)
     bpy.ops.object.modifier_apply(modifier=mod.name)
+    decimate = body.modifiers.new("头手远景减面", "DECIMATE")
+    decimate.ratio = 0.25
+    decimate.use_collapse_triangulate = True
+    body.modifiers.move(len(body.modifiers) - 1, 0)
+    bpy.ops.object.modifier_apply(modifier=decimate.name)
     body.data.materials.clear()
     body.data.materials.append(skin)
     for face in body.data.polygons:

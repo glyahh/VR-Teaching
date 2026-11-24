@@ -46,21 +46,51 @@ def paper_art(source, out):
 
     pages = json.loads(Path(__file__).with_name("notebook.json").read_text(encoding="utf-8"))
     for index, item in enumerate(pages, 1):
-        page = tone((1400, 1788), (223, 207, 171))
+        page = tone((1400, 1788), (222, 205, 168))
+        arr = np.asarray(page, dtype=np.float32).copy()
+        h, w = arr.shape[:2]
+        yy, xx = np.mgrid[:h, :w].astype(np.float32)
+        # 书脊折痕压暗、翻阅右下角泛褐与轻量水渍晕染
+        spine_shadow = 16.0 * np.exp(-((xx - 26.0) / 88.0) ** 2)
+        corner_wear = 12.0 * np.exp(-((xx - 1295.0) / 195.0) ** 2 - ((yy - 1665.0) / 230.0) ** 2)
+        cx = 175.0 + (index * 263) % 980
+        cy = 180.0 + (index * 389) % 1360
+        stain = 7.5 * np.exp(-((xx - cx) / 220.0) ** 2 - ((yy - cy) / 185.0) ** 2)
+        crease = 4.2 * np.exp(-((yy - (865.0 + 38.0 * (index - 2))) / 26.0) ** 2) * (0.65 + 0.35 * np.sin(xx * 0.011))
+        arr -= (spine_shadow + crease)[:, :, None]
+        arr -= (corner_wear + stain)[:, :, None] * np.array([0.55, 0.95, 1.35], dtype=np.float32)
+        page = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+
         draw = ImageDraw.Draw(page)
-        draw.rectangle((101, 78, 1294, 1694), outline=(143, 105, 63), width=3)
-        draw.rectangle((113, 90, 1282, 1682), outline=(176, 143, 92), width=1)
-        ink = (34, 27, 19)
+        draw.rectangle((101, 78, 1294, 1694), outline=(146, 102, 62), width=3)
+        draw.rectangle((113, 90, 1282, 1682), outline=(179, 143, 94), width=1)
+        # 淡褐竖格乌丝栏（保持轻雅，不干扰正文可读性）
+        for col_x in range(230, 1240, 132):
+            draw.line((col_x, 96, col_x, 1676), fill=(197, 177, 142), width=1)
+        ink = (36, 29, 20)
         draw.text((202, 198), item["title"], font=typeface(166), anchor="lt", fill=ink, stroke_width=2)
-        draw.line((203, 421, 1176, 421), fill=(141, 99, 52), width=4)
+        draw.line((203, 421, 1176, 421), fill=(144, 101, 56), width=3)
+        draw.line((203, 430, 1176, 430), fill=(178, 142, 95), width=1)
         for (caption, value), y in zip(item["rows"], (503, 883)):
-            draw.text((209, y), caption, font=typeface(92), anchor="lt", fill=(59, 42, 26), stroke_width=1)
+            draw.text((209, y), caption, font=typeface(92), anchor="lt", fill=(64, 46, 29), stroke_width=1)
             draw.text((199, y + 127), value, font=typeface(160), anchor="lt", fill=ink, stroke_width=2)
-        draw.line((205, 1298, 1172, 1298), fill=(165, 132, 89), width=2)
-        draw.text((208, 1368), item["note"], font=typeface(75), anchor="lt", fill=ink, stroke_width=1)
+        draw.line((205, 1298, 1172, 1298), fill=(165, 130, 86), width=2)
+        draw.text((208, 1368), item["note"], font=typeface(75), anchor="lt", fill=(45, 35, 24), stroke_width=1)
         if index == 1:
-            draw.text((208, 1538), "教学摘要", font=typeface(62), anchor="lt", fill=(103, 73, 44))
-        draw.text((1175, 1538), str(index), font=typeface(63), anchor="rt", fill=(103, 73, 44))
+            stamp = (158, 86, 70)
+            draw.rectangle((208, 1528, 344, 1612), outline=stamp, width=2)
+            draw.text((276, 1570), "摘要", font=typeface(46), anchor="mm", fill=stamp)
+        draw.text((1175, 1538), str(index), font=typeface(63), anchor="rt", fill=(112, 82, 51))
+
+        # 给深色墨迹叠加轻量纸纤维透白与墨韵深浅，减少电脑矢量感
+        rendered = np.asarray(page, dtype=np.float32)
+        luma = rendered.mean(axis=2)
+        ink_mask = np.clip((115.0 - luma) / 85.0, 0.0, 1.0)
+        mottle = (np.sin(xx * 0.043 + index) * np.cos(yy * 0.037 - index) * 0.5 + 0.5) * 18.0
+        fibre_bleed = np.maximum(0.0, (np.asarray(ImageOps.fit(scan, (w, h), Image.Resampling.LANCZOS), dtype=np.float32) - 185.0) * 0.34)
+        rendered += (ink_mask * (mottle + fibre_bleed))[:, :, None]
+        page = Image.fromarray(np.clip(rendered, 0, 255).astype(np.uint8))
+
         name = "folio-reading.jpg" if index == 1 else f"folio-page-{index}.jpg"
         page.save(out / name, quality=92, optimize=True)
     tone((768, 956), (216, 198, 160)).save(out / "folio-lining.jpg", quality=87, optimize=True)

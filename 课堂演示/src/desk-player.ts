@@ -92,7 +92,7 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
 
   const investigate=control('动手查证',()=>session.investigate(),'desk-investigate','compass');
   const compare=control('桌面并排对照',()=>session.cue(session.read().evidence==='both'?'none':'both',session.read().carried),'desk-live-compare','layers');
-  const recenter=control('回正',()=>session.edit(old=>({...old,camera:deskHome()})),'desk-live-home','compass');
+  const recenter=control('回正',()=>session.home(),'desk-live-home','compass');
   recenter.setAttribute('aria-label','回到正面机位');
   const close=control('收起材料',()=>session.cue('none'),'desk-live-close');
   const bring=control('',()=>{
@@ -256,6 +256,7 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
     frame.dataset.space='ready';
     session.connect(world as DeskWorld);
     resize();
+    animatePart(canvas,[{opacity:0},{opacity:1}],180);
   }).catch(fallback);
   paint(session.read());
   beginDeskVisit(position);

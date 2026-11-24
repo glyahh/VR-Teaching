@@ -13,11 +13,18 @@ export async function prepareFolio(notebook, hinge, first, loader, assets) {
   rear.map = notebook.getObjectByName('封面内衬')?.material.map ?? null;
   if (!rear.map) rear.color.set('#dbc49d');
   rear.side = THREE.BackSide;
+  rear.polygonOffset = true;
+  rear.polygonOffsetFactor = 1;
+  rear.polygonOffsetUnits = 1;
   first.updateMatrix();
   const baseGeometry = first.geometry.clone().applyMatrix4(first.matrix);
   const rest = baseGeometry.attributes.position.array.slice();
   const xEdge = hinge.position.x;
   const yEdge = hinge.position.y;
+  let pageWidth = 0.001;
+  for (let i = 0; i < rest.length; i += 3) {
+    pageWidth = Math.max(pageWidth, rest[i] - xEdge);
+  }
   first.removeFromParent();
   const leaves = maps.map(map => {
     const material = first.material.clone();
@@ -26,6 +33,9 @@ export async function prepareFolio(notebook, hinge, first, loader, assets) {
     const shape = baseGeometry.clone();
     const face = new THREE.Mesh(shape, material);
     const back = new THREE.Mesh(shape, rear);
+    face.castShadow = face.receiveShadow = true;
+    back.castShadow = false;
+    back.receiveShadow = true;
     const leaf = new THREE.Group();
     leaf.add(face, back);
     leaf.visible = false;
@@ -35,7 +45,7 @@ export async function prepareFolio(notebook, hinge, first, loader, assets) {
   });
 
   return position => {
-    hinge.rotation.z = Math.min(position, 1) * Math.PI * 0.87;
+    hinge.rotation.z = Math.min(position, 1) * Math.PI * 0.985;
     const active = Math.max(0, Math.floor(position - 1));
     for (const [index, sheet] of leaves.entries()) {
       const turn = THREE.MathUtils.clamp(position - 1 - index, 0, 1);
@@ -44,13 +54,16 @@ export async function prepareFolio(notebook, hinge, first, loader, assets) {
       if (!sheet.leaf.visible || sheet.last === turn) continue;
       const points = sheet.shape.attributes.position;
       const curl = Math.sin(Math.PI * turn);
+      const settle = turn * turn;
       for (let i = 0; i < points.count; i++) {
         const x = rest[3 * i] - xEdge;
         const y = rest[3 * i + 1] - yEdge + 0.0018;
         const z = rest[3 * i + 2];
-        const angle = turn * Math.PI * 0.84 + curl * (0.34 - x * 1.73 + z * 0.23);
+        const u = THREE.MathUtils.clamp(x / pageWidth, 0, 1);
+        const angle = turn * Math.PI * 0.97 + settle * 0.032 * u * u +
+          curl * u * (0.48 - 0.95 * u + z * 0.42);
         points.setXYZ(i, xEdge + Math.cos(angle) * x - Math.sin(angle) * y,
-          yEdge + Math.sin(angle) * x + Math.cos(angle) * y - index * 0.00021 * (1 - 2 * turn), z);
+          yEdge + Math.sin(angle) * x + Math.cos(angle) * y - index * 0.00035 * (1 - 2 * turn), z);
       }
       points.needsUpdate = true;
       sheet.shape.computeVertexNormals();

@@ -56,6 +56,9 @@ export async function startWalk(ui, assets) {
   const camera = new THREE.PerspectiveCamera(61, 1, 0.062, 80);
   const player = new THREE.Vector2(...entrance);
   const eye = player.clone();
+  const velocity = new THREE.Vector2();
+  const moveRampSeconds = 0.06;
+  const moveSpeed = 2.75;
   const viewport = ui.viewport.register(camera, world.scene, frame);
   const keys = new Set();
   const seen = new Set();
@@ -105,6 +108,7 @@ export async function startWalk(ui, assets) {
 
   function stopWalking() {
     keys.clear();
+    velocity.set(0, 0);
     walking(false);
   }
 
@@ -400,6 +404,7 @@ export async function startWalk(ui, assets) {
     const routeChanged = routeProgress !== view.routeProgress || station !== view.station ||
       seen.has('record') !== view.seen.includes('record');
     aim = bookMotion = null;
+    velocity.set(0, 0);
     player.fromArray(view.player);
     eye.fromArray(view.eye);
     yaw = view.yaw;
@@ -480,17 +485,27 @@ export async function startWalk(ui, assets) {
         refreshControls();
       }
     }
-    if (!focused && !aim && keys.size) {
-      const held = direction => Number([...keys].some(key => movement.get(key) === direction));
+    if (!focused && !aim) {
+      const held = dir => Number([...keys].some(key => movement.get(key) === dir));
       const forward = held('forward') - held('back');
       const right = held('right') - held('left');
       const length = Math.hypot(forward, right);
-      if (length) {
-        const speed = 2.75 * delta / length;
-        slide(player, (Math.sin(yaw) * forward + Math.cos(yaw) * right) * speed,
-          (-Math.cos(yaw) * forward + Math.sin(yaw) * right) * speed);
+      const targetX = length ? (Math.sin(yaw) * forward + Math.cos(yaw) * right) * moveSpeed / length : 0;
+      const targetZ = length ? (-Math.cos(yaw) * forward + Math.sin(yaw) * right) * moveSpeed / length : 0;
+      if (ui.reduced.matches) {
+        velocity.set(targetX, targetZ);
+      } else {
+        const step = moveSpeed / moveRampSeconds * delta;
+        const approachAxis = (current, target) => Math.abs(target - current) <= step ? target :
+          current + Math.sign(target - current) * step;
+        velocity.set(approachAxis(velocity.x, targetX), approachAxis(velocity.y, targetZ));
+      }
+      if (velocity.lengthSq() > 1e-8) {
+        slide(player, velocity.x * delta, velocity.y * delta);
         redraw();
       }
+    } else if (velocity.lengthSq() > 0) {
+      velocity.set(0, 0);
     }
     if (!ui.projection && !focused && !aim) eye.copy(player);
     camera.position.set(eye.x, eyeHeight, eye.y);
@@ -507,8 +522,27 @@ export async function startWalk(ui, assets) {
     changed = false;
   }
 
+  function dispose() {
+    const geometries = new Set();
+    const materials = new Set();
+    const textures = new Set();
+    world.scene.traverse(node => {
+      if (node.geometry) geometries.add(node.geometry);
+      if (!node.material) return;
+      for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+        materials.add(material);
+        for (const value of Object.values(material)) {
+          if (value?.isTexture) textures.add(value);
+        }
+      }
+    });
+    for (const texture of textures) texture.dispose();
+    for (const material of materials) material.dispose();
+    for (const geometry of geometries) geometry.dispose();
+  }
+
   return {
-    read, restore, reset,
+    read, restore, reset, dispose,
     deskShot() {
       if (!world.dossier) return;
       const dossier = world.dossier.getWorldPosition(targetPoint);

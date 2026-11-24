@@ -158,10 +158,15 @@ def ceramic_roof():
         rims.mesh(a, [tuple(range(n))])
         rims.mesh(b, [tuple(reversed(range(n)))])
 
-    def slope_surface(low_z, high_z, low_y, high_y, left, span):
+    def slope_surface(low_z, high_z, low_y, high_y, left, span, *, tiled=True):
         length = abs(high_z - low_z)
         direction = 1 if high_z > low_z else -1
         slope = (high_y - low_y) / length
+        if not tiled:
+            pans.block((left + span / 2, low_y - 0.035, low_z + direction * length / 2),
+                       (span, 0.079, length + 0.03), 0.008,
+                       transform=lambda p: (p[0], p[1] + (p[2] - low_z) * direction * slope, p[2]))
+            return
         columns = round(span / 0.21)
         detail = min(4, round(length / 0.272))
         for r in range(detail):
@@ -182,8 +187,22 @@ def ceramic_roof():
         wear.block((left + span / 2, low_y - 0.019, low_z + direction * 0.035), (span + 0.075, 0.091, 0.058), 0.008)
 
     slope_surface(0.18, -3.05, 2.925, 3.735, -5.87, 11.74)
-    slope_surface(-6.29, -3.05, 2.925, 3.735, -5.87, 11.74)
-    slope_surface(2.42, 0.37, 2.43, 2.933, -5.20, 3.13)
+    slope_surface(-6.29, -3.05, 2.925, 3.735, -5.87, 11.74, tiled=False)
+    slope_surface(2.42, 0.02, 2.43, 2.935, -5.46, 3.39)
+    # 封堵左院墙顶（y≈2.71）与廊檐/主屋前檐斜坡之间的三角空隙
+    porch_slope = (2.935 - 2.43) / (2.42 - 0.02)
+    frame.block((-5.47, 2.75, -0.34), (0.21, 0.30, 0.96), 0.006)
+    z0, z1 = 0.04, 1.56
+    y_bot = 2.60
+    y_top0 = 2.43 + (2.42 - z0) * porch_slope - 0.025
+    y_top1 = 2.43 + (2.42 - z1) * porch_slope - 0.025
+    gable = [
+        (-5.575, y_bot, z0), (-5.365, y_bot, z0), (-5.365, y_top0, z0), (-5.575, y_top0, z0),
+        (-5.575, y_bot, z1), (-5.365, y_bot, z1), (-5.365, y_top1, z1), (-5.575, y_top1, z1),
+    ]
+    frame.mesh(gable, [
+        (1, 2, 6, 5), (0, 4, 7, 3), (0, 3, 2, 1), (4, 5, 6, 7), (3, 7, 6, 2), (0, 1, 5, 4),
+    ])
     for i in range(41):
         rims.block((-5.72 + i * 0.285, 3.869, -3.05), (0.283, 0.128, 0.184), 0.029)
     for x in (-4.84, -2.52, 0.6, 2.23, 4.68):
@@ -207,6 +226,10 @@ def place_console():
     root = bpy.data.objects.new("墙边中式条案 · Poly Haven", None)
     bpy.context.collection.objects.link(root)
     for obj in imported:
+        if obj.type == "MESH":
+            for slot in obj.material_slots:
+                if slot.material:
+                    slot.material.use_backface_culling = True
         if obj.parent not in imported:
             obj.parent = root
     root.scale = (scale,) * 3

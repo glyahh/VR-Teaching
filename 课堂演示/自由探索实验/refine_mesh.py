@@ -8,9 +8,10 @@ def blender_point(p):
     return (p[0], -p[2], p[1])
 
 
-def surface(name, color, roughness, paths=None, *, normal_strength=0.45, metal=0):
+def surface(name, color, roughness, paths=None, *, normal_strength=0.45, metal=0, backface_culling=True):
     mat = bpy.data.materials.new(name)
     mat.diffuse_color = (*color, 1)
+    mat.use_backface_culling = backface_culling
     mat.use_nodes = True
     nodes, links = mat.node_tree.nodes, mat.node_tree.links
     bsdf = nodes.get("Principled BSDF")

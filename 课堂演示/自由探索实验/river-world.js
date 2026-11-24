@@ -65,7 +65,7 @@ export const riverStops = {
 export async function createRiverWorld(assets) {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xa2ada6);
-  scene.fog = new THREE.Fog(0xa2ada6, 89, 218);
+  scene.fog = new THREE.Fog(0xa2ada6, 78, 168);
   const loader = new THREE.TextureLoader();
   const [groundMap, groundNormal, woodMap, woodNormal, woodRough, waves, soil] = await Promise.all(
     ['river-ground', 'river-ground-normal', 'river-timber', 'river-timber-normal', 'river-timber-rough',
@@ -407,8 +407,9 @@ export async function createRiverWorld(assets) {
   const reserveTimber = planks(riverStops.supply, 6);
   const downstreamTimber = planks(riverStops.downstream, 4);
 
+  const sunOffset = new THREE.Vector3(-22, 42, 37);
   const sun = new THREE.DirectionalLight(0xffecd1, 2.18);
-  sun.position.set(-22, 42, 37);
+  sun.position.copy(sunOffset);
   sun.castShadow = true;
   sun.shadow.mapSize.set(1536, 1536);
   Object.assign(sun.shadow.camera, { left: -44, right: 44, top: 44, bottom: -44, far: 117 });
@@ -416,7 +417,28 @@ export async function createRiverWorld(assets) {
   const fill = new THREE.DirectionalLight(0xd4e2e0, 0.62);
   fill.position.set(17, 16, -15);
   const sky = new THREE.HemisphereLight(0xe5edef, 0x655948, 2.04);
-  scene.add(sun, fill, sky);
+  scene.add(sun, sun.target, fill, sky);
+
+  let shadowScope = 'wide';
+  function focusShadow(target = null, span = 44) {
+    const key = target ? `${target.x.toFixed(2)},${target.z.toFixed(2)},${span}` : 'wide';
+    if (key === shadowScope) return false;
+    shadowScope = key;
+    if (target) {
+      sun.target.position.set(target.x, 0, target.z);
+      sun.position.copy(sun.target.position).add(sunOffset);
+      sun.shadow.normalBias = 0.032;
+    } else {
+      sun.target.position.set(0, 0, 0);
+      sun.position.copy(sunOffset);
+      span = 44;
+      sun.shadow.normalBias = 0.07;
+    }
+    Object.assign(sun.shadow.camera, { left: -span, right: span, top: span, bottom: -span });
+    sun.shadow.camera.updateProjectionMatrix();
+    sun.target.updateMatrixWorld();
+    return true;
+  }
   const periods = [
     { sky: new THREE.Color(0x9b9390), water: new THREE.Color(0x929caa), key: new THREE.Color(0xffd4ac), sun: 1.47, fill: 0.73, ambient: 1.42 },
     { sky: new THREE.Color(0x536478), water: new THREE.Color(0x5e7890), key: new THREE.Color(0xb5c9ec), sun: 0.66, fill: 0.78, ambient: 1.26 },
@@ -476,7 +498,7 @@ export async function createRiverWorld(assets) {
       for (const bay of float.bays) {
         const assembled = complete || bay !== repair;
         bay.support.visible = assembled;
-        bay.support.position.y = 0;
+        bay.support.position.set(0, 0, 0);
         bay.hull.position.set(float.x, 0, bay.z);
         bay.hull.rotation.y = 0;
         for (const { mesh, at } of bay.boards) {
@@ -501,11 +523,17 @@ export async function createRiverWorld(assets) {
     const ease = (a, b) => THREE.MathUtils.smoothstep(time, a, b);
     travelBoat(supplyBerth, floats.downstream.anchor, 0.72 + 0.28 * ease(0, 1.05), repair.hull);
     cutWater();
-    const stable = time >= 1.05;
-    const ready = time >= 1.42;
-    repair.support.visible = stable;
-    repair.support.position.y = 0;
-    for (const { mesh } of repair.boards) mesh.visible = ready;
+    const beamSlide = ease(0.95, 1.35);
+    repair.support.visible = time >= 0.95;
+    repair.support.position.set(0, (1 - beamSlide) * 0.09, (1 - beamSlide) * 1.45);
+    for (let i = 0; i < repair.boards.length - 1; i++) {
+      const { mesh, at } = repair.boards[i];
+      const start = 1.30 + i * 0.14;
+      const placed = ease(start, start + 0.24);
+      mesh.visible = time >= start;
+      mesh.position.set(at.x, at.y + (1 - placed) * 0.16, at.z - (1 - placed) * 0.36);
+      mesh.rotation.set(0, 0, 0);
+    }
     const lift = ease(0.13, 0.67);
     const approach = ease(0.63, 2.68);
     const putDown = ease(2.72, 3.41);
@@ -515,7 +543,7 @@ export async function createRiverWorld(assets) {
     const walkingY = Math.max(deckHeight, groundHeight(board.position.x, board.position.z)) + 0.88;
     const sway = Math.sin(15 * time) * ease(0.67, 0.95) * (1 - ease(2.25, 2.68));
     board.position.y = THREE.MathUtils.lerp(THREE.MathUtils.lerp(apron.y, walkingY, lift), door.at.y, putDown) + 0.012 * sway;
-    board.rotation.z = 0.018 * sway;
+    board.rotation.set(0, 0, 0.018 * sway);
     pole.visible = true;
     const foot = repair.hull.getObjectByName('bow-footing').getWorldPosition(new THREE.Vector3());
     pole.position.set(foot.x + 0.16, foot.y + 0.90 + 0.16 * ease(1.04, 1.72), foot.z + 0.345);
@@ -532,32 +560,44 @@ export async function createRiverWorld(assets) {
     for (const { x, z, span, bays } of Object.values(floats)) {
       bays.forEach((bay, i) => {
         const direction = i < 2 ? -1 : 1;
-        const berthX = x + (i - 1.5) * 4.2;
-        const berthZ = center(berthX) + direction * (halfWidth(berthX) - 0.68);
+        const berthX = x + (i - 1.5) * 6.4;
+        const shoreOffset = i === 1 || i === 2 ? 0.84 : 0.68;
+        const berthZ = center(berthX) + direction * (halfWidth(berthX) - shoreOffset);
         const delay = (i === 0 || i === 3) ? 0.82 : 0;
         const retreat = THREE.MathUtils.smoothstep(time, delay + 1.09, delay + 2.48);
         travelBoat(new THREE.Vector3(x, 0, bay.z), new THREE.Vector3(berthX, 0, berthZ), retreat, bay.hull);
-        bay.hull.rotation.y = direction * retreat * 0.18;
-        const load = THREE.MathUtils.smoothstep(time, delay + 0.83, delay + 1.09);
+        const yaw = direction * retreat * 0.18;
+        bay.hull.rotation.y = yaw;
+        const load = THREE.MathUtils.smoothstep(time, delay + 0.78, delay + 1.09);
         bay.support.visible = load < 1;
-        bay.support.position.y = -load * 0.16;
+        bay.support.position.set(0, -load * 0.22, 0);
         const bank = z + direction * (span + 1.55);
+        const cos = Math.cos(yaw);
+        const sin = Math.sin(yaw);
         for (const [j, { mesh, at }] of bay.boards.entries()) {
           const toShore = (i === 0 && j === 0) || (i === 3 && j === 5);
-          const start = delay + (toShore ? 0 : 0.024 * j);
-          const lift = THREE.MathUtils.smoothstep(time, start, start + 0.23);
-          const progress = THREE.MathUtils.smoothstep(time, start + 0.19, start + 0.79);
-          const set = THREE.MathUtils.smoothstep(time, start + 0.75, start + 0.97);
-          const stackX = toShore ? x : x - 0.52;
-          const stackZ = toShore ? bank : bay.z + (j - 2.5) * 0.052;
-          const stackHeight = toShore ? groundHeight(stackX, stackZ) + 0.052 : 0.02 + j * 0.091;
-          mesh.position.set(THREE.MathUtils.lerp(at.x, stackX, progress), 0,
-            THREE.MathUtils.lerp(at.z, stackZ, progress));
-          mesh.position.y = THREE.MathUtils.lerp(at.y + lift * 0.38, stackHeight, set);
-          if (toShore && lift > 0 && set < 1) carried.push({ board: mesh.position, direction });
-          if (!toShore) {
-            mesh.position.x += bay.hull.position.x - x;
-            mesh.position.z += bay.hull.position.z - bay.z;
+          const start = delay + (toShore ? 0 : 0.048 * j);
+          const lift = THREE.MathUtils.smoothstep(time, start, start + 0.21);
+          const progress = THREE.MathUtils.smoothstep(time, start + 0.16, start + 0.76);
+          const set = THREE.MathUtils.smoothstep(time, start + 0.72, start + 0.96);
+          if (toShore) {
+            const stackHeight = groundHeight(x, bank) + 0.052;
+            mesh.position.set(at.x, THREE.MathUtils.lerp(at.y + lift * 0.34, stackHeight, set),
+              THREE.MathUtils.lerp(at.z, bank, progress));
+            mesh.rotation.set(0, 0, 0);
+            if (lift > 0 && set < 1) carried.push({ board: mesh.position, direction });
+          } else {
+            const localX = -0.38;
+            const localZ = (j - 2.5) * 0.045;
+            const targetX = bay.hull.position.x + localX * cos + localZ * sin;
+            const targetZ = bay.hull.position.z - localX * sin + localZ * cos;
+            const stackHeight = 0.02 + j * 0.088;
+            mesh.position.set(
+              THREE.MathUtils.lerp(at.x + (bay.hull.position.x - x), targetX, progress),
+              THREE.MathUtils.lerp(at.y + lift * 0.12, stackHeight, set),
+              THREE.MathUtils.lerp(at.z + (bay.hull.position.z - bay.z), targetZ, progress),
+            );
+            mesh.rotation.set(0, yaw * progress, 0);
           }
         }
       });
@@ -568,6 +608,6 @@ export async function createRiverWorld(assets) {
 
   setBridges(false);
   lightAt(0);
-  return { scene, water, floats, lightAt, setBridges, stageBoat, assemble, clearBridges, positionHeight, footingAt,
+  return { scene, water, floats, lightAt, focusShadow, setBridges, stageBoat, assemble, clearBridges, positionHeight, footingAt,
     door: door.mesh, timber: downstreamTimber };
 }

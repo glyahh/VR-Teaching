@@ -26,7 +26,7 @@ def geometry(scene, views):
     for obj in objects:
         if obj.type == 'CURVE' or (len(obj.data.vertices) >= 600 and not obj.name.startswith('木靠椅')):
             modifier = obj.modifiers.new('实时桌景减面', 'DECIMATE')
-            modifier.ratio = .24 if obj.type == 'CURVE' else .42
+            modifier.ratio = .60 if obj.type == 'CURVE' else .42
     graph = bpy.context.evaluated_depsgraph_get()
     for obj in objects:
         world, faces = mesh_arrays(obj, graph)
@@ -102,7 +102,7 @@ def export(staging, samples):
         camera.data.sensor_height = hero.data.sensor_height * overscan
         filename = f'desk-world-{name}.jpg'
         image = staging / filename
-        frame(scene, camera, image, 1280 if yaw == 0 else 1152, aspect, samples)
+        frame(scene, camera, image, 1280, aspect, samples)
         vp = projection(camera, scene) @ camera.matrix_world.inverted()
         photos.append((np.asarray(vp), camera.matrix_world.translation.copy(), image_pixels(image)))
         outputs.append(filename)

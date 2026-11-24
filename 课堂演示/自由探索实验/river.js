@@ -48,10 +48,10 @@ export async function startRiver(ui, assets) {
   camera.position.set(39, 53, 62);
   controls.target.set(0, 0.3, 0);
   controls.minPolarAngle = 0.10;
-  controls.maxPolarAngle = 1.45;
+  controls.maxPolarAngle = 1.28;
   controls.minZoom = 0.59;
   controls.maxZoom = 15.5;
-  controls.maxTargetRadius = 64;
+  controls.maxTargetRadius = 42;
   controls.screenSpacePanning = false;
   controls.enableDamping = !ui.projection;
   controls.dampingFactor = 0.105;
@@ -97,7 +97,6 @@ export async function startRiver(ui, assets) {
   let elapsed = 0;
   let previousFrame = 0;
   let riverTime = 0;
-  let lastWaterFrame = 0;
   let selected = null;
   let inspection = null;
   let focus = null;
@@ -139,7 +138,24 @@ export async function startRiver(ui, assets) {
   const queueStart = 3.95;
   const nightStop = 6.5;
 
-  function carry(index, at, time, direction, board = null, release = 0, stanceEdge = -Infinity) {
+  function smoothStepClock(workerIndex, time, walkWindow) {
+    if (!walkWindow) return time;
+    const [start, stopStart, stopEnd] = walkWindow;
+    if (time <= start || time >= stopEnd) return 0;
+    const offset = workerIndex * 0.74;
+    const basePhase = time * 13 + offset;
+    let phaseAngle = basePhase;
+    if (time < start + 0.16) {
+      const zeroStart = Math.round((start * 13 + offset) / Math.PI) * Math.PI;
+      phaseAngle = THREE.MathUtils.lerp(zeroStart, basePhase, ease(time, start, start + 0.16));
+    } else if (time > stopStart) {
+      const zeroEnd = Math.ceil((stopStart * 13 + offset) / Math.PI) * Math.PI;
+      phaseAngle = THREE.MathUtils.lerp(basePhase, zeroEnd, ease(time, stopStart, stopEnd));
+    }
+    return (phaseAngle - offset) / 13;
+  }
+
+  function carry(index, at, time, direction, board = null, release = 0, stanceEdge = -Infinity, walkWindow = null) {
     for (const [j, side] of [-1, 1].entries()) {
       const x = at.x + side * 1.17;
       const z = Math.max(stanceEdge + 0.078, at.z + direction * 0.31);
@@ -150,11 +166,12 @@ export async function startRiver(ui, assets) {
           direction * 0.062 - hand * side * 0.122);
         if (board) board.localToWorld(target);
         else target.add(at);
-        return target.lerp(new THREE.Vector3(x - side * 0.075 + hand * 0.105,
-          y + 0.83, z - direction * 0.026), release);
+        return target.lerp(new THREE.Vector3(x - side * 0.06,
+          y + 0.72, z - hand * side * 0.18), release);
       });
       workers.put(index + j, x, z, y, {
-        yaw, grips: pair, stepClock: time, footing: world.footingAt, stanceEdge, release,
+        yaw, grips: pair, stepClock: smoothStepClock(index + j, time, walkWindow),
+        footing: world.footingAt, stanceEdge, release,
       });
     }
   }
@@ -162,7 +179,7 @@ export async function startRiver(ui, assets) {
   function showAssembling(time) {
     const { board, foot, grips, release, stanceEdge } = world.assemble(time);
     workers.show(3);
-    carry(0, board.position, time > 0.63 && time < 2.68 ? time : 0, 1, board, release, stanceEdge);
+    carry(0, board.position, time, 1, board, release, stanceEdge, [0.63, 2.52, 2.70]);
     workers.put(2, foot.x, foot.z - 0.025, foot.y,
       { yaw: 0.26, grips, footing: () => foot.y, pole: true });
     if (time < 3.85) viewport.updateShadows();
@@ -305,6 +322,12 @@ export async function startRiver(ui, assets) {
     notify();
   }
 
+  function syncShadow() {
+    if (inspection) return world.focusShadow(inspection.bay.hull.position, 14);
+    if (!comparison && (index === 1 || index === 2)) return world.focusShadow(downstream.anchor, 14);
+    return world.focusShadow(null);
+  }
+
   function openInspection(key = 'hull') {
     if (phase !== 'waiting' || (index !== 1 && index !== 2)) return;
     ui.closeReading({ immediate: true, restoreFocus: false });
@@ -314,6 +337,7 @@ export async function startRiver(ui, assets) {
       bay, board, view: { eye: camera.position.clone(), target: controls.target.clone(), zoom: camera.zoom },
       decks: bay.boards.map(({ mesh }) => [mesh, mesh.visible]),
     };
+    syncShadow();
     parts.querySelector('[data-part="board"]').textContent = index === 2 ? '门板' : '木板';
     controlsForBeat(false);
     choosePart(key);
@@ -325,6 +349,7 @@ export async function startRiver(ui, assets) {
     for (const [mesh, visible] of decks) mesh.visible = visible;
     inspection = null;
     focus = null;
+    syncShadow();
     controls.enableDamping = false;
     controls.update();
     camera.position.copy(view.eye);
@@ -422,6 +447,7 @@ export async function startRiver(ui, assets) {
     if (!comparison) {
       world.setBridges(true);
       workers.show(0);
+      world.focusShadow(null);
       viewport.updateShadows();
     }
     if (groupsChanged) comparisonRound = arrangeRound(next.groups);
@@ -475,6 +501,7 @@ export async function startRiver(ui, assets) {
     workers.show(0);
     if (index < 0) drawRound(firstRound, queueStart, 0);
     if (index === 1 || index === 2) drawRound(firstRound, queueStart + beats[0].duration, beats[0].duration);
+    syncShadow();
     viewport.updateShadows();
   }
 
@@ -484,7 +511,7 @@ export async function startRiver(ui, assets) {
     controls.enabled = !ui.projection;
     index = -1;
     phase = 'waiting';
-    elapsed = riverTime = lastWaterFrame = 0;
+    elapsed = riverTime = 0;
     recallTime = 'dawn';
     selected = null;
     ui.closeReading({ restoreFocus: false });
@@ -549,6 +576,7 @@ export async function startRiver(ui, assets) {
   function drawRecall() {
     world.setBridges(true);
     workers.show(0);
+    syncShadow();
     if (recallTime === 'night') {
       world.lightAt(1);
       drawRound(secondRound, nightStop, beats[3].duration);
@@ -607,6 +635,9 @@ export async function startRiver(ui, assets) {
   }
 
   ui.on(window, 'blur', cancelPointers);
+  ui.on(document, 'visibilitychange', () => {
+    previousFrame = performance.now();
+  });
   ui.on(ui.canvas, 'wheel', () => { following = false; focus = null; }, { passive: true });
   ui.on(ui.canvas, 'keydown', event => {
     if (!event.repeat && !inspection && phase === 'waiting' && (event.key === 'Enter' || event.key === ' ')) {
@@ -645,9 +676,8 @@ export async function startRiver(ui, assets) {
     beat.draw(elapsed);
     advanceCamera(delta);
     showProgress();
-    if (!ui.reduced.matches && riverTime - lastWaterFrame >= 0.077) {
+    if (!ui.reduced.matches) {
       world.water.uniforms.elapsed.value = riverTime;
-      lastWaterFrame = riverTime;
     }
     if (elapsed === beat.duration) {
       if (index === 3) nightWater = world.water.uniforms.elapsed.value;
@@ -658,9 +688,9 @@ export async function startRiver(ui, assets) {
     viewport.invalidate();
   }
 
-  function frame(_delta, now) {
+  function frame(frameDelta, now) {
     const previousPhase = phase;
-    const delta = Math.max(0, now - previousFrame) / 1000;
+    const delta = Math.min(0.05, Math.max(0, frameDelta), Math.max(0, (now - previousFrame) / 1000));
     if (!ui.projection && comparison?.phase === 'playing') {
       comparison.elapsed = Math.min(roundDuration, comparison.elapsed + delta);
       if (comparison.elapsed === roundDuration) {
@@ -743,10 +773,36 @@ export async function startRiver(ui, assets) {
     if (beatChanged || phaseChanged || recallChanged || closingComparison) controlsForBeat(false);
     if (view.part && !inspection) openInspection(view.part);
     else if (view.part && view.part !== inspection?.part) choosePart(view.part);
+    if (syncShadow()) viewport.updateShadows();
     if (view.reading && (ui.reading.hidden || ui.reading.inert || beatChanged || phaseChanged)) showHistory();
     else if (!view.reading) ui.closeReading({ immediate: true, restoreFocus: false });
     applyCameraView(view);
     viewport.invalidate();
+  }
+
+  function dispose() {
+    if (controls.domElement) controls.dispose();
+    const geometries = new Set();
+    const materials = new Set();
+    const textures = new Set();
+    world.scene.traverse(node => {
+      if (node.geometry) geometries.add(node.geometry);
+      if (!node.material) return;
+      for (const material of Array.isArray(node.material) ? node.material : [node.material]) {
+        materials.add(material);
+        for (const value of Object.values(material)) {
+          if (value?.isTexture) textures.add(value);
+        }
+        if (material.uniforms) {
+          for (const uniform of Object.values(material.uniforms)) {
+            if (uniform?.value?.isTexture) textures.add(uniform.value);
+          }
+        }
+      }
+    });
+    for (const texture of textures) texture.dispose();
+    for (const material of materials) material.dispose();
+    for (const geometry of geometries) geometry.dispose();
   }
 
   return {
@@ -754,6 +810,7 @@ export async function startRiver(ui, assets) {
     restore,
     home,
     reset: resetScene,
+    dispose,
     activate(view) {
       if (!ui.projection) {
         controls.connect(ui.canvas);

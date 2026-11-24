@@ -3,10 +3,14 @@ import { createDeskCamera, createDeskRoom } from './desk-room.js';
 import { createDeskPapers, deskBounds, deskTop, dossierWidth, journalWidth } from './desk-paper.js';
 
 const landing = {x: .68, z: .30};
+const staticObstacles = [
+  {x: 0, z: -.259, r: .145},
+  {x: .609, z: -.222, r: .125},
+];
 
-function lightDesk(scene) {
-  const ambient = new THREE.HemisphereLight(0xf7eddf, 0xbca381, 1.18);
-  const window = new THREE.DirectionalLight(0xc2d6ff, 1.76);
+function lightDesk(scene, sky) {
+  const ambient = new THREE.HemisphereLight(0xe8dfd0, 0x7d6850, .54);
+  const window = new THREE.DirectionalLight(0xb8cff8, 1.48);
   window.position.set(-1.12, 1.81, -1.28);
   window.target.position.set(-.16, deskTop, .08);
   window.castShadow = true;
@@ -15,20 +19,32 @@ function lightDesk(scene) {
   window.shadow.bias = -.00015;
   window.shadow.normalBias = .0012;
   window.shadow.radius = 2;
-  const fill = new THREE.DirectionalLight(0xf6dac3, .66);
+  const fill = new THREE.DirectionalLight(0xf2d4b5, .30);
   fill.position.set(.38, 1.58, 1.43);
-  const lamp = new THREE.PointLight(0xffbb6b, .30, .9);
-  lamp.position.set(.012, deskTop + .16, -.258);
+  const lamp = new THREE.PointLight(0xffae52, 2.5, 1.55, 2);
+  lamp.position.set(0, deskTop + .155, -.259);
   scene.add(ambient, window, window.target, fill, lamp);
+
+  const skyGeometry = new THREE.SphereGeometry(12, 16, 12);
+  const skyMaterial = new THREE.MeshBasicMaterial({
+    color: new THREE.Color(...sky).convertSRGBToLinear(),
+    side: THREE.BackSide, depthWrite: false, toneMapped: false, fog: false,
+  });
+  const backdrop = new THREE.Mesh(skyGeometry, skyMaterial);
+  backdrop.renderOrder = -10;
+  scene.add(backdrop);
 
   const receiving = new THREE.PlaneGeometry(deskBounds.x * 2 - .006, deskBounds.z * 2 - .007);
   receiving.rotateX(-Math.PI / 2);
-  const shadow = new THREE.Mesh(receiving, new THREE.ShadowMaterial({opacity: .43, depthWrite: false}));
+  const shadow = new THREE.Mesh(receiving, new THREE.ShadowMaterial({opacity: .42, depthWrite: false}));
   shadow.position.y = deskTop + .0008;
   shadow.receiveShadow = true;
   shadow.renderOrder = 1;
   scene.add(shadow);
   return () => {
+    skyGeometry.dispose();
+    skyMaterial.dispose();
+    scene.remove(backdrop);
     receiving.dispose();
     shadow.material.dispose();
     window.shadow.dispose();
@@ -75,7 +91,7 @@ export async function createDeskWorld(canvas, assets) {
     }
     room = loaded[0].value;
     scene.add(room.room);
-    cleanLighting = lightDesk(scene);
+    cleanLighting = lightDesk(scene, manifest.sky);
     papers = createDeskPapers(scene, {image: loaded[1].value});
   } catch (error) {
     room?.dispose();
@@ -132,7 +148,7 @@ export async function createDeskWorld(canvas, assets) {
       case 'discussion-sheet': return discussion.visible ? discussion.position.clone() : undefined;
       case 'map': return view.saved.map === 'stored' ? at(map.group, 0, .012, .010) : undefined;
       case 'map-overlay':
-      case 'overlay': return view.saved.map !== 'stored' ? at(map.group, .195, .012, .032) : undefined;
+      case 'overlay': return view.saved.map !== 'stored' ? at(map.group, .155, .012, .018) : undefined;
       case 'table': return new THREE.Vector3(.045, deskTop, .123);
       default: return undefined;
     }
@@ -154,7 +170,19 @@ export async function createDeskWorld(canvas, assets) {
   }
   function tablePoint(u, v, view) {
     if (!rayAt(u, v, view) || !raycaster.ray.intersectPlane(tabletop, point)) return;
-    return {x: THREE.MathUtils.clamp(point.x, -landing.x, landing.x), z: THREE.MathUtils.clamp(point.z, -landing.z, landing.z)};
+    let x = THREE.MathUtils.clamp(point.x, -landing.x, landing.x);
+    let z = THREE.MathUtils.clamp(point.z, -landing.z, landing.z);
+    for (const obstacle of staticObstacles) {
+      const dx = x - obstacle.x, dz = z - obstacle.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < obstacle.r) {
+        const nx = dist > 1e-5 ? dx / dist : 0;
+        const nz = dist > 1e-5 ? dz / dist : 1;
+        x = obstacle.x + nx * obstacle.r;
+        z = obstacle.z + nz * obstacle.r;
+      }
+    }
+    return {x: THREE.MathUtils.clamp(x, -landing.x, landing.x), z: THREE.MathUtils.clamp(z, -landing.z, landing.z)};
   }
   function pick(u, v, view) {
     if (u < 0 || v < 0 || u > 1 || v > 1 || !rayAt(u, v, view)) return null;

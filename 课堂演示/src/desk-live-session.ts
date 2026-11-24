@@ -217,10 +217,16 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
       ({saved,preview,evidence,investigating,carried}=view);
       redraw();
     },
+    home() {
+      if (projectionMode || disposed) return;
+      edit(old=>({...old,camera:deskHome()}));
+      frame.focus({preventScroll:true});
+    },
     investigate() {
       if (projectionMode || disposed) return;
       finishPending();preview=undefined;evidence='none';carried=false;investigating=!investigating;
       redraw(true);
+      if (investigating) frame.focus({preventScroll:true});
     },
     leave() {
       finishPending();disposed=true;world?.dispose();world=undefined;

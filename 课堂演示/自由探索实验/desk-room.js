@@ -21,7 +21,7 @@ const fragment = `
   uniform sampler2D frontPhoto, leftPhoto, rightPhoto, frontDepth, leftDepth, rightDepth;
   uniform vec3 photoEyes[3], weights, locks;
   uniform vec2 depthSize;
-  uniform int exactView;
+  uniform float exactBlend;
   varying vec4 photoPoints[3];
   varying vec3 roomPoint, roomColor;
 
@@ -61,8 +61,9 @@ const fragment = `
   }
 
   void main() {
-    if (exactView == 0) {
-      gl_FragColor = vec4(texture2D(frontPhoto, photoPoints[0].xy / photoPoints[0].w * .5 + .5).rgb, 1.);
+    vec2 frontUV = photoPoints[0].xy / photoPoints[0].w * .5 + .5;
+    if (exactBlend >= .999 && photoPoints[0].w > 0.) {
+      gl_FragColor = vec4(texture2D(frontPhoto, frontUV).rgb, 1.);
     } else {
       vec3 normal = normalize(cross(dFdx(roomPoint), dFdy(roomPoint)));
       if (dot(normal, cameraPosition - roomPoint) < 0.) normal = -normal;
@@ -72,7 +73,13 @@ const fragment = `
       blendPhoto(leftPhoto, leftDepth, photoPoints[1], photoEyes[1], normal, weights.y, locks.y, sum, total, coverage);
       blendPhoto(rightPhoto, rightDepth, photoPoints[2], photoEyes[2], normal, weights.z, locks.z, sum, total, coverage);
       vec3 linearColor = pow(roomColor, vec3(2.2));
-      gl_FragColor = vec4(mix(linearColor, sum / max(total, 1.e-12), smoothstep(.015, .45, coverage)), 1.);
+      vec3 blended = mix(linearColor, sum / max(total, 1.e-12), smoothstep(.015, .45, coverage));
+      float inFront = step(0., min(frontUV.x, frontUV.y)) * step(max(frontUV.x, frontUV.y), 1.) * step(0., photoPoints[0].w);
+      if (exactBlend > .001 && inFront > .5) {
+        vec3 direct = texture2D(frontPhoto, frontUV).rgb;
+        blended = mix(blended, direct, exactBlend);
+      }
+      gl_FragColor = vec4(blended, 1.);
     }
     #include <colorspace_fragment>
   }
@@ -102,7 +109,7 @@ export async function createDeskRoom(renderer, assets, manifest) {
   const photos = [front, left, right];
   const refMatrices = manifest.views.map(view => new THREE.Matrix4().fromArray(view.vp).multiply(worldToBlender));
   const photoEyes = manifest.views.map(view => new THREE.Vector3().fromArray(view.eye).applyMatrix4(blenderToWorld));
-  const depthSize = new THREE.Vector2(1152, 648);
+  const depthSize = new THREE.Vector2(1280, 720);
   const depthMaterial = new THREE.MeshDepthMaterial({side: THREE.DoubleSide, colorWrite: false});
   const meshes = [];
   room.traverse(obj => {
@@ -133,7 +140,7 @@ export async function createDeskRoom(renderer, assets, manifest) {
     leftDepth: {value: targets[1].depthTexture},
     rightDepth: {value: targets[2].depthTexture},
     photoViews: {value: refMatrices}, photoEyes: {value: photoEyes}, depthSize: {value: depthSize},
-    weights: {value: new THREE.Vector3()}, locks: {value: new THREE.Vector3()}, exactView: {value: -1},
+    weights: {value: new THREE.Vector3()}, locks: {value: new THREE.Vector3()}, exactBlend: {value: 0},
   };
   const material = new THREE.ShaderMaterial({
     uniforms, vertexShader: vertex, fragmentShader: fragment,
@@ -149,7 +156,9 @@ export async function createDeskRoom(renderer, assets, manifest) {
         uniforms.weights.value.setComponent(i, 1 / Math.max(.00001, distance * distance));
         uniforms.locks.value.setComponent(i, Math.max(0, 1 - distance / .018));
       }
-      uniforms.exactView.value = eye.distanceTo(photoEyes[0]) < .00001 ? 0 : -1;
+      const frontDistance = photoEyes[0].distanceTo(eye);
+      const t = Math.max(0, Math.min(1, 1 - frontDistance / .05));
+      uniforms.exactBlend.value = t * t * (3 - 2 * t);
     },
     dispose() {
       for (const mesh of meshes) mesh.geometry.dispose();

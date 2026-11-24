@@ -1,4 +1,5 @@
 .exploration-stage {
+  --font-serif: "STZhongsong", "Songti SC", "Noto Serif CJK SC", "SimSun", serif;
   --inset: clamp(16px, 2.8vw, 52px);
   --dock-bottom: clamp(72px, 10vh, 128px);
   --silver: 214 230 246;
@@ -22,7 +23,7 @@
 
 .exploration-stage .toolbar button, .exploration-stage .soft-button, .exploration-stage .action-button {
   display: inline-flex; align-items: center; justify-content: center; gap: 9px;
-  min-height: 44px; padding: 7px 14px; border: 1px solid transparent; border-radius: 11px;
+  min-height: 44px; padding: 7px 14px; border: 1px solid transparent; border-radius: 9px;
   background: transparent; color: #f6f5f1; font: inherit; white-space: nowrap; text-decoration: none;
   transition: background-color 180ms ease, border-color 180ms ease, color 170ms ease, transform 155ms ease;
 }
@@ -88,7 +89,7 @@ button.scene-point:hover:not(:disabled) { background: transparent; }
 
 .exploration-stage .dock {
   position: absolute; z-index: 3; bottom: var(--dock-bottom); left: 50%;
-  transform: translateX(-50%); border-radius: 16px;
+  transform: translateX(-50%); border-radius: 9px;
   max-width: calc(100% - 2 * var(--inset));
 }
 .exploration-stage .action-button {
@@ -158,12 +159,12 @@ button.scene-point:hover:not(:disabled) { background: transparent; }
   position: absolute; z-index: 4; bottom: var(--reading-bottom, 170px); right: var(--inset);
   width: clamp(310px, 32vw, 535px); max-width: calc(100% - 2 * var(--inset));
   max-height: calc(100% - var(--reading-bottom, 170px) - var(--reading-top, 76px));
-  overflow: auto; overscroll-behavior: contain; color: #30281c; color-scheme: light; border-radius: 16px;
+  overflow: auto; overscroll-behavior: contain; color: #30281c; color-scheme: light; border-radius: 9px;
   border-color: rgb(255 247 229 / 0.70);
   padding: clamp(17px, 1.8vw, 30px);
 }
 .reading-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-#reading h2 { margin: 0; font: 700 clamp(26px, 2.45vw, 41px) / 1.17 "SimSun", "Noto Serif CJK SC", serif; }
+#reading h2 { margin: 0; font: 700 clamp(26px, 2.45vw, 41px) / 1.17 var(--font-serif); }
 #close {
   flex: 0 0 44px; min-height: 44px; padding: 0; font: 26px/1 sans-serif; color: #413426;
   border: 1px solid rgb(113 88 55 / 0.23); border-radius: 50%; background: rgb(252 247 235 / 0.59);
@@ -206,6 +207,6 @@ button.scene-point:hover:not(:disabled) { background: transparent; }
 .page-turn { min-width: 44px; padding-inline: 8px; font-size: 23px; }
 .dock-select {
   min-height: 44px; max-width: 100%; padding: 7px 9px;
-  border: 1px solid rgb(var(--silver) / 0.21); border-radius: 11px;
+  border: 1px solid rgb(var(--silver) / 0.21); border-radius: 9px;
   background: #353631; color: #f6f5f1; font: inherit;
 }
