@@ -81,12 +81,78 @@ jobs:
                   b.close();save()
           except Exception as e:
               report["edge_error"]=repr(e);save()
+          # Independent, annotated public Mandarin speech: deterministic offsets,
+          # both recognizers receive the same decoded audio. Do not tune on these rows.
+          import re, subprocess, io, urllib.parse, random
+          def normalized(t):return "".join(c.lower() for c in str(t) if c.isalnum())
+          def edit(a,b):
+              d=list(range(len(b)+1))
+              for i,ca in enumerate(a,1):
+                  nxt=[i]
+                  for j,cb in enumerate(b,1):nxt.append(min(nxt[-1]+1,d[j]+1,d[j-1]+(ca!=cb)))
+                  d=nxt
+              return d[-1]
+          def benchmark():
+              dataset="hf-audio/open-asr-leaderboard-multilingual-datasets"
+              config="aishell1_zh"
+              def load_json(url):
+                  with urllib.request.urlopen(urllib.request.Request(url,headers={"User-Agent":"VR-Teaching public ASR evaluation"}),timeout=60) as resp:
+                      return json.load(resp)
+              ds=[]
+              for off in [0,1300,2600,3900,5200,6500]:
+                  api="https://datasets-server.huggingface.co/rows?"+urllib.parse.urlencode({"dataset":dataset,"config":config,"split":"test","offset":off,"length":6})
+                  payload=load_json(api)
+                  for entry in payload["rows"]:
+                      row=entry["row"];text_ref=row.get("text") or row.get("sentence") or row.get("transcription") or row.get("transcript")
+                      audio=row.get("audio")
+                      if isinstance(audio,list):audio=audio[0]
+                      if not isinstance(audio,dict) or not isinstance(text_ref,str) or not normalized(text_ref):
+                          raise ValueError("Unexpected dataset schema "+str(list(row)))
+                      src=audio["src"];f=out/("aishell-"+str(entry["row_idx"])+".audio")
+                      urllib.request.urlretrieve(src,f)
+                      pcm=subprocess.check_output(["ffmpeg","-v","error","-i",str(f),"-ac","1","-ar","16000","-f","f32le","pipe:1"])
+                      arr=np.frombuffer(pcm,dtype="<f4").copy()
+                      if not len(arr):raise ValueError("empty audio")
+                      ds.append((entry["row_idx"],text_ref,arr,hashlib.sha256(f.read_bytes()).hexdigest()))
+              assert len(ds)==36
+              report["benchmark"]={"dataset":dataset,"config":config,"split":"test","n":len(ds),"license":"AISHELL-1 Apache-2.0 (see source card)","models":{}}
+              def rec_factory(kind):
+                  if kind=="zipformer":
+                      return s.OnlineRecognizer.from_transducer(tokens=str(out/"zip/tokens.txt"),encoder=str(out/"zip/encoder-epoch-99-avg-1.int8.onnx"),decoder=str(out/"zip/decoder-epoch-99-avg-1.onnx"),joiner=str(out/"zip/joiner-epoch-99-avg-1.int8.onnx"),num_threads=1)
+                  return s.OnlineRecognizer.from_paraformer(tokens=str(out/"para/tokens.txt"),encoder=str(out/"para/encoder.int8.onnx"),decoder=str(out/"para/decoder.int8.onnx"),num_threads=1)
+              for kind in ["zipformer","paraformer"]:
+                  rec=rec_factory(kind);scores={}
+                  for condition in ["clean","noise_15db"]:
+                      rows=[]
+                      for idx,ref,data,sha in ds:
+                          arr=data.copy()
+                          if condition!="clean":
+                              rng=np.random.default_rng(idx+761)
+                              noise=rng.standard_normal(arr.size).astype(np.float32)
+                              noise*=np.sqrt(np.mean(arr**2)/(np.mean(noise**2)*10**1.5+1e-12))
+                              arr=np.clip(arr+noise,-1,1)
+                          stream=rec.create_stream();t0=time.perf_counter()
+                          for i in range(0,len(arr),1600):
+                              stream.accept_waveform(16000,arr[i:i+1600])
+                              while rec.is_ready(stream):rec.decode_stream(stream)
+                          stream.accept_waveform(16000,np.zeros(12800,np.float32));stream.input_finished()
+                          while rec.is_ready(stream):rec.decode_stream(stream)
+                          hyp=rec.get_result(stream);n=len(normalized(ref));e=edit(normalized(ref),normalized(hyp))
+                          rows.append({"row":idx,"reference_chars":n,"edits":e,"seconds":len(arr)/16000,"rtf":(time.perf_counter()-t0)/(len(arr)/16000),"exact":e==0,"audio_sha256":sha})
+                      scores[condition]={"cer":sum(r["edits"] for r in rows)/sum(r["reference_chars"] for r in rows),"exact":sum(r["exact"] for r in rows),"median_rtf":float(np.median([r["rtf"] for r in rows])),"rows":rows}
+                      report["benchmark"]["models"][kind]=scores;save()
+                  del rec
+          try:
+              if "asr_error" not in report:benchmark()
+              else:raise RuntimeError("reference model unavailable")
+          except Exception as e:
+              report["benchmark_error"]=repr(e);save()
           reference="对我做了介绍那么我想说的是大家如果对我的研究感兴趣"
           for key,rows in report["models"].items():
               rows[0]["matches_upstream_reference"]=(rows[0]["text"]==reference)
           save()
           print(json.dumps(report,ensure_ascii=False))
-          if "asr_error" in report or "edge_error" in report:raise SystemExit(1)
+          if "asr_error" in report or "edge_error" in report or "benchmark_error" in report:raise SystemExit(1)
           '@ | Set-Content -Encoding utf8 safety-public-baseline.py
           python safety-public-baseline.py
       - uses: actions/upload-artifact@v4
