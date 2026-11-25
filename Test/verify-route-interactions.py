@@ -116,6 +116,10 @@ def wujiang_and_desk(teacher, screen):
     button(teacher, "斜视").click()
     expect(route).not_to_have_attribute("d", top)
     next_page(teacher)
+    hall_and_desk(teacher,screen)
+
+
+def hall_and_desk(teacher, screen):
     page_is(teacher, "遵义会议室")
     button(teacher, "进入材料厅").click()
     hall = teacher.locator('.lesson-exploration[data-scene="zunyi-hall"][data-ready]')
@@ -137,25 +141,25 @@ def wujiang_and_desk(teacher, screen):
     desk = teacher.locator(".desk-live-frame")
     expect(desk).to_have_attribute("data-space", "ready", timeout=16000)
     button(teacher, "乌江").click()
-    expect(screen.locator(".is-left .folio-card h3")).to_have_text("乌江")
+    evidence = screen.locator(".desk-reader .desk-reader-article")
+    expect(evidence.get_by_role("heading", name="乌江")).to_be_visible()
     expect(screen.locator(".desk-live-frame")).to_have_attribute("data-map", "original")
-    desk.press("ArrowRight")
-    expect(screen.locator(".is-left .folio-card h3")).to_have_text("乌江")
-    expect(screen.locator(".is-left .folio-card")).to_contain_text("抵达遵义")
-
-    button(teacher, "回到正面机位").click()
+    expect(evidence).to_contain_text("抵达遵义")
+    button(teacher, "返回桌面").click()
     open_dossier(teacher)
     drag_desk(teacher,"discussion-sheet",-.15,dy=.06)
     expect(screen.locator(".desk-live-frame")).not_to_have_attribute("data-sheet-discussion", "")
-    button(teacher,"桌面并排对照").click()
-    expect(screen.locator(".is-right .folio-card h3")).to_have_text("会议讨论")
-    expect(screen.locator(".is-left .folio-card h3")).to_have_text("乌江")
-    print("乌江视角和遵义跨场携带线索通过，右册拖出后与左册对读", flush=True)
+    button(teacher,"乌江").click()
+    button(teacher,"对照两份材料").click()
+    expect(screen.locator(".desk-reader-pair .is-right h3")).to_have_text("会议讨论")
+    expect(screen.locator(".desk-reader-pair .is-left h3")).to_have_text("乌江")
+    print("遵义材料厅带入的乌江线索与会议讨论在双屏并排可读", flush=True)
 
 
 def main():
     parser = ArgumentParser()
     parser.add_argument("--html", type=Path, default=COURSE)
+    parser.add_argument("--desk-only", action="store_true", help="只验材料厅到会议桌的线索交接")
     args = parser.parse_args()
     with TemporaryDirectory() as folder, sync_playwright() as playwright:
         lesson=Path(folder)/"lesson.html"
@@ -170,6 +174,13 @@ def main():
                 assert not errors,errors
                 viewport={"width":1920,"height":1080}
                 screen=open_projection(teacher,viewport)
+                if args.desk_only:
+                    button(teacher,"开始授课").click()
+                    button(teacher,"进入课堂").click()
+                    teacher.locator(".chapter-nav").get_by_role("button",name="遵义会议",exact=True).click()
+                    hall_and_desk(teacher,screen)
+                    assert not errors,errors
+                    return
                 recall_view=river(teacher,screen)
                 screen.close()
                 screen=open_projection(teacher,viewport,True)

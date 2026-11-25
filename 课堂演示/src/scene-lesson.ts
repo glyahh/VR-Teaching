@@ -45,7 +45,7 @@ function mountSceneLesson(address: SceneAddress, scene: HTMLElement, host: HTMLE
   const life = new AbortController();
   const { signal } = life;
   const paragraphs = page.narration;
-  const renderer = page.activity === 'materials' ? undefined : mountNarration(host, signal);
+  const renderer = page.activity === 'materials' ? undefined : mountNarration(host, paragraphs.length, signal);
   const cues = new Map<string, SceneCue>();
   const seenItems = address.variant === 'trial' ? trialItemsSeen : lessonItemsSeen;
   const steps: readonly StepItem[] = page.activity === 'military' || page.activity === 'organization' ||
@@ -117,6 +117,10 @@ function mountSceneLesson(address: SceneAddress, scene: HTMLElement, host: HTMLE
     } else if (narration.kind === 'main' && renderer.isWriting()) {
       setNarration({ kind: 'main', progress: { kind: 'complete', index: progress.index, finishedAt: now } });
       publish();
+    } else if (narration.kind === 'point' && progress.kind === 'typing') {
+      // 主讲句尚未打完即被圆点打断：点空白先补完原句而不跳过
+      setNarration({ kind: 'main', progress: { kind: 'complete', index: progress.index, finishedAt: now } });
+      publish();
     } else if (progress.index + 1 < paragraphs.length) {
       const finished = narration.kind === 'point' ? narration.interruptedAt
         : progress.kind === 'complete' ? progress.finishedAt : now;
@@ -129,8 +133,13 @@ function mountSceneLesson(address: SceneAddress, scene: HTMLElement, host: HTMLE
 
   function explain(id: string) {
     if (projectionMode || !cues.has(id)) return;
+    soundscape.playSfx('point');
     const now = sceneNow();
-    const resume = narration.kind === 'point' ? narration.resume : narration.progress;
+    const resume = narration.kind === 'point'
+      ? narration.resume
+      : narration.progress.kind === 'typing' && !renderer?.isWriting()
+        ? { kind: 'complete' as const, index: narration.progress.index, finishedAt: now }
+        : narration.progress;
     const interruptedAt = narration.kind === 'point' ? narration.interruptedAt : now;
     setNarration({ kind: 'point', id, startedAt: now, interruptedAt, resume });
     publish();
@@ -167,12 +176,15 @@ function mountSceneLesson(address: SceneAddress, scene: HTMLElement, host: HTMLE
       if (Math.hypot(x - e.clientX, y - e.clientY) <= 7 && canAdvance(document.elementFromPoint(e.clientX, e.clientY))) advance();
     }, { capture: true, signal });
     scene.addEventListener('pointercancel', () => { pointer = undefined; }, { signal });
-    scene.addEventListener('keydown', event => {
-      if (event.target instanceof HTMLHeadingElement && event.key === ' ' && !event.repeat &&
-        scene.dataset.entryPhase === 'ready' && !dialog.open) {
-        event.preventDefault();
-        advance();
-      }
+    document.addEventListener('keydown', event => {
+      if (event.key !== ' ' || event.repeat || event.defaultPrevented ||
+        event.altKey || event.ctrlKey || event.metaKey || event.shiftKey ||
+        scene.dataset.entryPhase !== 'ready' || dialog.open ||
+        scene.matches('[data-exploration],[data-practicing=true],[data-journey]')) return;
+      if (event.target instanceof Element &&
+        event.target.closest('button,input,select,textarea,a,[contenteditable],.desk-live-frame,.lesson-exploration')) return;
+      event.preventDefault();
+      advance();
     }, { signal });
   }
 

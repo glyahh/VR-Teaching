@@ -17,9 +17,10 @@ const sceneNow = () => performance.timeOrigin + performance.now();
 const narrationGraphemes = new Intl.Segmenter('zh-Hans', { granularity: 'grapheme' });
 const narrationFadeMs = 300;
 
-function mountNarration(host: HTMLElement, signal: AbortSignal) {
+function mountNarration(host: HTMLElement, total: number, signal: AbortSignal) {
   const box = element('p', 'slide-line');
   box.dataset.narrationEmpty = 'true';
+  box.dataset.narrationTotal = String(total);
   const viewport = element('span', 'narration-viewport');
   viewport.setAttribute('aria-hidden', 'true');
   const measure = element('span', 'narration-measure');
@@ -28,13 +29,44 @@ function mountNarration(host: HTMLElement, signal: AbortSignal) {
   const announcement = element('span', 'visually-hidden');
   announcement.setAttribute('aria-live', 'polite');
   announcement.setAttribute('aria-atomic', 'true');
-  box.append(viewport, announcement);
+
+  // 非文字化图形进度条：绝对定位贴合底部边缘，不改变 narration-viewport 的单行高度
+  const meter = element('span', 'narration-meter');
+  meter.setAttribute('aria-hidden', 'true');
+  const pointRing = element('span', 'narration-point-ring');
+  const pips = total > 1 ? Array.from({ length: total }, () => element('span', 'narration-pip')) : [];
+  const more = element('span', 'narration-more');
+  const moreSvg = document.createElementNS(svgNamespace, 'svg');
+  moreSvg.setAttribute('viewBox', '0 0 12 12');
+  moreSvg.setAttribute('class', 'narration-more-icon');
+  const morePath = document.createElementNS(svgNamespace, 'path');
+  morePath.setAttribute('d', 'M4.2 2.5 L8.2 6 L4.2 9.5');
+  moreSvg.append(morePath);
+  more.append(moreSvg);
+  meter.append(pointRing, ...pips, more);
+
+  box.append(viewport, announcement, meter);
   host.replaceChildren(box);
 
   let display: NarrationDisplay | undefined;
+  let lastView: NarrationView = { kind: 'main', progress: { kind: 'waiting' } };
   let frame = 0;
   let writing = false;
   let cached: { key: string; previous: string[][]; current: string[][] } | undefined;
+
+  function updateMeter() {
+    const progress = lastView.kind === 'point' ? lastView.resume : lastView.progress;
+    const currentIndex = progress.kind === 'waiting' ? -1 : progress.index;
+    const isPoint = lastView.kind === 'point';
+    pointRing.hidden = !isPoint;
+    pips.forEach((pip, i) => {
+      pip.dataset.state = i === currentIndex ? 'current' : i < currentIndex ? 'past' : 'future';
+    });
+    const hasMore = !isPoint && !writing && currentIndex >= 0 && currentIndex + 1 < total;
+    more.hidden = !hasMore;
+    box.dataset.narrationHasMore = String(hasMore);
+    meter.hidden = !isPoint && total <= 1;
+  }
 
   function wrap(text: string) {
     const lines: string[][] = [];
@@ -93,14 +125,18 @@ function mountNarration(host: HTMLElement, signal: AbortSignal) {
         shown.push(...[...previous, ...current].slice(-2).map(line => line.join('')));
       } else {
         const elapsed = sceneNow() - clock.startedAt;
-        const timeline = previous.map(glyphs => ({ glyphs, finished: clock.previousFinishedAt - clock.startedAt }));
+        const timeline = previous.map(glyphs => ({
+          glyphs, finished: clock.previousFinishedAt - clock.startedAt, fromPrevious: true,
+        }));
         shown.push(...previous.map(line => line.join('')));
         let start = 0;
         for (const glyphs of current) {
           const leaving = timeline.at(-2);
           if (leaving) {
-            const readUntil = leaving.finished + Math.max(950, 260 + 95 * leaving.glyphs.length);
-            const fadeAt = Math.max(start, readUntil);
+            // 用户主动切段顶掉旧段时零等待立即淡出；仅同段折行自动滚动时保留阅读停顿
+            const fadeAt = leaving.fromPrevious
+              ? start
+              : Math.max(start, leaving.finished + Math.max(950, 260 + 95 * leaving.glyphs.length));
             start = fadeAt + narrationFadeMs;
             if (elapsed < start) {
               fade = Math.max(0, (elapsed - fadeAt) / narrationFadeMs);
@@ -118,7 +154,7 @@ function mountNarration(host: HTMLElement, signal: AbortSignal) {
             break;
           }
           start = finished + perGlyph;
-          timeline.push({ glyphs, finished });
+          timeline.push({ glyphs, finished, fromPrevious: false });
         }
       }
     }
@@ -133,6 +169,7 @@ function mountNarration(host: HTMLElement, signal: AbortSignal) {
     box.dataset.narrationEmpty = String(!shown.length);
     box.dataset.narrationWriting = String(writing);
     box.style.setProperty('--narration-fade', String(fade));
+    updateMeter();
     if (writing) frame = requestAnimationFrame(paint);
   }
 
@@ -151,6 +188,7 @@ function mountNarration(host: HTMLElement, signal: AbortSignal) {
   return {
     show(next: NarrationDisplay | undefined, view: NarrationView) {
       display = next;
+      lastView = view;
       box.dataset.narrationView = view.kind;
       const progress = view.kind === 'point' ? view.resume : view.progress;
       box.dataset.narrationCount = String(progress.kind === 'waiting' ? 0 : progress.index + 1);

@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { createDeskCamera, createDeskRoom } from './desk-room.js';
+import { createDeskProps } from './desk-props.js';
 import { createDeskPapers, deskBounds, deskTop, dossierWidth, journalWidth } from './desk-paper.js';
+import notebook from './notebook.json';
 
 const landing = {x: .68, z: .30};
 const staticObstacles = [
@@ -8,8 +10,23 @@ const staticObstacles = [
   {x: .609, z: -.222, r: .125},
 ];
 
+function makeGlowTex(inner, mid) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(64, 64, 3, 64, 64, 62);
+  g.addColorStop(0, inner);
+  g.addColorStop(0.4, mid);
+  g.addColorStop(1, 'rgba(255, 170, 72, 0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 128, 128);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
 function lightDesk(scene, sky) {
-  const ambient = new THREE.HemisphereLight(0xe8dfd0, 0x7d6850, .54);
+  const ambient = new THREE.HemisphereLight(0xe8dfd0, 0x7d6850, .62);
   const window = new THREE.DirectionalLight(0xb8cff8, 1.48);
   window.position.set(-1.12, 1.81, -1.28);
   window.target.position.set(-.16, deskTop, .08);
@@ -21,9 +38,21 @@ function lightDesk(scene, sky) {
   window.shadow.radius = 2;
   const fill = new THREE.DirectionalLight(0xf2d4b5, .30);
   fill.position.set(.38, 1.58, 1.43);
-  const lamp = new THREE.PointLight(0xffae52, 2.5, 1.55, 2);
+  const lamp = new THREE.PointLight(0xffae52, .24, 1.22, 2);
   lamp.position.set(0, deskTop + .155, -.259);
   scene.add(ambient, window, window.target, fill, lamp);
+
+  const spillTexture = makeGlowTex('rgba(255, 176, 92, .62)', 'rgba(228, 132, 53, .28)');
+  const spillGeometry = new THREE.PlaneGeometry(.47,.40);
+  spillGeometry.rotateX(-Math.PI/2);
+  const spillMaterial = new THREE.MeshBasicMaterial({
+    map: spillTexture, transparent: true, opacity: .12, depthWrite: false,
+    blending: THREE.AdditiveBlending, toneMapped: false,
+  });
+  const spill = new THREE.Mesh(spillGeometry,spillMaterial);
+  spill.position.set(.008,deskTop+.0011,-.258);
+  spill.renderOrder = 2;
+  scene.add(spill);
 
   const skyGeometry = new THREE.SphereGeometry(12, 16, 12);
   const skyMaterial = new THREE.MeshBasicMaterial({
@@ -36,18 +65,31 @@ function lightDesk(scene, sky) {
 
   const receiving = new THREE.PlaneGeometry(deskBounds.x * 2 - .006, deskBounds.z * 2 - .007);
   receiving.rotateX(-Math.PI / 2);
-  const shadow = new THREE.Mesh(receiving, new THREE.ShadowMaterial({opacity: .42, depthWrite: false}));
+  const shadow = new THREE.Mesh(receiving, new THREE.ShadowMaterial({opacity: .34, depthWrite: false}));
   shadow.position.y = deskTop + .0008;
   shadow.receiveShadow = true;
   shadow.renderOrder = 1;
   scene.add(shadow);
-  return () => {
-    skyGeometry.dispose();
-    skyMaterial.dispose();
-    scene.remove(backdrop);
-    receiving.dispose();
-    shadow.material.dispose();
-    window.shadow.dispose();
+
+  function pulse(time) {
+    const flick = 1 + .048*Math.sin(time*4.9+.3) + .022*Math.sin(time*8.1+1.8);
+    lamp.intensity = .24*flick;
+    spillMaterial.opacity = .12 + .065*(flick-1);
+  }
+
+  return {
+    pulse,
+    dispose() {
+      skyGeometry.dispose();
+      skyMaterial.dispose();
+      spillTexture.dispose();
+      spillGeometry.dispose();
+      spillMaterial.dispose();
+      scene.remove(backdrop,spill,shadow,ambient,window,window.target,fill,lamp);
+      receiving.dispose();
+      shadow.material.dispose();
+      window.shadow.dispose();
+    },
   };
 }
 
@@ -64,7 +106,7 @@ export async function createDeskWorld(canvas, assets) {
   const manifest = JSON.parse(assets['desk-manifest']);
   const renderer = new THREE.WebGLRenderer({canvas, antialias: true, alpha: false});
   renderer.toneMapping = THREE.AgXToneMapping;
-  renderer.toneMappingExposure = 1.03;
+  renderer.toneMappingExposure = 1.04;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.shadowMap.autoUpdate = false;
@@ -76,31 +118,33 @@ export async function createDeskWorld(canvas, assets) {
   const pointer = new THREE.Vector2(), point = new THREE.Vector3();
   const tabletop = new THREE.Plane(new THREE.Vector3(0, 1, 0), -deskTop);
   const objectPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -(deskTop + .023));
-  let room, papers, cleanLighting;
+  let room, papers, lighting, props;
 
   const loaded = await Promise.allSettled([
     createDeskRoom(renderer, assets, manifest),
     textureImage(assets.terrain),
+    createDeskProps(assets['desk-props']),
   ]);
   try {
-    if (loaded[0].status !== 'fulfilled' || loaded[1].status !== 'fulfilled') {
-      if (loaded[0].status === 'fulfilled') loaded[0].value.dispose();
+    if (loaded[0].status === 'fulfilled') room = loaded[0].value;
+    if (loaded[2].status === 'fulfilled') props = loaded[2].value;
+    if (!room || !props || loaded[1].status !== 'fulfilled') {
       throw new Error('桌边实时资源读取失败', {
         cause: loaded.find(result => result.status === 'rejected')?.reason,
       });
     }
-    room = loaded[0].value;
-    scene.add(room.room);
-    cleanLighting = lightDesk(scene, manifest.sky);
+    scene.add(room.room, props.group);
+    lighting = lightDesk(scene, manifest.sky);
     papers = createDeskPapers(scene, {image: loaded[1].value});
   } catch (error) {
     room?.dispose();
-    cleanLighting?.();
+    props?.dispose();
+    lighting?.dispose();
     renderer.dispose();
     throw error;
   }
 
-  let currentSaved, currentPreview;
+  let currentSaved, currentPreview, currentPose, currentFocus, currentHover = null;
   let width = 0, height = 0;
   function resize(w = canvas.width, h = canvas.height) {
     if (width === w && height === h) return;
@@ -108,21 +152,45 @@ export async function createDeskWorld(canvas, assets) {
     height = h;
     renderer.setSize(Math.max(1, w), Math.max(1, h), false);
     rig.resize(Math.max(1, w) / Math.max(1, h));
+    currentPose = undefined;
   }
   resize();
 
+  function setHover(target) {
+    if (currentHover === target) return false;
+    currentHover = target;
+    return true;
+  }
+
   function apply(view) {
-    if (currentSaved !== view.saved || currentPreview !== view.preview) {
+    const hoverChanged = papers.setHover(currentHover);
+    const physical = view.preview?.kind === 'camera' ? undefined : view.preview;
+    const saved=view.saved;
+    const papersChanged=currentSaved!==saved && (!currentSaved || currentSaved.spread!==saved.spread ||
+      currentSaved.dossier!==saved.dossier || currentSaved.map!==saved.map ||
+      currentSaved.sheets.length!==saved.sheets.length || saved.sheets.some(({id,at},index)=>{
+        const last=currentSaved.sheets[index];
+        return last.id!==id || last.at.x!==at.x || last.at.z!==at.z;
+      }));
+    if (papersChanged || currentPreview !== physical || hoverChanged) {
       papers.update(view);
-      currentSaved = view.saved;
-      currentPreview = view.preview;
+      currentPreview = physical;
       renderer.shadowMap.needsUpdate = true;
     }
-    const inspector = view.preview?.kind === 'inspect' ? papers.loose.get(view.preview.id) : null;
-    rig.set(view.preview?.kind === 'camera' ? view.preview.pose : view.saved.camera,
-      inspector?.visible ? inspector.position : undefined);
+    currentSaved=saved;
+    const pose = view.camera ?? (view.preview?.kind === 'camera' ? view.preview.pose : view.saved.camera);
+    const focus = view.focus;
+    if (pose !== currentPose || focus !== currentFocus) {
+      rig.set(pose,focus);
+      currentPose = pose;
+      currentFocus = focus;
+    }
   }
-  function draw(view) {
+  function draw(view, time = 0) {
+    if (time > 0) {
+      lighting.pulse(time);
+      props.flicker(time);
+    }
     apply(view);
     room.update(camera.position);
     renderer.render(scene, camera);
@@ -136,9 +204,9 @@ export async function createDeskWorld(canvas, assets) {
     const before = loose.get('before');
     const at = (group, x, y, z) => group.localToWorld(new THREE.Vector3(x, y, z));
     switch (target) {
-      case 'left': return at(journal, 0, .024, .012);
-      case 'right': return at(dossier, 0, .027, 0);
-      case 'page-forward': return spread < 4 ? at(journal, journalWidth * .38, .025, .168) : undefined;
+      case 'left': return at(journal, spread > 0 ? -journalWidth * 1.38 : -journalWidth * .38, .024, -.165);
+      case 'right': return at(dossier, dossierWidth * .38, .027, -.165);
+      case 'page-forward': return spread < notebook.length ? at(journal, journalWidth * .38, .025, .168) : undefined;
       case 'page-back': return spread > 0 ? at(journal, -journalWidth * 1.36, .025, .166) : undefined;
       case 'cord': return status === 'sealed' ? at(rope, dossierWidth * .17, .008, .018) : undefined;
       case 'cover': return status === 'untied' ? at(dossier, -dossierWidth * .36, .027, .098) : undefined;
@@ -160,6 +228,16 @@ export async function createDeskWorld(canvas, assets) {
     const screen = world.project(camera);
     if (!Number.isFinite(screen.x) || !Number.isFinite(screen.y) || Math.abs(screen.z) > 1) return;
     return [(screen.x + 1) / 2, (1 - screen.y) / 2];
+  }
+  function focusPoint(target, view) {
+    apply(view);
+    const {journal,dossier,note,map,loose}=papers;
+    if (target === 'journal') return {x:journal.position.x-journalWidth*.35,z:journal.position.z};
+    if (target === 'dossier') return {x:dossier.position.x,z:dossier.position.z};
+    if (target === 'map') return {x:.20,z:map.group.position.z};
+    const sheet=loose.get(target);
+    const at=sheet?.visible ? sheet.position : note.getWorldPosition(new THREE.Vector3());
+    return {x:at.x,z:at.z};
   }
   function rayAt(u, v, view) {
     if (!Number.isFinite(u) || !Number.isFinite(v)) return false;
@@ -211,25 +289,31 @@ export async function createDeskWorld(canvas, assets) {
     if (!raycaster.ray.intersectPlane(objectPlane, point)) return null;
     const j = journal.worldToLocal(point.clone());
     const d = dossier.worldToLocal(point.clone());
-    const forward = j.z > .090 && j.z <= .236 && Math.abs(j.x - journalWidth * .39) < .085;
-    const back = j.z > .090 && j.z <= .236 && Math.abs(j.x + journalWidth * 1.36) < .085;
-    if (forward && view.saved.spread < 4) return 'page-forward';
-    if (back && view.saved.spread > 0) return 'page-back';
-    if (Math.abs(d.x) < dossierWidth / 2 + .023 && Math.abs(d.z) < .224) {
-      if (view.saved.dossier === 'sealed' && d.x > -.008 && Math.abs(d.z - .03) < .115) return 'cord';
-      if (view.saved.dossier === 'untied' && d.x < .008 && Math.abs(d.z) < .213) return 'cover';
+    // 放宽翻页、解绳、揭封的有效热区，轻点主体即可顺滑响应不再抠小角
+    const onLeftRightPage = Math.abs(j.z) <= .254 && j.x >= -journalWidth * .54 && j.x <= journalWidth * .60;
+    const onLeftBackPage = Math.abs(j.z) <= .254 && j.x >= -journalWidth * 1.62 && j.x < -journalWidth * .54;
+    if (onLeftRightPage && view.saved.spread < notebook.length) return 'page-forward';
+    if (onLeftBackPage && view.saved.spread > 0) return 'page-back';
+    if (Math.abs(d.x) < dossierWidth / 2 + .045 && Math.abs(d.z) < .254 ||
+        view.saved.dossier === 'open' && d.x > dossierWidth / 2 && d.x < dossierWidth * 1.4 && Math.abs(d.z) < .235) {
+      if (view.saved.dossier === 'sealed') return 'cord';
+      if (view.saved.dossier === 'untied') return 'cover';
       return 'right';
     }
-    if (Math.abs(j.x) <= journalWidth / 2 && Math.abs(j.z) < .22) return 'left';
+    if (onLeftRightPage || onLeftBackPage) return 'left';
+    const mapPoint = map.group.worldToLocal(point);
+    const stored = view.saved.map === 'stored';
+    if (Math.abs(mapPoint.x) <= (stored ? .115 : .228) && Math.abs(mapPoint.z) <= (stored ? .096 : .125)) return stored ? 'map' : 'overlay';
     return null;
   }
 
   return {
-    resize, draw, project, pick, tablePoint,
+    resize, draw, project, pick, tablePoint, focusPoint, setHover,
     dispose() {
       room.dispose();
+      props.dispose();
       papers.dispose();
-      cleanLighting();
+      lighting.dispose();
       renderer.dispose();
     },
   };

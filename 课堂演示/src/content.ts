@@ -164,8 +164,8 @@ const events: {
         image: 'xiang-ford', title: '湘江渡口',
         narration: ['中央红军在广西全州、兴安之间渡过湘江。', '红军突破了第四道封锁线。接下来，看看队伍付出了多大代价。'],
         question: '渡过湘江意味着突破了第几道封锁线？',
-        seconds: [45, 45, 45, 45], activity: 'crossing',
-        notes: '点开渡江区域标绘，指出全州、兴安之间的渡江范围，说明灌阳也受战役波及，帮学员区分渡江区域与单个渡口。先请学员说出突破的是第几道封锁线。'
+        seconds: [45, 45, 45, 45], activity: 'crossing', exploration: 'xiang-crossing',
+        notes: '点开渡江区域标绘，指出全州、兴安之间的渡江范围，说明灌阳也受战役波及。可打开「湘江渡口」三维现场，换全景、涉水与西岸阻击视角拖动时间轴观察强渡过程与兵力变化。'
       },
       {
         image: 'xiang-ford', title: '兵力对照',

@@ -46,47 +46,85 @@ def visible_motion(new, previous):
 def exercise_desk(page, screen, right_first=False, shot=None):
     desk = page.locator(DESK)
     mirror = screen.locator(DESK)
-    expect(desk).to_have_attribute('data-space','ready',timeout=18000)
-    expect(mirror).to_have_attribute('data-space','ready',timeout=18000)
-    button(page,'动手查证').click()
+    expect(desk).to_have_attribute('data-space', 'ready', timeout=18000)
+    expect(mirror).to_have_attribute('data-space', 'ready', timeout=18000)
+    canvas = desk.locator('canvas')
+    raw_forward = object_point(page, 'page-forward')
+    page.mouse.move(raw_forward[0]-30, raw_forward[1]+7)
+    expect(canvas).to_have_css('cursor','pointer')
+    expect(desk.locator('.desk-inquiry-cue')).to_contain_text('拖动翻页')
+
     if right_first:
         open_dossier(page)
     desk.press('ArrowRight')
-    expect(mirror).to_have_attribute('data-yaw','4.000')
-    canvas=desk.locator('canvas')
-    before=canvas.screenshot()
-    drag_desk(page,'page-forward',-.058,hold=True)
-    expect(desk).to_have_attribute('data-gesture','page')
-    expect(mirror).to_have_attribute('data-gesture','page')
-    assert visible_motion(canvas.screenshot(),before) > .12, '拖动时纸面没有可见变化'
+    expect(mirror).to_have_attribute('data-yaw', '4.000')
+    before = canvas.screenshot()
+    drag_desk(page, 'page-forward', -.040, hold=True)
+    expect(desk).to_have_attribute('data-gesture', 'page')
+    expect(mirror).to_have_attribute('data-gesture', 'page')
+    assert visible_motion(canvas.screenshot(), before) > .12, '拖动时纸面没有可见变化'
     if shot:
-        shot('斜看拖页中',page)
-        shot('投影同步拖页',screen)
+        shot('01-斜看翻页中', page)
+        shot('02-投影同步翻页', screen)
     page.mouse.up()
-    expect(mirror).to_have_attribute('data-gesture','')
-    expect(mirror).to_have_attribute('data-spread','0')
-    for spread in (1,2,3,4):
-        drag_desk(page,'page-forward',-.22)
-        expect(mirror).to_have_attribute('data-spread',str(spread))
-    drag_desk(page,'page-back',.21)
-    expect(mirror).to_have_attribute('data-spread','3')
-    if not right_first:
-        expect(desk).to_have_attribute('data-dossier','sealed')
-        open_dossier(page)
-    expect(mirror).to_have_attribute('data-dossier','open')
+    expect(mirror).to_have_attribute('data-gesture', '')
+    expect(mirror).to_have_attribute('data-spread', '0')
 
-    center=object_point(page,'table')
-    edge=desk.bounding_box()
+    for spread in (1, 2):
+        drag_desk(page, 'page-forward', -.22)
+        expect(mirror).to_have_attribute('data-spread', str(spread))
+    drag_desk(page, 'page-back', .21)
+    expect(mirror).to_have_attribute('data-spread', '1')
+
+    button(page, '翻阅左册 · 会前形势').click()
+    reader = page.locator('.desk-reader')
+    public = screen.locator('.desk-reader')
+    expect(public.get_by_role('heading', name='会前手记')).to_be_visible()
+    expect(desk).to_have_attribute('data-focus', '1.000')
+    expect(public.locator('.desk-reader-footer')).to_be_hidden()
+    if shot:
+        shot('03-手记正读', page)
+        shot('04-手记投影', screen)
+    page.keyboard.press('ArrowRight')
+    page.keyboard.press('ArrowRight')
+    page.keyboard.press('ArrowRight')
+    expect(mirror).to_have_attribute('data-spread', '4')
+    expect(reader.get_by_role('heading', name='遵义会前')).to_be_visible()
+    book = reader.locator('.desk-reader-book')
+    box = book.bounding_box()
+    x, y = box['x']+box['width']*.23, box['y']+box['height']*.35
+    page.mouse.move(x,y)
+    page.mouse.down()
+    page.mouse.move(x+box['width']*.17,y,steps=8)
+    expect(reader.locator('.desk-reader-turn')).to_be_visible()
+    assert mirror.get_attribute('data-spread') == '4'
+    page.mouse.up()
+    expect(mirror).to_have_attribute('data-spread', '3')
+    expect(reader.get_by_role('heading', name='渡过乌江')).to_be_visible()
+    page.keyboard.press('Escape')
+    expect(reader).to_be_hidden()
+    expect(mirror).to_have_attribute('data-focus', '0.000')
+    expect(desk).to_have_attribute('data-yaw', '4.000')
+    expect(button(page, '翻阅左册 · 会前形势')).to_be_focused()
+
+    if not right_first:
+        expect(desk).to_have_attribute('data-dossier', 'sealed')
+        open_dossier(page)
+    expect(mirror).to_have_attribute('data-dossier', 'open')
+
+    center = object_point(page, 'table')
+    edge = desk.bounding_box()
     for target,attr,direction in [('discussion-sheet','data-sheet-discussion',1),('before-sheet','data-sheet-before',-1)]:
         drag_desk(page,target,destination=(center[0]+direction*edge['width']*.062,center[1]))
         expect(desk).not_to_have_attribute(attr,'')
         expect(mirror).to_have_attribute(attr,desk.get_attribute(attr))
     page.mouse.click(*object_point(page,'discussion-sheet'))
-    expect(mirror).to_have_attribute('data-gesture','inspect')
+    expect(public.get_by_role('heading',name='会议讨论')).to_be_visible()
+    expect(reader.locator('.desk-reader-surface')).to_have_css('opacity','1')
     if shot:
-        shot('会议讨论页近看',page)
+        shot('05-会议讨论纸页正读',page)
     page.keyboard.press('Escape')
-    expect(mirror).to_have_attribute('data-gesture','')
+    expect(public).to_be_hidden()
 
     drag_desk(page,'map',-.17,dy=-.12)
     expect(mirror).to_have_attribute('data-map','original')
@@ -94,14 +132,50 @@ def exercise_desk(page, screen, right_first=False, shot=None):
     expect(mirror).to_have_attribute('data-map','both')
     drag_desk(page,'overlay',dy=-.26)
     expect(mirror).to_have_attribute('data-map','original')
-    button(page,'叠看两条路线').click()
-    expect(mirror).to_have_attribute('data-map','both')
-    pose={key:desk.get_attribute(key) for key in ('data-spread','data-dossier','data-sheet-discussion','data-sheet-before','data-map','data-yaw')}
+    # 在摊开的实际纸面上点选，进入与圆点入口相同的正视阅读。
+    page.mouse.click(*object_point(page,'overlay'))
+    plots=page.locator('.desk-map-plots')
+    projected_plots=screen.locator('.desk-map-plots')
+    expect(plots).to_have_attribute('data-mode','original')
+    expect(plots).to_have_attribute('data-drawing','false')
+    expect(plots.locator('[data-place="湘西北"] span')).to_be_visible()
+    expect(plots.locator('[data-place="遵义"]')).to_have_count(0)
     if shot:
-        shot('两份证据与叠图',page)
-    button(page,'结束查证').click()
-    expect(mirror).to_have_attribute('data-inquiry','off')
-    return pose
+        shot('06-原议湘西',page)
+    button(page,'改向黔北').click()
+    expect(projected_plots).to_have_attribute('data-mode','revised')
+    expect(plots).to_have_attribute('data-drawing','false')
+    expect(plots.locator('[data-place="遵义"] span')).to_be_visible()
+    expect(plots.locator('[data-place="湘西北"]')).to_have_count(0)
+    if shot:
+        shot('07-改向黔北',page)
+    button(page,'叠加').click()
+    expect(projected_plots).to_have_attribute('data-mode','both')
+    expect(plots).to_have_attribute('data-drawing','false')
+    expect(plots.locator('figure')).to_have_count(1)
+    expect(plots.locator('[data-place="遵义"] span')).to_be_visible()
+    expect(plots.locator('[data-place="湘西北"] span')).to_be_visible()
+    if shot:
+        shot('08-同图叠加',page)
+    button(page,'并排').click()
+    expect(projected_plots).to_have_attribute('data-mode','parallel')
+    expect(plots).to_have_attribute('data-drawing','false')
+    expect(plots.locator('figure')).to_have_count(2)
+    expect(plots.locator('figure[data-route="original"] [data-place="湘西北"] span')).to_be_visible()
+    expect(plots.locator('figure[data-route="revised"] [data-place="遵义"] span')).to_be_visible()
+    assert plots.locator('figure').nth(0).bounding_box()['x'] < plots.locator('figure').nth(1).bounding_box()['x']
+    expect(public.locator('.desk-map-toolbar')).to_be_hidden()
+    expect(public.locator('.desk-reader-back')).to_be_hidden()
+    if shot:
+        shot('09-同尺度并排',page)
+        shot('10-路线对比投影',screen)
+    button(page,'返回桌面').click()
+    expect(reader).to_be_hidden()
+    expect(mirror).to_have_attribute('data-focus','0.000')
+    expect(mirror).to_have_attribute('data-yaw','4.000')
+    return {key:desk.get_attribute(key) for key in (
+        'data-spread','data-dossier','data-sheet-discussion','data-sheet-before','data-map','data-yaw',
+    )}
 
 
 def enter_lesson(page, url):

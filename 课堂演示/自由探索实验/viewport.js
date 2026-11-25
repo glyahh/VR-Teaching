@@ -2,7 +2,7 @@ import * as THREE from 'three';
 
 export function createStageViewport(canvas, stage) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.03;
   renderer.localClippingEnabled = true;
@@ -42,13 +42,14 @@ export function createStageViewport(canvas, stage) {
 
   function frame(now) {
     frameRequest = 0;
-    const delta = Math.min(0.041, Math.max(0, (now - previous) / 1000));
+    const delta = Math.min(0.12, Math.max(0, (now - previous) / 1000));
     previous = now;
     active?.paint(delta, now);
     schedule();
   }
 
   return {
+    renderer,
     dispose() {
       active = null;
       cancelAnimationFrame(frameRequest);

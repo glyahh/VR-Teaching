@@ -169,12 +169,12 @@ export function createCrowd(scene, source, maxCount) {
 
   return {
     show() { poses.forEach(batch => { batch.count = 0; }); },
-    put(index, x, z, ground, time) {
+    put(index, x, z, ground, time, yaw = Math.PI) {
       const frame = time ? 1 + Math.floor((time * 6.8 + index * 0.71) % 4) : 0;
       const batch = poses[frame];
       const item = batch.count++;
       entity.position.set(x, ground(x, z), z);
-      entity.rotation.y = Math.PI + (index % 3 - 1) * 0.082;
+      entity.rotation.y = yaw + (index % 3 - 1) * 0.082;
       entity.updateMatrix();
       batch.setMatrixAt(item, entity.matrix);
       batch.setColorAt(item, shades[index % shades.length]);

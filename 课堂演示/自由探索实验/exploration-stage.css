@@ -210,3 +210,72 @@ button.scene-point:hover:not(:disabled) { background: transparent; }
   border: 1px solid rgb(var(--silver) / 0.21); border-radius: 9px;
   background: #353631; color: #f6f5f1; font: inherit;
 }
+
+/* 湘江渡口三维互动场景控件 */
+.xiang-dock {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  width: max-content;
+  color: #f6f2e8;
+}
+.xiang-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+.xiang-scrubber {
+  width: clamp(110px, 16vw, 220px);
+  accent-color: #e8c485;
+  cursor: pointer;
+}
+.xiang-cams {
+  display: inline-flex;
+  gap: 6px;
+}
+.exploration-stage .xiang-cams button[aria-pressed="true"],
+.exploration-stage .xiang-cams button[aria-pressed="true"]:hover {
+  background-color: #e8c485;
+  border-color: #f6dca6;
+  color: #202418;
+  font-weight: 700;
+}
+.xiang-force-meter {
+  position: fixed;
+  top: calc(var(--scene-note-top, 78px) + 52px);
+  right: var(--scene-inset, 24px);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgb(22 28 26 / 0.64);
+  border: 1px solid rgb(232 196 133 / 0.34);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+}
+.xiang-force-track {
+  width: 96px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.16);
+  overflow: hidden;
+}
+.xiang-force-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c9523e, #e8c485);
+  transition: width 180ms linear;
+}
+.xiang-force-count {
+  font-size: 14px;
+  color: #f6dca6;
+  font-variant-numeric: tabular-nums;
+}
+.projection-mode .xiang-bar { display: none; }

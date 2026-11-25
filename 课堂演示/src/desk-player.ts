@@ -33,11 +33,12 @@ function playDeskHandoff(frame:HTMLElement, handoff:HallHandoff, poster:HTMLImag
   else remove();
 }
 
+
 type DeskPlayer = {
   transport:HTMLElement;
   read:()=>DeskView;
   restore:(state:DeskView)=>void;
-  setClue:(clue:HallClue | undefined)=>void;
+  setClues:(clues:HallClue[])=>void;
   dismiss:()=>void;
   dispose:()=>void;
 };
@@ -57,6 +58,14 @@ function releaseDesk() {
   deskAddress=undefined;
 }
 
+const deskHoverLabels:Readonly<Record<string,string|undefined>> = {
+  left:'会前手记',right:'会议材料','page-forward':'会前手记 · 点击读，拖动翻页',
+  'page-back':'会前手记 · 点击读，拖动翻页',cord:'会议材料 · 点击读，拖动解绳',
+  cover:'会议材料 · 点击读，拖动揭封','before-sheet':'会前摘录 · 点击读，拖动移放',
+  'discussion-sheet':'会议讨论 · 点击读，拖动移放',map:'行军图 · 点击看路线',
+  overlay:'行军图 · 点击看路线，向右拖可折起',table:'',
+};
+
 function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):DeskPlayer {
   const historyKey=(standaloneDesk?'standalone:':'lesson:')+position;
   const frame=element('div','desk-live-frame');
@@ -68,49 +77,47 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
   const canvas=element('canvas','desk-live-canvas');
   canvas.hidden=true;
   const pinLayer=element('div','desk-live-pins');
-  const materials=element('div','desk-live-evidence');
   const guide=element('p','desk-inquiry-cue scene-note');
-  guide.setAttribute('role','status');
+  guide.hidden=true;
+  const tools=element('div','desk-orbit-tools');
+  tools.setAttribute('role','group');
+  tools.setAttribute('aria-label','桌面视角');
+  const zoomOut=control('−',()=>session.zoom(1/1.13),'desk-orbit-button');
+  const zoomIn=control('+',()=>session.zoom(1.13),'desk-orbit-button');
+  zoomOut.setAttribute('aria-label','拉远桌面');
+  zoomIn.setAttribute('aria-label','拉近桌面');
+  const home=control('',()=>session.home(),'desk-orbit-button desk-live-home');
+  setIconButton(home,'回到正面机位','reset');
+  const overhead=control('俯看',()=>session.overhead(),'desk-orbit-button desk-orbit-overhead');
+  overhead.setAttribute('aria-label','俯看桌面');
+  tools.append(overhead,zoomOut,zoomIn,home);
   const transport=element('div','desk-live-transport');
-  const frontUV=JSON.parse(mediaAssets['desk-manifest']).anchorUV as Record<'left'|'right',Point>;
-  let clue=retainedHallClue;
-  let shownClue:HallClue | undefined;
+  const cluesGroup=element('div','desk-clue-pills');
+  cluesGroup.hidden=true;
+  transport.append(cluesGroup);
+  const manifest=JSON.parse(mediaAssets['desk-manifest']);
+  const anchors:Record<DeskObject,Point>={journal:manifest.anchorUV.left,dossier:manifest.anchorUV.right,map:[.707,.80]};
+  let clues:HallClue[]=retainedHallClues.slice();
   let disposed=false;
+  let focusReturn:HTMLElement|undefined;
+  let focusedPin:DeskTarget|undefined;
+  let shownReading:DeskReading|undefined;
+  let lastPositioned:DeskView|undefined;
+  let clueButtons:HTMLButtonElement[]=[];
 
-  const entries=(['left','right'] as const).map((side,index)=>{
-    const pin=explorationStage.markScenePoint(control('',()=>select(side),'desk-live-pin'),
-      side==='left'?'翻阅左册 · 会前形势':'翻阅右册 · 会议讨论');
-    pin.dataset.side=side;
+  const entries=[
+    {object:'journal',target:'left',name:'翻阅左册 · 会前形势',open:()=>session.openReading({kind:'journal'})},
+    {object:'dossier',target:'right',name:'翻阅右册 · 会议讨论',open:()=>session.openReading({kind:'dossier'})},
+    {object:'map',target:'map',name:'查看行军路线图',open:()=>session.openMap()},
+  ] satisfies {object:DeskObject;target:DeskTarget;name:string;open:()=>void}[];
+  const pins=entries.map(({object,target,name,open})=>{
+    const pin=explorationStage.markScenePoint(control('',()=>{focusReturn=pin;open();},'desk-live-pin'),name);
+    pin.dataset.object=object;
+    for (const event of ['focus','pointerenter']) pin.addEventListener(event,()=>{focusedPin=target;showGuide();});
+    for (const event of ['blur','pointerleave']) pin.addEventListener(event,()=>{focusedPin=undefined;showGuide();});
     pinLayer.append(pin);
-    const slot=element('div','dossier-slot is-'+side);
-    const paper=element('article','folio-card');
-    slot.append(paper);
-    materials.append(slot);
-    fillArticle(paper,zunyiMaterials[index]);
-    return {side,pin,slot,paper};
+    return {object,target,pin};
   });
-
-  const investigate=control('动手查证',()=>session.investigate(),'desk-investigate','compass');
-  const compare=control('桌面并排对照',()=>session.cue(session.read().evidence==='both'?'none':'both',session.read().carried),'desk-live-compare','layers');
-  const recenter=control('回正',()=>session.home(),'desk-live-home','compass');
-  recenter.setAttribute('aria-label','回到正面机位');
-  const close=control('收起材料',()=>session.cue('none'),'desk-live-close');
-  const bring=control('',()=>{
-    if (!clue) return;
-    if (session.read().carried) {session.cue('none');return;}
-    if (clue.kind==='route' && session.read().saved.map==='stored') {
-      session.edit(old=>({...old,map:'original'}));
-    }
-    const before=session.read().evidence;
-    session.cue(before==='right' || before==='both'?'both':'left',true);
-  },'desk-live-clue','layers');
-  const mapToggle=control('展开行军图',()=>session.toggleMap(),'desk-live-map','layers');
-  const previousLeaf=control('',()=>session.turn('back'),'desk-page-turn','arrowLeft');
-  const nextLeaf=control('',()=>session.turn('forward'),'desk-page-turn','arrowRight');
-  previousLeaf.setAttribute('aria-label','前一张手记');
-  nextLeaf.setAttribute('aria-label','后一张手记');
-  transport.append(investigate,previousLeaf,nextLeaf,mapToggle,compare,bring,recenter,close);
-
   const targets=(['page-forward','page-back','cord','cover','before-sheet','discussion-sheet','map','overlay','table'] as const)
     .map(target=>{
       const anchor=element('span','desk-object-position');
@@ -121,23 +128,35 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
       return {target,anchor};
     });
 
-  frame.append(poster,canvas,pinLayer,materials,guide);
+  frame.append(poster,canvas,pinLayer,guide,tools);
   stage.append(frame);
   const session=mountDeskSession(frame,canvas,projectionMode?freshDesk():deskHistory.get(historyKey)??freshDesk(),
-    (view,publish)=>{paint(view);if(publish) publishDesk(view);});
+    (view,publish)=>{paint(view);if (publish) publishDesk(view);});
+  const reader=mountDeskReader(stage,session,dismiss);
   if (handoff) requestAnimationFrame(()=>{
-    if (frame.isConnected) playDeskHandoff(frame,handoff,poster,frontUV.right);
+    if (frame.isConnected) playDeskHandoff(frame,handoff,poster,anchors.dossier);
   });
 
-  function fillArticle(paper:HTMLElement,item:{title:string;lines:readonly string[]}) {
-    paper.replaceChildren(element('h3','',item.title),...item.lines.map(line=>element('p','',line)));
+  function renderClues() {
+    cluesGroup.hidden=projectionMode || !clues.length;
+    clueButtons=clues.map((item,index)=>{
+      const button=control(item.title,()=>{
+        focusReturn=button;
+        session.openReading({kind:'clue',index,source:item.kind==='route'?'map':'journal'});
+      },'desk-live-clue','layers');
+      return button;
+    });
+    cluesGroup.replaceChildren(...clueButtons);
   }
-  function select(side:'left'|'right') {
-    const view=session.read();
-    if (side==='left' && view.investigating && session.world) {session.turn('forward');return;}
-    if (side==='right' && view.carried) {session.cue('both',true);return;}
-    session.cue(side);
+  function dismiss() {
+    const wasOpen=!!session.read().reading;
+    session.dismiss();
+    if (!wasOpen || projectionMode) return;
+    const target=focusReturn?.isConnected && !focusReturn.hidden ? focusReturn : frame;
+    focusReturn=undefined;
+    target.focus({preventScroll:true});
   }
+
   function setPosition(node:HTMLElement,point:readonly number[]) {
     node.style.left=(point[0]*100)+'%';
     node.style.top=(point[1]*100)+'%';
@@ -145,92 +164,96 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
   function usablePoint(point:readonly number[]|undefined):point is readonly number[] {
     return !!point && point.length===2 && point.every(value=>Number.isFinite(value) && value>=0 && value<=1);
   }
-  function guidance(view:DeskView) {
-    if (view.preview?.kind==='inspect') return '再点纸页，放回桌面。';
-    if (view.preview?.kind==='sheet') return '移到桌面，松手放下。';
-    if (view.saved.map==='both') return '对照从黎平分开的两条路线。';
-    if (view.saved.sheets.some(sheet=>sheet.id==='discussion') && view.saved.spread>0) return '把手记与会议讨论摆在一起。';
-    if (view.saved.dossier==='open') return '抽出会议讨论页，放到桌上。';
-    if (view.saved.dossier==='untied') return '抬起右册封面。';
-    if (view.saved.spread>0) return '继续翻阅，或松开右册扎绳。';
-    return '抓住书角翻阅，也可以先解开卷宗。';
+  function pinPoint(object:DeskObject,target:DeskTarget,view:DeskView) {
+    const mapTarget=object==='map' && view.saved.map!=='stored' ? 'overlay' : target;
+    const result=session.world?.project(mapTarget,view);
+    return usablePoint(result) ? result : anchors[object];
+  }
+  function readerAnchor(view:DeskView):Point {
+    const reading=view.reading;
+    if (!reading || reading.kind==='compare') return [.5,.52];
+    const object=reading.kind==='map' || reading.kind==='clue' && reading.source==='map' ? 'map'
+      : reading.kind==='dossier' || reading.kind==='sheet' && reading.id==='discussion' ? 'dossier' : 'journal';
+    const target=object==='map' ? 'map' : object==='dossier' ? 'right' : 'left';
+    const point=pinPoint(object,target,view);
+    const bounds=frame.getBoundingClientRect(), outer=stage.getBoundingClientRect();
+    return outer.width && outer.height ? [
+      (bounds.left-outer.left+point[0]*bounds.width)/outer.width,
+      (bounds.top-outer.top+point[1]*bounds.height)/outer.height,
+    ] : [.5,.55];
+  }
+
+  function showGuide() {
+    const {reading,preview}=session.read();
+    const target=focusedPin??frame.dataset.hover??'';
+    const message=projectionMode || reading || preview ? '' : deskHoverLabels[target]??'';
+    guide.hidden=!message;
+    if (guide.textContent!==message) guide.textContent=message;
   }
 
   function paint(view:DeskView) {
     if (disposed) return;
-    const {saved,preview}=view;
-    const drawnView=session.renderView();
-    const camera=drawnView.saved.camera;
+    const {saved,preview,reading}=view;
+    const camera=view.camera??saved.camera;
     const usable=!!session.world;
     frame.dataset.yaw=camera.yaw.toFixed(3);
     frame.dataset.pitch=camera.pitch.toFixed(3);
     frame.dataset.zoom=camera.zoom.toFixed(4);
+    frame.dataset.focus=(view.focus?.amount??0).toFixed(3);
     frame.dataset.spread=String(saved.spread);
     frame.dataset.dossier=saved.dossier;
     frame.dataset.map=saved.map;
     frame.dataset.gesture=preview?.kind??'';
     frame.dataset.progress=preview && 'progress' in preview?preview.progress.toFixed(3):'';
+    frame.dataset.reading=reading?.kind??'';
+    if (preview?.kind==='page') frame.dataset.direction=preview.direction;
+    else delete frame.dataset.direction;
     for (const id of deskMaterials) {
       const sheet=saved.sheets.find(candidate=>candidate.id===id);
       frame.setAttribute('data-sheet-'+id,sheet ? [sheet.at.x.toFixed(4),sheet.at.z.toFixed(4)].join(',') : '');
     }
 
-    const left=saved.spread>0 || view.evidence==='left' || view.evidence==='both';
-    const right=saved.sheets.some(sheet=>sheet.id==='discussion') || view.evidence==='right' || view.evidence==='both';
+    const seen=saved.seen??[];
+    const right=seen.includes('dossier') || saved.sheets.some(sheet=>sheet.id==='discussion');
+    const left=seen.includes('journal') || saved.spread>0;
     const finished=left && right;
-    frame.dataset.inquiry=view.investigating?(finished?'done':'active'):'off';
-    frame.dataset.evidence=view.evidence;
+    frame.dataset.inquiry=finished?'done':'active';
     if (!projectionMode && finished) revealed.add('materials-compared');
-    const showLeft=view.evidence==='left' || view.evidence==='both' || (!usable && saved.spread>0);
-    const showRight=view.evidence==='right' || view.evidence==='both' || (!usable && right);
-    materials.hidden=!showLeft&&!showRight;
-    for (const {side,pin,slot,paper} of entries) {
-      const projected=session.world?.project(side,drawnView);
-      const point=usablePoint(projected)?projected:frontUV[side];
-      pin.hidden=projectionMode || (side==='left'?showLeft:showRight) || !!preview || usable && view.investigating;
+
+    const moving=!!preview && preview.kind!=='inspect';
+    for (const {object,target,pin} of pins) {
+      pin.hidden=projectionMode || !!reading || moving;
+      pin.dataset.seen=String(seen.includes(object));
+      if (seen.includes(object)) pin.setAttribute('aria-description','已查看，可再次打开');
+      else pin.removeAttribute('aria-description');
       if (!pin.hidden) {
-        const dragClearance=usable ? side==='left'?-.062:.062 : 0;
-        setPosition(pin,[deskClamp(point[0]+dragClearance,.025,.975),point[1]]);
-      }
-      slot.hidden=side==='left'?!showLeft:!showRight;
-      if (!slot.hidden) {
-        const paired=showLeft && showRight;
-        const lower=paired && side==='right'?.73:.24;
-        const upper=paired && side==='left'?.27:.76;
-        setPosition(slot,[deskClamp(point[0],lower,upper),deskClamp(point[1],.30,.64)]);
-      }
-      if (side==='left') {
-        const choice=view.carried?clue:undefined;
-        if (shownClue!==choice) {
-          fillArticle(paper,choice??zunyiMaterials[0]);
-          shownClue=choice;
-        }
+        const point=pinPoint(object,target,view);
+        const clearance=object==='map' && usable ? 29/Math.max(1,frame.clientWidth) : 0;
+        setPosition(pin,[deskClamp(point[0]+clearance,.028,.972),deskClamp(point[1],.07,.93)]);
       }
     }
-    for (const {target,anchor} of targets) {
-      const point=session.world?.project(target,drawnView);
-      anchor.hidden=!usablePoint(point);
-      if (usablePoint(point)) setPosition(anchor,point);
+    if (usable && (!lastPositioned || lastPositioned.camera!==view.camera || lastPositioned.focus!==view.focus ||
+      lastPositioned.saved!==saved || lastPositioned.preview!==preview)) {
+      lastPositioned=view;
+      for (const {target,anchor} of targets) {
+        const point=session.world?.project(target,view);
+        anchor.hidden=!usablePoint(point);
+        if (usablePoint(point)) setPosition(anchor,point);
+      }
     }
 
-    guide.hidden=!usable || (!view.investigating && !preview);
-    const message=guide.hidden?'':guidance(view);
-    if (guide.textContent!==message) guide.textContent=message;
-    const investigationLabel=view.investigating?(finished?'结束查证':'退出查证'):'动手查证';
-    if (investigate.textContent!==investigationLabel) setButtonContent(investigate,investigationLabel,'compass');
-    investigate.hidden=!usable;
-    previousLeaf.hidden=nextLeaf.hidden=!usable||!view.investigating;
-    previousLeaf.disabled=saved.spread===0;
-    nextLeaf.disabled=saved.spread===deskSpreads;
-    mapToggle.hidden=!usable;
-    const mapLabel=saved.map==='stored'?'展开行军图':saved.map==='both'?'揭开改向线':'叠看两条路线';
-    if (mapToggle.textContent!==mapLabel) setButtonContent(mapToggle,mapLabel,'layers');
-    compare.hidden=view.investigating;
-    bring.hidden=!clue || view.investigating;
-    if (clue && bring.textContent!==clue.title) setButtonContent(bring,clue.title,'layers');
-    bring.setAttribute('aria-pressed',String(view.carried));
-    recenter.hidden=!usable;
-    close.hidden=view.evidence==='none';
+    tools.hidden=projectionMode || !usable || !!reading;
+    zoomOut.setAttribute('aria-disabled',String(camera.zoom<=.921));
+    zoomIn.setAttribute('aria-disabled',String(camera.zoom>=1.279));
+    overhead.setAttribute('aria-pressed',String(camera.pitch>=13));
+    home.setAttribute('aria-disabled',String(Math.abs(camera.yaw)<.1 && Math.abs(camera.pitch)<.1 && Math.abs(camera.zoom-1)<.01));
+    clueButtons.forEach((button,index)=>button.setAttribute('aria-pressed',String(
+      reading?.kind==='clue' && reading.index===index || reading?.kind==='compare' && reading.clueIndex===index,
+    )));
+    showGuide();
+    const changing=shownReading?.kind!==reading?.kind;
+    reader.paint(view,clues,changing ? readerAnchor(view) : [.5,.5]);
+    shownReading=reading;
   }
 
   function resize() {
@@ -247,6 +270,7 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
     frame.dataset.space='fixed';
     canvas.hidden=true;
     session.releaseWorld();
+    for (const {anchor} of targets) anchor.hidden=true;
     paint(session.read());
   }
   canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();fallback();});
@@ -254,20 +278,26 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
     if (disposed) {world.dispose();return;}
     canvas.hidden=false;
     frame.dataset.space='ready';
-    session.connect(world as DeskWorld);
+    session.connect(world);
     resize();
     animatePart(canvas,[{opacity:0},{opacity:1}],180);
   }).catch(fallback);
+  renderClues();
   paint(session.read());
   beginDeskVisit(position);
   queueMicrotask(()=>{if (!disposed) publishDesk(session.read());});
   return {
     transport,read:session.read,restore:session.restore,
-    setClue(next) {clue=next;paint(session.read());},
-    dismiss:()=>session.cue('none'),
+    setClues(next) {
+      clues=next.slice();
+      renderClues();
+      paint(session.read());
+    },
+    dismiss,
     dispose() {
       disposed=true;
       observer.disconnect();
+      reader.dispose();
       const saved=session.leave();
       if (!projectionMode) deskHistory.set(historyKey,saved);
     },

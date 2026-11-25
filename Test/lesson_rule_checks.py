@@ -72,11 +72,15 @@ def narration(room, url):
     page.mouse.move(x, y)
     page.mouse.up()
     expect(caption(page)).to_have_attribute("data-narration-count", "1")
-    page.mouse.click(x, y)
+    # 校验非文字化微光刻度条存在，且在焦点移至标题时按全局空格键仍可推进字幕
+    expect(caption(page).locator(".narration-pip")).to_have_count(3)
+    page.locator(".scene-head h1").click()
+    page.keyboard.press("Space")
     narrated(page, "各路队伍在于都集结。出发前，得先渡过于都河。")
     onward(page, "岸边备桥")
     onward(page, "浮桥近景")
     narrated(page, "浮桥由船体和桥板组成。")
+    expect(caption(page)).to_have_attribute("data-narration-writing", "false", timeout=10000)
     boat = "木船托住桥面。船舷上的纵梁把船和桥板连在一起。"
     button(page, "船体").click()
     narrated(page, boat, "point")
@@ -183,7 +187,8 @@ def disclosures(room, url):
     expect(summary).to_be_in_viewport(ratio=.90)
     room.shot("窄投影读结论", screen)
     button(page, "课堂回顾").click()
-    onward(page, "全课结论")
+    button(page, "全景总结").click()
+    heading(page, "全课结论")
     expect(screen.locator(".review-conclusion")).to_be_hidden()
     button(page, "揭示结论").click()
     expect(screen.locator(".review-conclusion")).to_be_visible()
@@ -215,8 +220,12 @@ def journeys(room, url):
     begin(page)
     for title in ("岸边备桥", "浮桥近景", "夜渡于都河"):
         onward(page, title)
-    for index, (title, places) in enumerate((
-        ("湘江河谷", ["于都", "湘江"]), ("黎平翘街", ["湘江", "通道", "黎平"]),
+    for index, (title, places, after_titles) in enumerate((
+        ("湘江河谷", ["于都", "湘江"], ("湘江渡口", "兵力对照", "渡江之后")),
+        ("黎平翘街", ["湘江", "通道", "黎平"], ("进军方向",)),
+        ("猴场会议", ["黎平", "猴场"], ()),
+        ("渡过乌江", ["猴场", "乌江"], ()),
+        ("遵义会议室", ["乌江", "遵义"], ()),
     )):
         onward(page, title)
         layer = page.locator(".spatial-journey")
@@ -229,28 +238,31 @@ def journeys(room, url):
         }""", arg=places, timeout=2500)
         assert layer.locator('.journey-route .past').evaluate(
             "line => getComputedStyle(line).strokeDasharray === 'none'")
+        if title == "猴场会议":
+            expect(layer.locator(".spatial-abandoned")).to_have_count(1)
         close_width = layer.locator(".journey-world").evaluate("world => world.clientWidth")
-        room.shot(f"路段{index+1}近景")
+        if index < 3:
+            room.shot(f"路段{index+1}近景")
         overview = screen.locator(".spatial-journey")
         expect(overview).to_have_attribute("data-phase", "overview")
         expect(layer).to_have_attribute("data-route-progress", "1.000")
         assert layer.locator(".journey-world").evaluate("world => world.clientWidth") < close_width
         expect(caption(screen)).to_have_attribute("data-narration-count", "0")
         expect(overview.locator(".spatial-station").filter(has_text="遵义")).not_to_have_css("opacity","0")
-        room.shot(f"路段{index+1}总览", screen)
+        if index < 3:
+            room.shot(f"路段{index+1}总览", screen)
         expect(layer).to_have_count(0)
         expect(caption(screen)).to_have_attribute("data-narration-count", "1")
-        if index == 0:
-            for page_title in ("湘江渡口", "兵力对照", "渡江之后"):
-                onward(page, page_title)
-    button(page,"上一页").click()
+        for page_title in after_titles:
+            onward(page, page_title)
+    button(page,"湘江战役").click()
     heading(page,"渡江之后")
     button(page,"下一页").click()
     page.keyboard.press("PageDown")
     heading(page,"进军方向")
     expect(screen.locator(".spatial-journey")).to_have_count(0)
     expect(caption(screen).locator(".visually-hidden")).to_have_text("原计划是去湘西北，与红二、红六军团会合。")
-    room.steps.append("两段按近景描线、拉远、总览、进场顺序播放，连翻只保留当前页")
+    room.steps.append("全线五段按近景描线、拉远、总览、进场顺序播放，连翻只保留当前页")
 
 
 def controls(room, url):

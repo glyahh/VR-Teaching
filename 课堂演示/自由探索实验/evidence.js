@@ -27,6 +27,8 @@ const places = [
 const redirect = [[109.14, 26.23], [108.54, 26.58], [107.47, 27.07], [107.42, 27.32], [106.93, 27.69]];
 const original = [[109.14, 26.23], [109.48, 27.10], [110.41, 28.76]];
 const incoming = [[110.73, 25.83], [109.67, 26.16], [109.14, 26.23]];
+const bounds = { left: 105.83, right: 111.65, top: 29.49, bottom: 25.42 };
+export const deskRouteMap = { bounds, places, original, revised: redirect, incoming, routes };
 
 export function createRouteBoard(terrain) {
   const canvas = document.createElement('canvas');
@@ -36,7 +38,6 @@ export function createRouteBoard(terrain) {
   [base.width, base.height] = [canvas.width, canvas.height];
   const paper = base.getContext('2d');
   const box = { x: 31, y: 78, w: 898, h: 412 };
-  const bounds = { left: 105.83, right: 111.65, top: 29.49, bottom: 25.42 };
   const xy = (lon, lat) => [
     box.x + (lon - bounds.left) / (bounds.right - bounds.left) * box.w,
     box.y + (bounds.top - lat) / (bounds.top - bounds.bottom) * box.h,
@@ -117,6 +118,16 @@ export function createRouteBoard(terrain) {
     drawPlaces(ctx, places.filter(([label]) => label === '湘江' || label === '黎平' || label === '湘西北'), { compared: true });
     texture.needsUpdate = true;
   }
+  function paintRevised() {
+    ctx.drawImage(base, 0, 0);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    lineOn(ctx, incoming, '#59412e', 5.5);
+    lineOn(ctx, redirect, 'rgba(246, 236, 212, 0.85)', 15);
+    lineOn(ctx, redirect, '#9e1f14', 9.5);
+    drawPlaces(ctx, places.filter(([label]) => label !== '湘西北'), {compared:true});
+    texture.needsUpdate = true;
+  }
   function createOverlay() {
     const sheet = document.createElement('canvas');
     [sheet.width, sheet.height] = [canvas.width, canvas.height];
@@ -175,5 +186,5 @@ export function createRouteBoard(terrain) {
     }
     return closest;
   }
-  return { canvas, texture, paint, paintBase, createOverlay, placeAt };
+  return { canvas, texture, paint, paintBase, paintRevised, createOverlay, placeAt };
 }

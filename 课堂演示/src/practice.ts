@@ -78,6 +78,7 @@ const practices: Record<PracticeId, Practice> = {
 
 type PracticeState = { question: number; shown: number[]; retry: boolean } | null;
 let currentPractice: ReturnType<typeof mountPractice> | undefined;
+const completedPractices = new Set<PracticeId>();
 
 function mountPractice(id: PracticeId, position: number, scene: HTMLElement, caption: HTMLElement,
   first: () => string, showReference?: (focus: PracticeQuestion['focus']) => void) {
@@ -122,7 +123,23 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
   const reveal = control('揭示答案',showAnswer);
   const advance = control('下一题',()=>{
     if (!state) return;
-    publish({...state,question:(state.question+1)%practice.questions.length,retry:false});
+    const allDone = state.shown.length >= practice.questions.length;
+    if (allDone) {
+      completedPractices.add(id);
+      soundscape.playSfx('complete');
+      publish(null);
+      return;
+    }
+    // 优先跳转到下一道尚未核对的题目，避免死循环
+    let nextQ = (state.question + 1) % practice.questions.length;
+    for (let step = 1; step <= practice.questions.length; step++) {
+      const candidate = (state.question + step) % practice.questions.length;
+      if (!state.shown.includes(candidate)) {
+        nextQ = candidate;
+        break;
+      }
+    }
+    publish({...state,question:nextQ,retry:false});
     heading.focus({preventScroll:true});
   });
   if (!projectionMode) {
@@ -133,7 +150,14 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
 
   function showAnswer() {
     if (state && !state.shown.includes(state.question)) {
-      publish({...state,shown:[...state.shown,state.question],retry:false});
+      const nextShown = [...state.shown,state.question];
+      if (nextShown.length >= practice.questions.length) {
+        completedPractices.add(id);
+        soundscape.playSfx('complete');
+      } else {
+        soundscape.playSfx('confirm');
+      }
+      publish({...state,shown:nextShown,retry:false});
       advance.focus({preventScroll:true});
     }
   }
@@ -143,6 +167,7 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
     state = next;
     const item = state ? practice.questions[state.question] : undefined;
     const answered = Boolean(state?.shown.includes(state.question));
+    const allDone = Boolean(state && state.shown.length >= practice.questions.length);
     choice = undefined;
     panel.hidden = !state;
     caption.hidden = Boolean(state);
@@ -195,7 +220,10 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
     board.hidden = !board.childElementCount;
     confirm.hidden = reveal.hidden = answered;
     confirm.disabled = true;
-    advance.hidden = practice.questions.length < 2;
+    advance.hidden = !allDone && practice.questions.length < 2;
+    advance.classList.toggle('primary', allDone);
+    if (allDone) setButtonContent(advance, '完成练习', 'check');
+    else setButtonContent(advance, '下一题', 'arrowRight', true);
   }
 
   function publish(next: PracticeState) {

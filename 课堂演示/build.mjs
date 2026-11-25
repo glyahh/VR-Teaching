@@ -28,11 +28,15 @@ for (const [key, filename, mime] of [
   ['desk-world-front','desk-world-front.jpg','image/jpeg'],
   ['desk-world-left','desk-world-left.jpg','image/jpeg'],
   ['desk-world-right','desk-world-right.jpg','image/jpeg'],
+  ['desk-world-top','desk-world-top.jpg','image/jpeg'],
   ['opening-video','opening.mp4','video/mp4'],
+  ['ambient-river','ambient-river.mp3','audio/mpeg'],
+  ['recap-cello','recap-cello.mp3','audio/mpeg'],
 ]) {
   assets[key] = 'data:'+mime+';base64,'+(await read('./assets/'+filename)).toString('base64');
 }
 assets['desk-world'] = 'data:application/gzip;base64,'+gzipSync(await read('./assets/desk-world.glb')).toString('base64');
+assets['desk-props'] = 'data:application/gzip;base64,'+gzipSync(await read('./assets/desk-props.glb')).toString('base64');
 const deskManifest = JSON.parse(await read('./assets/desk-space.json','utf8'));
 if (!['left','right'].every(side => deskManifest.anchorUV?.[side]?.length === 2 &&
   deskManifest.anchorUV[side].every(value => Number.isFinite(value) && value >= 0 && value <= 1))) {
@@ -40,11 +44,13 @@ if (!['left','right'].every(side => deskManifest.anchorUV?.[side]?.length === 2 
 }
 assets['desk-manifest'] = JSON.stringify(deskManifest);
 const readScript = async path => stripTypeScriptTypes(await read(path,'utf8')).replace(/[^\S\r\n]+$/gm,'');
+const soundscapeScript = await readScript('./src/soundscape.ts');
 const content = await readScript('./src/content.ts');
 const terrain = await readScript('./src/terrain.ts');
 const cinemagraph = await readScript('./src/cinemagraph.ts');
 const deskState = await readScript('./src/desk-state.ts');
 const deskSession = await readScript('./src/desk-live-session.ts');
+const deskReader = await readScript('./src/desk-reader.ts');
 const deskPlayer = await readScript('./src/desk-player.ts');
 const practice = await readScript('./src/practice.ts');
 const teaching = await readScript('./src/teaching.ts');
@@ -53,6 +59,8 @@ const pageEntry = await readScript('./src/page-entry.ts');
 const narration = await readScript('./src/narration.ts');
 const sceneLesson = await readScript('./src/scene-lesson.ts');
 const mapCard = await readScript('./src/map-card.ts');
+const recapStage = await readScript('./src/recap-stage.ts');
+const openingOverlay = await readScript('./src/opening-overlay.ts');
 const script = await readScript('./src/app.ts');
 const routeScenes = await readScript('./src/route-scenes.ts');
 const presenter = await readScript('./src/presenter.ts');
@@ -65,8 +73,8 @@ assertDemoTemplate(template);
 const html = normalize(template
   .replace('/* COURSE_STYLES */',()=>css)
   .replace('/* COURSE_SCRIPT */',()=>'const mediaAssets = '+JSON.stringify(assets)+';\n'+[
-    exploration,content,terrain,cinemagraph,deskState,deskSession,deskPlayer,practice,teaching,explorationPage,
-    pageEntry,narration,sceneLesson,mapCard,script,routeScenes,presenter,
+    exploration,soundscapeScript,content,terrain,cinemagraph,deskState,deskSession,deskReader,deskPlayer,practice,teaching,explorationPage,
+    pageEntry,narration,sceneLesson,mapCard,recapStage,openingOverlay,script,routeScenes,presenter,
   ].join('\n')));
 async function writeArtifact(destination, content) {
   const staging = new URL('./.course-'+randomUUID()+'.tmp',destination);

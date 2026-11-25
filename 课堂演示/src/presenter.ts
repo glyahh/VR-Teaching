@@ -19,7 +19,10 @@ type LessonSnapshot = {
   exploration?:ExplorationFrame;
   scrub?:number;
   routeOffset?:number;
-  hallClue?:HallClue;
+  hallClues?:HallClue[];
+  reviewFocus?:number | null;
+  completedPractices?:PracticeId[];
+  visitedExplorations?:ExplorationId[];
   practice?:PracticeState;
 };
 type ProjectionMessage = {type:'ready'} | {type:'snapshot'; state:LessonSnapshot}
@@ -32,7 +35,7 @@ type ProjectionMessage = {type:'ready'} | {type:'snapshot'; state:LessonSnapshot
   | {type:'practice'; position:number; state:PracticeState}
   | {type:'scrub'; value:number}
   | {type:'route-offset'; position:number; value:number}
-  | {type:'hall-clue'; clue:HallClue | undefined};
+  | {type:'hall-clues'; clues:HallClue[]};
 
 const projectionToken = /^#projection=([a-f0-9]{32})$/.exec(location.hash)?.[1];
 const projectionMode = Boolean(projectionToken);
@@ -229,7 +232,9 @@ function snapshot(): LessonSnapshot {
     comparisonOpen:dialog.open && dialog.classList.contains('comparison'), sceneLesson:currentSceneLesson?.read(),
     wujiangCue:activeSceneCue?.startsWith('wujiang-') ? activeSceneCue : undefined,
     video:currentVideo?.read(), desk:readDeskFrame(),
-    scrub:scrubValue, routeOffset, hallClue:retainedHallClue,
+    scrub:scrubValue, routeOffset, hallClues:retainedHallClues.slice(),
+    reviewFocus:recapFocusIndex, completedPractices:[...completedPractices],
+    visitedExplorations:[...visitedExplorations],
     practice:currentPractice?.read(), exploration:readExplorationUpdate(),
   };
 }
@@ -250,9 +255,14 @@ function applySnapshot(state:LessonSnapshot) {
   state.reviewSteps.forEach(index=>reviewSteps.add(index));
   reviewAnswer = state.reviewAnswer;
   reviewBack = state.reviewBack;
+  recapFocusIndex = state.reviewFocus ?? null;
+  completedPractices.clear();
+  (state.completedPractices ?? []).forEach(id=>completedPractices.add(id));
+  visitedExplorations.clear();
+  (state.visitedExplorations ?? []).forEach(id=>visitedExplorations.add(id));
   if (typeof state.scrub === 'number') scrubValue = state.scrub;
   routeOffset = typeof state.routeOffset === 'number' && Number.isFinite(state.routeOffset) ? state.routeOffset : 0;
-  retainedHallClue = state.hallClue;
+  retainedHallClues = Array.isArray(state.hallClues) ? state.hallClues.slice() : [];
   if (state.view.kind === 'scene') {
     const back = state.reviewBack;
     openScene(state.view.position,state.view.variant,state.view.variant === 'revisit' ? ()=>openReview(back) : undefined,
@@ -304,9 +314,9 @@ window.addEventListener('message',event=>{
     else if (message.type === 'scrub') applyScrub?.(message.value);
     else if (message.type === 'route-offset' && currentView.kind === 'scene' &&
       currentView.position === message.position && Number.isFinite(message.value)) applyRouteOffset?.(message.value);
-    else if (message.type === 'hall-clue') {
-      retainedHallClue = message.clue;
-      currentDesk?.setClue(message.clue);
+    else if (message.type === 'hall-clues') {
+      retainedHallClues = Array.isArray(message.clues) ? message.clues.slice() : [];
+      currentDesk?.setClues(retainedHallClues);
     }
   } else if (projectionWindow && event.source === projectionWindow && message.token === sessionToken && message.type === 'ready') {
     projectionReady = true;

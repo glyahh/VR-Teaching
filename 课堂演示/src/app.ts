@@ -1,6 +1,6 @@
 type LessonMode = 'lesson' | 'trial' | 'revisit';
 type Point = [number, number];
-type IconName = 'plus'|'minus'|'reset'|'play'|'pause'|'image'|'check'|'info'|'arrowLeft'|'arrowRight'|'expand'|'compress'|'compass'|'layers'|'sliders'|'moveHorizontal'|'map'|'screens';
+type IconName = 'plus'|'minus'|'reset'|'play'|'pause'|'image'|'check'|'info'|'arrowLeft'|'arrowRight'|'expand'|'compress'|'compass'|'layers'|'sliders'|'moveHorizontal'|'map'|'screens'|'soundOn'|'soundOff';
 
 const app = document.querySelector<HTMLElement>('#app')!;
 const dialog = document.querySelector<HTMLDialogElement>('#dialog')!;
@@ -28,6 +28,8 @@ const iconPaths: Record<IconName, string[]> = {
   moveHorizontal: ['M18 8l4 4-4 4','M6 8l-4 4 4 4','M2 12h20'],
   map: ['M3 6l6-2 6 2 6-2v14l-6 2-6-2-6 2V6z', 'M9 4v14', 'M15 6v14'],
   screens: ['M9 4h12v11h-5', 'M3 9h12v11H3z'],
+  soundOn: ['M11 5L6 9H3v6h3l5 4V5z', 'M15.5 8.5a5 5 0 0 1 0 7', 'M18.5 5.5a9 9 0 0 1 0 13'],
+  soundOff: ['M11 5L6 9H3v6h3l5 4V5z', 'M22 9l-6 6', 'M16 9l6 6'],
 };
 const revealed = new Set<string>();
 const chapterPages = events.flatMap((event, chapter) => event.pages.map(page => ({event, chapter, page})));
@@ -172,6 +174,28 @@ dialog.addEventListener('close', () => {
   currentVideo?.resumeBackground();
 });
 
+function soundButton() {
+  const button = control('', () => {
+    soundscape.toggleMuted();
+  }, 'sound-toggle');
+  const update = (isMuted: boolean) => {
+    setIconButton(button, isMuted ? '开启环境声' : '静音环境声', isMuted ? 'soundOff' : 'soundOn');
+    button.setAttribute('aria-pressed', String(isMuted));
+  };
+  update(soundscape.isMuted());
+  soundscape.onMuteChange(update);
+  return button;
+}
+
+function sceneSoundOf(eventId: string, page: LessonPage): SoundScene {
+  if (page.activity === 'materials') return 'desk';
+  if (page.image === 'wujiang') return 'wujiang';
+  if (eventId === 'yudu') return 'yudu';
+  if (eventId === 'xiang') return 'xiang';
+  if (eventId === 'liping') return 'liping';
+  return 'zunyi-room';
+}
+
 function fullscreenButton() {
   const button = control('', async () => {
     try {
@@ -262,6 +286,8 @@ function openReview(conclusionPage = false) {
   disposePageEntry();
   releaseExplorationPage();
   releaseDesk();
+  releaseRecap();
+  releaseOpeningOverlay();
   currentPractice = undefined;
   activeSceneCue = undefined;
   currentVideo = undefined;
@@ -271,83 +297,24 @@ function openReview(conclusionPage = false) {
   stopMotion();
   stopCinemagraphs();
   mapResize?.disconnect();
-  const shell = element('section','shell review');
-  const header = element('header','top');
+  soundscape.setVideoDuck(false);
+  soundscape.setScene('recap', 0.9);
+  const shell = element('section','shell review recap-shell');
+  const header = element('header','top recap-top');
   const actions = element('div','top-actions');
+  if (!projectionMode) actions.append(soundButton());
   actions.append(fullscreenButton(),syncControl('map','地图',()=>renderMap(true),'','arrowLeft'));
   const title = element('h1','course-title',conclusionPage ? '全课结论' : '课堂回顾');
   title.tabIndex = -1;
   header.append(title,actions);
+  shell.append(header);
 
-  const lesson = element('section','review-body');
-  const rail = element('ol','story-rail review-rail');
-  rail.setAttribute('aria-label','从于都到遵义');
-  const heading = element('h2','','遵义会议的历史意义');
-  const conclusion = element('p','review-conclusion',lessonConclusion);
-  conclusion.hidden = !reviewAnswer;
-  conclusion.setAttribute('aria-live','polite');
-  events.forEach((event, index) => {
-    const row = element('li','story-stop review-stop');
-    const detail = element('p','story-detail review-step',event.review);
-    detail.hidden = !(conclusionPage || reviewSteps.has(index));
-    detail.setAttribute('aria-live','polite');
-    const label = element('span','review-label');
-    label.append(element('time','',event.timeline),element('strong','',event.name));
-    const image = photo(event.id === 'liping' ? event.pages[0].image : event.id);
-    if (conclusionPage) {
-      const summary = element('div','story-step review-choice');
-      summary.append(label,image);
-      row.append(summary);
-    } else {
-      const choice = syncControl('review-step-'+index,'',()=>{
-        if (reviewSteps.has(index)) return;
-        stopMotion();
-        reviewSteps.add(index);
-        detail.hidden = false;
-        choice.setAttribute('aria-pressed','true');
-        animatePart(image,[{opacity:.72},{opacity:1}],260);
-        appear(detail,160,270);
-      },'story-step review-choice');
-      choice.setAttribute('aria-label',event.name+'，揭示阶段要点');
-      choice.setAttribute('aria-pressed',String(!detail.hidden));
-      choice.append(label,image);
-      row.append(choice);
-    }
-    const revisit = syncControl('revisit-'+index,'回看',()=>openChapter(index,'revisit',()=>{
+  const { previous, next, footer } = mountRecapStage(shell, conclusionPage, index => {
+    openChapter(index,'revisit',()=>{
       openReview(conclusionPage);
-      app.querySelector<HTMLButtonElement>('[data-revisit="'+event.id+'"]')?.focus({preventScroll:true});
-    }),'review-revisit','arrowRight',true);
-    revisit.dataset.revisit = event.id;
-    revisit.setAttribute('aria-label','回看'+event.name);
-    row.append(revisit,detail);
-    rail.append(row);
+    });
   });
-  const previous = syncControl('previous','上一页',()=>conclusionPage ? openReview() : openScene(chapterPages.length-1),'','arrowLeft');
-  const footer = element('div','review-tools');
-  const next = conclusionPage ? undefined : syncControl('next','下一页',()=>openReview(true),'primary','arrowRight',true);
-  footer.append(previous);
-  if (next) footer.append(next);
-  if (conclusionPage) {
-    const reveal = syncControl('reveal-review','揭示结论',()=>{
-      stopMotion();
-      reviewAnswer = true;
-      conclusion.hidden = false;
-      reveal.hidden = true;
-      conclusion.tabIndex = -1;
-      conclusion.focus({preventScroll:true});
-      rail.querySelectorAll('.review-step').forEach((detail,i)=>{
-        animatePart(detail,[{opacity:.45},{opacity:1,color:'#fff2cb'},{opacity:1}],330,i*140);
-      });
-      appear(conclusion,610,410);
-    },'primary');
-    reveal.hidden = reviewAnswer;
-    footer.append(reveal);
-  }
-  if (conclusionPage) lesson.append(heading);
-  lesson.append(rail);
-  if (conclusionPage) lesson.append(conclusion);
-  lesson.append(footer);
-  shell.append(header,lesson);
+
   app.replaceChildren(shell);
   displayView({kind:'review',conclusionPage});
   pageButtons = {previous,next};
@@ -412,6 +379,8 @@ function renderMap(restoreFocus = false) {
   releaseMapCard = undefined;
   releaseExplorationPage();
   releaseDesk();
+  releaseRecap();
+  releaseOpeningOverlay();
   currentPractice = undefined;
   activeSceneCue = undefined;
   currentVideo = undefined;
@@ -421,6 +390,8 @@ function renderMap(restoreFocus = false) {
   stopMotion();
   stopCinemagraphs();
   mapResize?.disconnect();
+  soundscape.setVideoDuck(false);
+  soundscape.setScene('map', 0.8);
   const shell = element('section','shell');
   const header = element('header','top');
   const actions = element('div','top-actions');
@@ -429,7 +400,7 @@ function renderMap(restoreFocus = false) {
   if (!projectionMode) {
     const project = control('',openProjection);
     setIconButton(project,'开始双屏授课','screens');
-    actions.append(control('教师备课',openTeacher),project);
+    actions.append(control('教师备课',openTeacher),project,soundButton());
   }
   actions.append(fullscreenButton());
   header.append(element('h1','course-title','从于都到遵义'),actions);
@@ -458,10 +429,27 @@ function renderMap(restoreFocus = false) {
   routeDiagram.append(...segments);
   world.append(routeDiagram);
   let displayedRouteEnd = events[selected].routeEnd;
+  const stationMeta: readonly { short: string; side: 'top-right' | 'bottom' | 'left' | 'top-left' }[] = [
+    { short: '于都', side: 'top-right' },
+    { short: '湘江', side: 'bottom' },
+    { short: '黎平', side: 'left' },
+    { short: '遵义', side: 'top-right' },
+  ];
+  const stationLabels: HTMLElement[] = [];
   const pins = events.map((e,i) => {
+    const pt = position(route[e.routeEnd]);
     const node = syncScenePoint('pin-'+i,e.name, () => select(i,'pin'), 'pin');
-    geoLabels.push({node,point:position(route[e.routeEnd])});
+    geoLabels.push({node,point:pt});
     world.append(node);
+    const meta = stationMeta[i];
+    if (meta) {
+      const label = element('span','map-station-name',meta.short);
+      label.dataset.side = meta.side;
+      label.setAttribute('aria-hidden','true');
+      geoLabels.push({node:label,point:pt});
+      world.append(label);
+      stationLabels.push(label);
+    }
     return node;
   });
   const card = element('article','event-card');
@@ -476,9 +464,12 @@ function renderMap(restoreFocus = false) {
     lessonItemsSeen.clear();
     reviewSteps.clear();
     reviewAnswer = false;
+    recapFocusIndex = null;
+    completedPractices.clear();
+    visitedExplorations.clear();
     lastViewed.clear();
     routeOffset = 0;
-    retainedHallClue = undefined;
+    retainedHallClues = [];
     renderOpening();
   },'primary','arrowRight',true);
   copy.append(date,title,start,enterScene);
@@ -630,6 +621,7 @@ function renderMap(restoreFocus = false) {
     title.textContent=e.name;
     enterScene.setAttribute('aria-label','进入「'+e.name+'」场景');
     pins.forEach((node,i)=>node.setAttribute('aria-pressed',String(i===selected)));
+    stationLabels.forEach((node,i)=>{ node.dataset.active = String(i===selected); });
     times.forEach((node,i)=>node.setAttribute('aria-current',String(i===selected)));
     segments.forEach((node,i)=>node.classList.toggle('past',i<e.routeEnd));
     if (focus) {
@@ -721,6 +713,7 @@ function renderOpening(autoplay = true) {
   disposePageEntry();
   releaseExplorationPage();
   releaseDesk();
+  releaseRecap();
   mapResize?.disconnect();
   currentPractice = undefined;
   activeSceneCue = undefined;
@@ -730,6 +723,7 @@ function renderOpening(autoplay = true) {
   onStageDismiss = undefined;
   stopMotion();
   stopCinemagraphs();
+  soundscape.setScene('silent', 0.35);
   const scene = element('section','scene opening-page');
   const stage = element('div','scene-stage');
   const media = element('div','scene-media');
@@ -746,6 +740,8 @@ function renderOpening(autoplay = true) {
   media.append(camera,element('div','scene-shade'));
   stage.append(media);
   const player = attachVideo({mode:'opening',key:'opening'},'terrain',camera,controls);
+  const openingVideo = camera.querySelector<HTMLVideoElement>('video');
+  if (openingVideo) mountOpeningOverlay(scene, openingVideo);
   const backToMap = syncControl('map','',()=>{
     player.pause();
     renderMap(true);
@@ -789,15 +785,15 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   matchedFrame?: HTMLImageElement, reconnectingJourney = false) {
   const departingPage = currentView.kind === 'scene' ? chapterPages[currentView.position]?.page : null;
   const arriving = chapterPages[position].page;
-  const leg = departingPage ? journeyLegs[departingPage.image + '/' + arriving.image] : undefined;
-  const spatial = departingPage ? findSpatialJourney(departingPage.image, arriving.image) : undefined;
-  const leavingTerrain = leg ? app.querySelector<HTMLElement>('.wujiang-lens:not([hidden])') : null;
+  const spatial = departingPage ? findSpatialJourney(departingPage.title, arriving.title) : undefined;
   const hallHandoff = arriving.activity === 'materials' ? captureHallHandoff() : undefined;
   const riverHandoff = arriving.image === 'yudu' ? captureExplorationView('yudu-river') : undefined;
   releaseSceneLesson();
   disposePageEntry();
   releaseExplorationPage();
   releaseDesk();
+  releaseRecap();
+  releaseOpeningOverlay();
   currentPractice = undefined;
   activeSceneCue = undefined;
   currentVideo = undefined;
@@ -812,6 +808,8 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   const { event, chapter, page } = chapterPages[position];
   selected = chapter;
   if (variant !== 'trial') lastViewed.set(chapter,position);
+  soundscape.setVideoDuck(false);
+  soundscape.setScene(sceneSoundOf(event.id, page), 0.85);
 
   const liveDesk = page.activity === 'materials';
   const scene = element('section','scene classroom-slide');
@@ -885,6 +883,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   identity.append(title,element('p','scene-date',location));
   const back = syncControl('map',returnToReview ? '返回回顾' : '地图',leave,'','arrowLeft');
   if (!returnToReview) setIconButton(back,'地图','map');
+  if (!projectionMode) tools.append(soundButton());
   tools.append(fullscreenButton(),back);
   heading.append(identity,tools);
 
@@ -1118,7 +1117,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
       updateMarch(100);
       paintRoutes();
       btnEast.setAttribute('aria-pressed','true');
-      btnEast.dataset.dismissed = 'true';
+      btnWest.setAttribute('aria-pressed','false');
       drawLine(eastLine,0,480);
       appear(eastNode,350,240);
       directionNote('direction-east');
@@ -1128,30 +1127,15 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
       updateMarch(-100);
       paintRoutes();
       btnWest.setAttribute('aria-pressed','true');
-      btnWest.dataset.dismissed = 'true';
+      btnEast.setAttribute('aria-pressed','false');
       drawLine(westLine,0,480);
       appear(westNode,350,240);
       directionNote('direction-west');
     },'deck-btn is-gold','compass');
-    btnEast.setAttribute('aria-pressed', String(revealed.has('direction-east')));
-    btnWest.setAttribute('aria-pressed', String(revealed.has('direction-west')));
-    const evidence = element('aside','liping-troops');
-    evidence.setAttribute('aria-label','湘江前后兵力');
-    for (const record of troopRecords) {
-      const row = element('div','liping-troop-record');
-      row.append(element('time','',record.date),element('span','',record.label),element('strong','',record.amount));
-      evidence.append(row);
-    }
-    const toggleEvidence = syncControl('liping-troops','兵力对照',()=>{
-      evidence.hidden = !evidence.hidden;
-      if (evidence.hidden) revealed.delete('liping-troops');
-      else revealed.add('liping-troops');
-      toggleEvidence.setAttribute('aria-expanded',String(!evidence.hidden));
-    },'deck-btn');
-    evidence.hidden = !revealed.has('liping-troops');
-    toggleEvidence.setAttribute('aria-expanded',String(!evidence.hidden));
-    deck.append(btnEast,btnWest,toggleEvidence);
-    stage.append(deck,evidence);
+    btnEast.setAttribute('aria-pressed', String(routeOffset > 0));
+    btnWest.setAttribute('aria-pressed', String(routeOffset < 0));
+    deck.append(btnEast,btnWest);
+    stage.append(deck);
 
     function updateMarch(progress: number, broadcast = false) {
       routeOffset = Math.round(Math.max(-100, Math.min(100,progress)));
@@ -1193,8 +1177,8 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
       });
     }
     registerDismiss(()=>{
-      btnEast.dataset.dismissed = 'false';
-      btnWest.dataset.dismissed = 'false';
+      btnEast.setAttribute('aria-pressed', 'false');
+      btnWest.setAttribute('aria-pressed', 'false');
     });
   }
 
@@ -1239,12 +1223,6 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   const next = syncControl('next',nextLabel,()=>turn(1),'primary','arrowRight',true);
   if (nextLabel === '下一页') setIconButton(next,nextLabel,'arrowRight');
   navigation.append(previous);
-  if (page.video?.key === 'zunyi') {
-    navigation.append(syncControl('compare','并排对照',()=>{
-      pauseVideo();
-      showZunyiMaterials();
-    }));
-  }
   navigation.append(next);
 
   if (liveDesk) {
@@ -1292,7 +1270,6 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   pageButtons = {previous,next};
   if (!projectionMode) title.focus({preventScroll:true});
   if (riverHandoff) playRiverExit(scene,riverHandoff);
-  else if (leg) playJourney(scene,priorImage,leg,leavingTerrain);
   else if (!spatial && !reconnectingJourney && !matchedFrame && !liveDesk && priorImage?.complete && priorImage.naturalWidth && priorImage.getAttribute('src') !== picture.getAttribute('src') && !reducedMotion.matches) {
     const old = element('img','outgoing-image');
     old.src = priorImage.src;
@@ -1462,7 +1439,15 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
     }
     const entering = video.hidden;
     if (still) still.disabled = false;
-    if (play) setIconButton(play,state.mode === 'paused' ? '继续播放' : '暂停短片',state.mode === 'paused' ? 'play' : 'pause');
+    if (play) {
+      if (clip.mode === 'transition') {
+        play.classList.remove('icon-button');
+        setButtonContent(play, state.mode === 'paused' ? '继续播放' : '暂停短片', state.mode === 'paused' ? 'play' : 'pause');
+      } else {
+        setIconButton(play,state.mode === 'paused' ? '继续播放' : '暂停短片',state.mode === 'paused' ? 'play' : 'pause');
+      }
+    }
+    if (clip.mode === 'opening' && !projectionMode) soundscape.setVideoDuck(state.mode === 'playing');
     if (entering && clip.mode === 'transition') {
       align?.();
       getComputedStyle(media).transform;
@@ -1547,12 +1532,20 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
     if (clip.mode==='opening') {
       intent = {mode:'paused',time:video.currentTime};
       if (play) setIconButton(play,'重播','reset');
-      if (!projectionMode) sendProjection({type:'video',state:intent});
+      if (!projectionMode) {
+        soundscape.setVideoDuck(false);
+        sendProjection({type:'video',state:intent});
+      }
     }
   });
   video.addEventListener('error',()=>showPoster());
   if (play) {
-    setIconButton(play,startLabel,'play');
+    if (clip.mode === 'transition') {
+      play.classList.add('primary');
+      setButtonContent(play, startLabel, 'play');
+    } else {
+      setIconButton(play,startLabel,'play');
+    }
     tools.append(play);
   }
   if (still) {
@@ -1566,12 +1559,20 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
     syncDeadline = 0;
     video.playbackRate = 1;
     video.pause();
+    if (clip.mode === 'opening' && !projectionMode) soundscape.setVideoDuck(false);
     if (cutLabel) cutLabel.hidden = true;
     if (still) {
       if (document.activeElement === still) play?.focus({preventScroll:true});
       still.disabled = true;
     }
-    if (play) setIconButton(play,startLabel,'play');
+    if (play) {
+      if (clip.mode === 'transition') {
+        play.classList.remove('icon-button');
+        setButtonContent(play, startLabel, 'play');
+      } else {
+        setIconButton(play,startLabel,'play');
+      }
+    }
     const finish = () => {
       if (request !== generation) return;
       video.hidden = true;

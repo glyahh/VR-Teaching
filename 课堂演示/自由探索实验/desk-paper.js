@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import notebook from './notebook.json';
 import { createRouteBoard } from './evidence.js';
 
@@ -7,12 +8,12 @@ export const deskBounds = {x: .85, z: .475};
 export const journalOrigin = new THREE.Vector3(-.331, deskTop, .100);
 export const dossierOrigin = new THREE.Vector3(.243, deskTop, -.013);
 export const foldedMap = new THREE.Vector3(.395, deskTop + .002, .382);
-const expandedMap = {x: .175, z: .390};
+const expandedMap = {x: .216, z: .354};
 const journalSize = [.326, .421];
 const dossierSize = [.309, .414];
 const looseSize = [.255, .292];
 const paperHeight = .018;
-const mapWidth = .48, mapDepth = .150;
+const mapWidth = .416, mapDepth = .220, mapPanels = 3, mapSegments = 48;
 
 function makeGrain(kind) {
   const size = 256;
@@ -211,7 +212,7 @@ function printMaterial(title, rows, { stamp = '', kind = 'paper', paragraphs = [
   const material = surface(0xffffff, {
     roughness: isDossier || isFolded ? .87 : isJournal ? .92 : .90,
     bumpMap: grains ? (isDossier || isFolded ? grains.kraft : grains.paper) : null,
-    bumpScale: isDossier || isFolded ? .0024 : isJournal ? .0022 : .0014,
+    bumpScale: isDossier || isFolded ? .00072 : isJournal ? .0006 : .00034,
   });
   material.map = texture;
   return material;
@@ -233,37 +234,90 @@ function makeSheet(width, depth, material, segments = 1) {
   return mesh;
 }
 
-function makeLeaf(parent, width, depth, hinge, frontMaterial, backMaterial, { castShadow = true } = {}) {
-  const face = makeSheet(width, depth, frontMaterial, 28);
+function makeLeaf(parent, width, depth, hinge, frontMaterial, backMaterial, {castShadow=true, thickness=.00032}={}) {
+  const segments = 32, rows = 13, stride = segments+1;
+  const face = makeSheet(width, depth, frontMaterial, segments);
   face.castShadow = castShadow;
-  const back = new THREE.Mesh(face.geometry, backMaterial);
-  back.receiveShadow = true;
-  back.castShadow = castShadow;
+  face.receiveShadow = false;
+  if (castShadow) frontMaterial.shadowSide = THREE.DoubleSide;
+  const back = new THREE.Mesh(face.geometry.clone(), backMaterial);
+  back.receiveShadow = false;
+  back.castShadow = false;
   face.add(back);
   parent.add(face);
   const position = face.geometry.getAttribute('position');
+  const underside = back.geometry.getAttribute('position');
   const original = position.array.slice();
+  const perimeter = [];
+  for (let x=0; x<stride; x++) perimeter.push(x);
+  for (let z=1; z<rows; z++) perimeter.push(z*stride+segments);
+  for (let x=segments-1; x>=0; x--) perimeter.push((rows-1)*stride+x);
+  for (let z=rows-2; z>0; z--) perimeter.push(z*stride);
+  const edgeGeometry = new THREE.BufferGeometry();
+  const edgePosition = new THREE.BufferAttribute(new Float32Array(perimeter.length*6), 3);
+  const edgeIndices = [];
+  for (let i=0; i<perimeter.length; i++) {
+    const a=i*2, b=((i+1)%perimeter.length)*2;
+    edgeIndices.push(a,b,a+1,b,b+1,a+1);
+  }
+  edgeGeometry.setAttribute('position',edgePosition);
+  edgeGeometry.setIndex(edgeIndices);
+  const border = new THREE.Mesh(edgeGeometry,surface(0xad926c,{side:THREE.DoubleSide}));
+  face.add(border);
+  let previous;
   return {
     face,
     setSurface(front, reverse) {
+      if (castShadow) front.shadowSide = THREE.DoubleSide;
       face.material = front;
       back.material = reverse;
     },
-    bend(progress, curl = 1, swing = 0) {
+    bend(progress, curl = 1, swing = 0, drop = 0) {
+      const signature=[progress,curl,swing,drop];
+      if (previous?.every((value,index)=>value===signature[index])) return;
+      previous=signature;
       const turn = Math.PI * progress;
-      const edge = hinge * width / 2;
-      const bulge = Math.sin(turn) * curl;
-      for (let i = 0; i < position.count; i++) {
-        const x = original[i * 3], z = original[i * 3 + 2];
-        const span = Math.abs(x - edge);
-        const tangent = turn + bulge * (.40 * (span / width - .45) - .36 * z / depth);
-        const reach = -hinge * span * Math.cos(tangent);
-        position.setXYZ(i, edge + reach * Math.cos(swing),
-          span * Math.sin(tangent) + .0005 * (1 + progress), z + reach * Math.sin(swing));
+      const pin = hinge * width / 2;
+      const flex = Math.sin(turn)*curl;
+      const settling = THREE.MathUtils.smoothstep(progress,.72,1)*drop;
+      const ds = width/segments, swingX = Math.cos(swing), swingZ = Math.sin(swing);
+      for (let row=0; row<rows; row++) {
+        const z = original[(row*stride)*3+2];
+        const twist = z/depth;
+        let x=0, y=0;
+        for (let column=0; column<=segments; column++) {
+          const index = row*stride+(hinge<0 ? column : segments-column);
+          const u = column/segments;
+          if (column) {
+            const t = u-.5/segments;
+            const bend = flex*(.96*(t-.34) + .37*twist*t - .31*Math.sin(Math.PI*t));
+            const angle = THREE.MathUtils.clamp(turn+bend,0,Math.PI);
+            x -= hinge*ds*Math.cos(angle);
+            y += ds*Math.sin(angle);
+          }
+          const wornCorner = flex*.0045*twist*Math.abs(twist)*u*u;
+          position.setXYZ(index,pin+x*swingX,y+wornCorner-settling*u,z+x*swingZ);
+        }
       }
       position.needsUpdate = true;
       face.geometry.computeVertexNormals();
       face.geometry.computeBoundingSphere();
+      const normal=face.geometry.getAttribute('normal');
+      for (let i=0;i<position.count;i++) {
+        underside.setXYZ(i,position.getX(i)-normal.getX(i)*thickness,
+          position.getY(i)-normal.getY(i)*thickness,position.getZ(i)-normal.getZ(i)*thickness);
+      }
+      underside.needsUpdate=true;
+      back.geometry.computeVertexNormals();
+      back.geometry.computeBoundingSphere();
+      for (let i=0;i<perimeter.length;i++) {
+        const k=perimeter[i];
+        edgePosition.setXYZ(2*i,position.getX(k),position.getY(k),position.getZ(k));
+        edgePosition.setXYZ(2*i+1,underside.getX(k),underside.getY(k),underside.getZ(k));
+      }
+      edgePosition.needsUpdate=true;
+      edgeGeometry.computeVertexNormals();
+      edgeGeometry.computeBoundingSphere();
     },
   };
 }
@@ -280,11 +334,29 @@ function reverseOf(material) {
 
 function mountLayers(parent, width, depth, x, baseY, paper, trim) {
   placedBox(parent, width + .007, .0021, depth + .006, [x, baseY + .0011, 0], trim);
-  for (let i = 0; i < 9; i++) {
-    const taper = ((i % 3) - 1) * .0018;
-    placedBox(parent, width - .001 + taper, .00153, depth - .003 - taper,
-      [x + taper * .37, baseY + .0032 + i * .00163, taper * .34], paper[i % paper.length]);
+  const sheets = [];
+  const count=36, thickness=(paperHeight-.0044)/count;
+  for (let i=0;i<count;i++) {
+    const taper=.0012*Math.sin(i*1.91)+.00068*Math.sin(i*3.28);
+    const layer=new THREE.BoxGeometry(width-.001+taper,thickness*.92,depth-.003-taper,3,1,5);
+    const vertices=layer.getAttribute('position');
+    const color=paper[i%paper.length].color.clone().multiplyScalar(.92+.14*Math.sin(i*2.4)**2);
+    const colors=new Float32Array(vertices.count*3);
+    for (let j=0;j<vertices.count;j++) {
+      const dx=vertices.getX(j), dy=vertices.getY(j), z=vertices.getZ(j);
+      const nearEdge=Math.abs(dx)/(width*.5);
+      const waviness=.00034*Math.sin(z*63+i*.82)*nearEdge;
+      vertices.setXYZ(j,dx+x+taper*.32,baseY+.003+dy+thickness*(i+.5)+waviness,z+taper*.37);
+      color.toArray(colors,j*3);
+    }
+    layer.setAttribute('color',new THREE.BufferAttribute(colors,3));
+    layer.computeVertexNormals();
+    sheets.push(layer);
   }
+  const block = new THREE.Mesh(mergeGeometries(sheets),new THREE.MeshStandardMaterial({vertexColors:true,roughness:.93}));
+  block.castShadow=block.receiveShadow=true;
+  parent.add(block);
+  for (const layer of sheets) layer.dispose();
 }
 
 function makeRope(root, width, depth, hemp) {
@@ -316,7 +388,7 @@ function makeFoldedMap(scene, routeBoard, paper, trim, grains, remember) {
   folded.material = [paper, paper, foldedCover, trim, paper, paper];
   const routeInk = remember(surface(0xfbf7ec, {roughness: .89, bumpMap: grains.paper, bumpScale: .0012}));
   routeInk.map = routeBoard.texture;
-  const map = makeSheet(mapWidth, mapDepth, routeInk, 42);
+  const map = makeSheet(mapWidth, mapDepth, routeInk, mapSegments);
   map.position.y = .003;
   group.add(map);
   const overlay = remember(surface(0xffffff, {roughness: .86, bumpMap: grains.paper, bumpScale: .0006}));
@@ -331,31 +403,47 @@ function makeFoldedMap(scene, routeBoard, paper, trim, grains, remember) {
   flaps.face.renderOrder = 2;
   const position = map.geometry.getAttribute('position');
   const original = position.array.slice();
-  let previous = '';
+  let previous = '', previousFold = -1;
+  const outlineX = new Float32Array(mapSegments+1), outlineY = new Float32Array(mapSegments+1);
+  function shape(fold) {
+    if (fold===previousFold) return;
+    previousFold=fold;
+    const step=mapWidth/mapSegments, span=mapSegments/mapPanels;
+    outlineX[0]=outlineY[0]=0;
+    for (let i=1;i<=mapSegments;i++) {
+      const panel=Math.floor((i-1)/span);
+      const easing=THREE.MathUtils.smoothstep(fold,panel*.055,1-(mapPanels-1-panel)*.055);
+      const hinged=panel%2 ? Math.PI*(1-easing) : .32*Math.sin(Math.PI*easing);
+      outlineX[i]=outlineX[i-1]+step*Math.cos(hinged);
+      outlineY[i]=outlineY[i-1]+step*Math.sin(hinged);
+    }
+    const middle=(Math.min(...outlineX)+Math.max(...outlineX))*.5;
+    const depthScale=THREE.MathUtils.lerp(.64,1,fold);
+    for (let i=0;i<position.count;i++) {
+      const index=i%(mapSegments+1), z=original[3*i+2];
+      const edge=Math.abs(z)/mapDepth*2;
+      const curl=.0022*edge**5*(.58+.42*Math.sin(index*.22)**2);
+      position.setXYZ(i,outlineX[index]-middle,outlineY[index]+curl,z*depthScale);
+    }
+    position.needsUpdate=true;
+    map.geometry.computeVertexNormals();
+    map.geometry.computeBoundingSphere();
+  }
   function update(mode, preview) {
     const action = preview?.kind === 'map' ? (mode === 'stored' ? preview.progress : 1 - preview.progress) : mode === 'stored' ? 0 : 1;
     const fold = THREE.MathUtils.clamp(action, 0, 1);
-    folded.visible = fold < .03;
-    map.visible = fold >= .03;
+    folded.visible = fold < .012;
+    map.visible = !folded.visible;
     group.position.x = THREE.MathUtils.lerp(foldedMap.x, expandedMap.x, fold);
     group.position.z = THREE.MathUtils.lerp(foldedMap.z, expandedMap.z, fold);
-    const width = .33 + fold * .67;
-    for (let i = 0; i < position.count; i++) {
-      const dx = original[i * 3];
-      const z = original[i * 3 + 2];
-      const segment = (dx / mapWidth + .5) * 3;
-      const crease = 1 - Math.abs(segment - Math.round(segment));
-      position.setXYZ(i, dx * width, (1 - fold) * .094 * Math.max(0, 1.85 * (crease - .5)), z);
-    }
-    position.needsUpdate = true;
-    map.geometry.computeVertexNormals();
-    map.geometry.computeBoundingSphere();
+    shape(fold);
     flaps.face.visible = fold > .985 && (mode === 'both' || preview?.kind === 'overlay');
     const lifted = preview?.kind === 'overlay' ? mode === 'both' ? preview.progress : 1 - preview.progress : 0;
     if (flaps.face.visible) flaps.bend(.48 * lifted, .55);
-    const style = mode === 'stored' ? 'original' : mode;
+    const style = mode === 'both' && fold<.985 ? 'folded-both' : mode === 'stored' ? 'original' : mode;
     if (style !== previous) {
-      if (style === 'revised') routeBoard.paint(1, false);
+      if (style === 'revised') routeBoard.paintRevised();
+      else if (style==='folded-both') routeBoard.paint(.5,true);
       else routeBoard.paintBase();
       previous = style;
     }
@@ -363,14 +451,16 @@ function makeFoldedMap(scene, routeBoard, paper, trim, grains, remember) {
   return {group, folded, map, overlay: flaps.face, update};
 }
 
-function moveLoose(mesh, at, lift, height) {
+function moveLoose(mesh, at, lift, height, support) {
   mesh.position.set(at.x, height + .047 * lift, at.z);
   const position = mesh.geometry.getAttribute('position');
   const original = mesh.userData.rest;
+  const cos = Math.cos(mesh.rotation.y), sin = Math.sin(mesh.rotation.y);
   for (let i = 0; i < position.count; i++) {
     const x = original[i * 3], z = original[i * 3 + 2];
     const corner = (x / looseSize[0] + .5) * (z / looseSize[1] + .5);
-    position.setY(i, .0025 * corner + .051 * lift * corner * corner);
+    const underneath = support?.(at.x + x*cos + z*sin, at.z + z*cos - x*sin) ?? 0;
+    position.setY(i, underneath * (1 - .68*lift) + .0018 * corner + .038 * lift * corner * corner);
   }
   position.needsUpdate = true;
   mesh.geometry.computeVertexNormals();
@@ -401,6 +491,7 @@ export function createDeskPapers(scene, terrain) {
   const hemp = remember(surface(0x8c704c, {roughness: .95, bumpMap: grains.rope, bumpScale: .0032}));
   const leftCover = remember(printMaterial('随记', [], {kind: 'journal', grains}));
   const rightCover = remember(printMaterial('', [], {kind: 'dossier', grains}));
+  const noteSlip = remember(printMaterial('摘录', [], {kind: 'folded', grains}));
   const neutralBack = remember(surface(0xd8c194, {side: THREE.BackSide, roughness: .91, bumpMap: grains.paper, bumpScale: .0012}));
   const pages = notebook.map(page => remember(printMaterial(page.title, page.rows, {stamp: page.note, grains})));
   const facingPages = notebook.map(page => remember(printMaterial(page.title, [], {
@@ -432,25 +523,33 @@ export function createDeskPapers(scene, terrain) {
   journal.add(rightPage);
   const leaf = makeLeaf(journal, ...journalSize, -1, leftCover, backPages[0]);
   leaf.face.position.y = paperHeight + .002;
-  const note = makeSheet(.095, .131, pages[0], 10);
-  note.position.set(-.111, paperHeight + .004, -.112);
+  // 精致侧边夹签条置于右页外缘留白处，彻底避开正文排版杜绝重影穿模
+  const note = makeSheet(.062, .118, noteSlip, 8);
+  note.position.set(journalSize[0] * .44, paperHeight + .0055, -.132);
+  note.rotation.y = -.06;
   journal.add(note);
 
-  for (let i = 0; i < 6; i++) {
-    const z = -.167 + i * .065;
-    const thread = new THREE.TorusGeometry(.006, .00085, 6, 18, Math.PI * 1.35);
-    thread.rotateY(Math.PI / 2);
-    const loop = new THREE.Mesh(thread, cloth);
-    loop.position.set(-journalSize[0] / 2 + .002, .014, z);
-    loop.castShadow = true;
-    journal.add(loop);
+  const spineX=-journalSize[0]*.5;
+  const spine=placedBox(journal,.007,.015,journalSize[1]-.009,[spineX,.008,0],cloth);
+  spine.castShadow=false;
+  const stitches=[];
+  for (let i=0;i<6;i++) {
+    const z=-.167+i*.065+Math.sin(i*7)*.0016;
+    const knot=new THREE.CatmullRomCurve3([
+      [spineX+.005,.017,z-.004],[spineX-.003,.0196,z-.002],
+      [spineX-.006,.013,z],[spineX-.003,.007,z+.002],[spineX+.005,.006,z+.005],
+    ].map(point=>new THREE.Vector3(...point)));
+    stitches.push(new THREE.TubeGeometry(knot,12,.00068,5,false));
   }
+  const binding=new THREE.Mesh(mergeGeometries(stitches),hemp);
+  journal.add(binding);
+  for (const stitch of stitches) stitch.dispose();
 
   mountLayers(dossier, ...dossierSize, 0, 0, paper, wrapper);
   const heldSheet = makeSheet(...dossierSize, summaryInk);
   heldSheet.position.y = paperHeight + .001;
   dossier.add(heldSheet);
-  const cover = makeLeaf(dossier, ...dossierSize, 1, rightCover, neutralBack);
+  const cover = makeLeaf(dossier, ...dossierSize, 1, rightCover, neutralBack, {thickness:.00083});
   cover.face.position.y = paperHeight + .006;
   const rope = makeRope(dossier, ...dossierSize, hemp);
 
@@ -463,37 +562,77 @@ export function createDeskPapers(scene, terrain) {
   const map = makeFoldedMap(scene, routeBoard, paper[0], wrapper, grains, remember);
   const originalMeeting = new THREE.Vector3(0, paperHeight + .002, 0);
   const noteAt = new THREE.Vector3();
-  const probe = new THREE.Vector3();
+  const journalCos=Math.cos(journal.rotation.y), journalSin=Math.sin(journal.rotation.y);
+  const dossierCos=Math.cos(dossier.rotation.y), dossierSin=Math.sin(dossier.rotation.y);
+  let hoveredTarget = null;
+  const hoverPulse = .17;
+  const hoverTint = new THREE.Color(0xf6c975);
+  const glowing = new Set();
+
+  function setEmissive(material, intensity) {
+    if (!material || !material.emissive) return;
+    if (intensity > 0) {
+      material.emissive.copy(hoverTint);
+      material.emissiveIntensity = intensity;
+      glowing.add(material);
+    } else {
+      material.emissiveIntensity = 0;
+    }
+  }
+
+  function setHover(target) {
+    const changed = hoveredTarget !== target;
+    hoveredTarget = target;
+    return changed;
+  }
+
   function update({saved, preview}) {
+    for (const material of glowing) material.emissiveIntensity = 0;
+    glowing.clear();
     const spread = saved.spread;
     const flip = preview?.kind === 'page' ? preview : null;
     const next = flip?.direction === 'forward';
+    const hoverPage = !preview && (hoveredTarget === 'page-forward' || hoveredTarget === 'page-back');
     const turn = flip ? (next ? flip.progress : 1 - flip.progress) : spread === 0 ? 0 : 1;
     const current = Math.max(0, spread - 1);
     const destination = THREE.MathUtils.clamp(current + (next ? Number(spread > 0) : -1), 0, pages.length - 1);
-    oppositeStack.visible = spread > 0 || !!flip && turn > .54;
+    oppositeStack.visible = spread > 0 || !!flip && turn > .56;
     leftPage.material = facingPages[flip && !next ? destination : current];
     rightPage.material = pages[flip && next ? destination : current];
     const closed = spread === 0 || flip && !next && spread === 1;
     leaf.setSurface(closed ? leftCover : pages[flip && !next ? destination : current],
       backPages[flip && next ? destination : current]);
+    rightPage.visible = !closed || !!flip;
     leaf.face.visible = spread === 0 || !!flip;
-    leaf.bend(turn, closed ? .72 : 1);
+    const previewLift = spread === 0 && hoverPage ? .024 : 0;
+    if (leaf.face.visible) leaf.bend(flip ? turn : previewLift,closed ? .72 : 1);
+    setEmissive(leftCover, hoveredTarget === 'page-forward' && spread === 0 ? hoverPulse : 0);
+    setEmissive(rightPage.material, hoveredTarget === 'page-forward' && spread > 0 ? hoverPulse : 0);
+    setEmissive(leftPage.material, hoveredTarget === 'page-back' && spread > 0 ? hoverPulse : 0);
     const noteId = 'before';
     const savedIds = new Set(saved.sheets.map(sheet => sheet.id));
     note.visible = spread > 0 && !flip && !savedIds.has(noteId) && !(preview?.kind === 'sheet' && preview.id === noteId);
-    note.material = pages[0];
+    note.position.y = paperHeight + .0055 + (hoveredTarget === 'before-sheet' && !preview ? .004 : 0);
+    setEmissive(note.material, hoveredTarget === 'before-sheet' && note.visible ? hoverPulse : 0);
 
     const untied = preview?.kind === 'cord' ? preview.progress : Number(saved.dossier !== 'sealed');
     const opened = preview?.kind === 'cover' ? preview.progress : Number(saved.dossier === 'open');
-    const slack = Math.sin(untied * Math.PI) * .020;
+    const hoverCord = !preview && hoveredTarget === 'cord' && saved.dossier === 'sealed';
+    const hoverCover = !preview && hoveredTarget === 'cover' && saved.dossier === 'untied';
+    const slack = Math.sin(untied * Math.PI) * .020 + (hoverCord ? .003 : 0);
     rope.position.set(untied * .205, paperHeight + .011 - untied * (paperHeight + .008) + slack, -untied * .145);
     rope.rotation.y = -.52 * untied;
     rope.scale.set(1 - .28 * untied, 1 - .62 * untied, 1 - .38 * untied);
-    cover.bend(opened, .63, .64 * THREE.MathUtils.smoothstep(opened, .57, 1));
+    setEmissive(hemp, hoverCord ? hoverPulse * 1.4 : 0);
+    cover.bend(hoverCover ? 0.055 : opened, .63, .51 * THREE.MathUtils.smoothstep(opened, .57, 1), paperHeight+.003);
+    setEmissive(rightCover, hoverCover ? hoverPulse : 0);
 
     scene.updateMatrixWorld(true);
     dossier.localToWorld(noteAt.copy(originalMeeting));
+    function pad(x,z,left,right,depth,height) {
+      const outside = Math.max(left-x,x-right,Math.abs(z)-depth);
+      return height*(1-THREE.MathUtils.smoothstep(outside,0,.060));
+    }
     for (const [id, mesh] of loose) {
       const sheet = saved.sheets.find(item => item.id === id);
       const moving = preview?.kind === 'sheet' && preview.id === id ? preview : null;
@@ -501,28 +640,35 @@ export function createDeskPapers(scene, terrain) {
       if (!mesh.visible) continue;
       const at = moving?.at ?? sheet?.at ?? {x: noteAt.x, z: noteAt.z};
       const order = saved.sheets.findIndex(item => item.id === id);
-      const overMap = saved.map !== 'stored' &&
-        Math.abs(at.z - expandedMap.z) < (mapDepth + looseSize[1]) * .44 &&
-        Math.abs(at.x - expandedMap.x) < (mapWidth + looseSize[0]) * .46;
-      const j = journal.worldToLocal(probe.set(at.x, deskTop, at.z));
-      const overLeft = Math.abs(j.z) < journalSize[1] / 2 + looseSize[1] * .38 &&
-        j.x > -journalSize[0] * (spread > 0 ? 1.5 : .5) - looseSize[0] * .38 &&
-        j.x < journalSize[0] / 2 + looseSize[0] * .38;
-      const d = dossier.worldToLocal(probe.set(at.x, deskTop, at.z));
-      const overRight = Math.abs(d.z) < dossierSize[1] / 2 + looseSize[1] * .38 &&
-        d.x > -dossierSize[0] / 2 - looseSize[0] * .38 &&
-        d.x < dossierSize[0] * (saved.dossier === 'open' ? 1.45 : .5) + looseSize[0] * .38;
-      const overPencil = at.x > -.11 && at.x < .26 && Math.abs(at.z - .278) < looseSize[1] * .46;
-      const support = deskTop + (overLeft || overRight ? paperHeight + .0025 : overMap ? .011 : overPencil ? .0078 : .002) +
-        Math.max(0, order) * .0035;
-      moveLoose(mesh, at, moving?.lift ?? 0, !sheet && !moving ? noteAt.y : support);
+      const isHoveredSheet = !preview && hoveredTarget === (id === 'discussion' ? 'discussion-sheet' : 'before-sheet');
       mesh.rotation.y = !sheet && !moving ? dossier.rotation.y : id === 'discussion' ? .028 : -.035;
-      if (preview?.kind === 'inspect' && preview.id === id) {
-        mesh.position.y += .115;
-        mesh.rotation.x = .18;
-      } else mesh.rotation.x = 0;
+      const flat = !sheet && !moving;
+      const under = order>0 ? saved.sheets[order-1].at : undefined;
+      const mapCenter = saved.map==='stored' ? foldedMap : expandedMap;
+      function support(x,z) {
+        const jx=x-journal.position.x,jz=z-journal.position.z;
+        const dx=x-dossier.position.x,dz=z-dossier.position.z;
+        const book = pad(jx*journalCos-jz*journalSin,jz*journalCos+jx*journalSin,
+          journalSize[0]*(spread>0 ? -1.5 : -.5),journalSize[0]*.5,journalSize[1]*.5,paperHeight+.003);
+        const folder = pad(dx*dossierCos-dz*dossierSin,dz*dossierCos+dx*dossierSin,
+          -dossierSize[0]*.5,dossierSize[0]*.5,dossierSize[1]*.5,paperHeight+.005);
+        const mapPad = saved.map==='stored'
+          ? pad(x-mapCenter.x,z-mapCenter.z,-.094,.094,.068,.008)
+          : pad(x-mapCenter.x,z-mapCenter.z,-mapWidth*.5,mapWidth*.5,mapDepth*.5,.008);
+        const pencil = pad(x,z-.218,-.025,.16,.024,.007);
+        const stack = under ? pad(x-under.x,z-under.z,-looseSize[0]*.5,looseSize[0]*.5,looseSize[1]*.5,.005) : 0;
+        return Math.max(book,folder,mapPad,pencil)+stack;
+      }
+      moveLoose(mesh,at,moving?.lift ?? (isHoveredSheet ? .055 : 0),flat ? noteAt.y+.003 : deskTop+.0025,flat ? undefined : support);
+      setEmissive(mesh.material, isHoveredSheet ? hoverPulse : 0);
     }
     map.update(saved.map, preview);
+    const hoverMap = !preview && (hoveredTarget === 'map' || hoveredTarget === 'overlay');
+    map.group.position.y = foldedMap.y + (hoverMap ? .0035 : 0);
+    setEmissive(map.map.material, hoverMap && saved.map !== 'stored' ? hoverPulse * 0.75 : 0);
+    if (Array.isArray(map.folded.material)) {
+      setEmissive(map.folded.material[2], hoverMap && saved.map === 'stored' ? hoverPulse : 0);
+    }
     scene.updateMatrixWorld(true);
   }
 
@@ -542,7 +688,7 @@ export function createDeskPapers(scene, terrain) {
     for (const material of materials) material.dispose();
     for (const texture of textures) texture.dispose();
   }
-  return {journal, dossier, loose, leaf, note, cover, rope, map, update, dispose};
+  return {journal, dossier, loose, leaf, note, cover, rope, map, update, setHover, dispose};
 }
 
 export const journalWidth = journalSize[0];

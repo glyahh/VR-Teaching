@@ -17,6 +17,7 @@ type ExplorationPage = {
 
 const explorationLabels = {
   'yudu-river': { enter: '于都河岸', leave: '返回浮桥', name: '于都河岸', reset: '回全景' },
+  'xiang-crossing': { enter: '湘江渡口现场', leave: '返回渡口', name: '湘江渡口', reset: '回全景' },
   'zunyi-hall': { enter: '进入材料厅', leave: '返回会场', name: '遵义材料厅', reset: '重新开始' },
 } satisfies Record<ExplorationId, { enter: string; leave: string; name: string; reset: string }>;
 
@@ -27,7 +28,8 @@ let explorationVersion = 0;
 let receivedExplorationVisit = 0;
 let receivedExplorationVersion = 0;
 let explorationPublishTimer: number | undefined;
-let retainedHallClue: HallClue | undefined;
+let retainedHallClues: HallClue[] = [];
+const visitedExplorations = new Set<ExplorationId>();
 
 function captureExplorationView(id: ExplorationId) {
   if (reducedMotion.matches || explorationActivity?.read()?.id !== id) return;
@@ -140,10 +142,10 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
   function close(restoreBackdrop = true) {
     ++request;
     if (id === 'zunyi-hall' && !projectionMode && surface === 'exploration') {
-      const clue = explorationStage.hallClue(explorationActivity?.read() ?? null);
-      if (clue) {
-        retainedHallClue = clue;
-        sendProjection({type:'hall-clue', clue});
+      const clues = explorationStage.hallClues(explorationActivity?.read() ?? null);
+      if (clues.length) {
+        retainedHallClues = clues;
+        sendProjection({type:'hall-clues', clues});
       }
     }
     explorationActivity?.close();
@@ -168,7 +170,7 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
     }
   }, '', 'compass');
   const reset = projectionMode ? undefined : control(labels.reset, () => {
-    if (id === 'yudu-river') explorationActivity?.home();
+    if (id === 'yudu-river' || id === 'xiang-crossing') explorationActivity?.home();
     else explorationActivity?.restart();
   }, '', 'reset');
   const desk = openDesk ? syncControl('hall-desk','会议桌',() => {
@@ -209,11 +211,17 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
       if (loading !== request || !opened) return;
       stopCinemagraphs();
       surface = 'exploration';
+      visitedExplorations.add(id);
       scene.dataset.exploration = id;
       status.hidden = true;
       syncButtons();
       positionDock();
       publishExplorationView(true);
+      if (!projectionMode) {
+        if (id === 'yudu-river') soundscape.setScene('yudu', 0.6);
+        else if (id === 'xiang-crossing') soundscape.setScene('xiang', 0.6);
+        else if (id === 'zunyi-hall') soundscape.setScene('zunyi-yard', 0.6);
+      }
     } catch {
       if (loading !== request) return;
       close();

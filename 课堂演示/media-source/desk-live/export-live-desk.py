@@ -1,6 +1,6 @@
-"""从精修 Blender 工程导出不含纸件的会议桌和三个参考机位。
+"""导出会议桌空间、参考机位和独立的实时道具。
 
-blender -b --disable-autoexec 会前的桌边.blend -P export-live-desk.py -- --samples 24
+blender -b --disable-autoexec 会前的桌边.blend -P export-live-desk.py -- --samples 24 --output <导出目录>
 """
 
 import argparse
@@ -8,7 +8,6 @@ import json
 import struct
 import sys
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 import bpy
 import numpy as np
@@ -18,7 +17,59 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from export_space import (ASSETS, FOLIOS, ROOM, SIDE_OVERSCAN, VIEWS, bake_colors,
                           camera_at, frame, image_pixels, mesh_arrays, projection,
-                          room_photo, subdivide_for_color)
+                          matrix_columns, room_photo, subdivide_for_color)
+
+PROPS = {'提灯总成', '粗瓷茶碗', '削过的木杆铅笔'}
+ANGLES = (*[(name, yaw, 0) for name, yaw in VIEWS], ('top', 0, 15))
+SURFACES = {
+    '灯架': ('desk-iron', '514031', .44, .55),
+    '铜件': ('desk-brass', '94714a', .38, .62),
+    '铁件': ('desk-soot', '2e2923', .79, .17),
+    '灯罩': ('desk-glass', 'e1cba2', .22, 0),
+    '玻璃': ('desk-glass', 'e1cba2', .22, 0),
+    '茶碗': ('desk-glaze', 'bcb09a', .30, 0),
+    '胎土': ('desk-clay', '8b6d54', .83, 0),
+    '碗口': ('desk-rim', '87725c', .36, 0),
+    '茶面': ('desk-tea', '452c1d', .19, 0),
+    '笔杆': ('desk-pencil', '66432e', .56, 0),
+    '铅笔': ('desk-cutwood', 'c49966', .73, 0),
+    '铅芯': ('desk-graphite', '363438', .43, .28),
+    '火焰 · 琥珀': ('desk-flame-amber', 'ff972f', .46, 0),
+    '火焰 · 芯': ('desk-flame-core', 'ffe0a1', .44, 0),
+}
+
+
+def linear(component):
+    value = int(component, 16) / 255
+    return ((value + .055) / 1.055) ** 2.4 if value > .04045 else value / 12.92
+
+
+def export_props(path, objects):
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in objects:
+        obj.hide_render = False
+        obj.select_set(True)
+    for obj in objects:
+        if obj.type not in ('MESH', 'CURVE'):
+            continue
+        for slot in obj.material_slots:
+            old = slot.material
+            profile = SURFACES.get(old.name.split(' · ')[0]) or SURFACES.get(old.name)
+            if profile is None:
+                raise ValueError(f'缺少实时材质参数 {old.name}')
+            name, hex_color, roughness, metal = profile
+            mat = bpy.data.materials.get(name) or bpy.data.materials.new(name)
+            mat.use_nodes = True
+            shader = mat.node_tree.nodes.get('Principled BSDF')
+            shader.inputs['Base Color'].default_value = tuple(linear(hex_color[i:i+2]) for i in (0, 2, 4)) + (1,)
+            shader.inputs['Roughness'].default_value = roughness
+            shader.inputs['Metallic'].default_value = metal
+            if name == 'desk-glass':
+                shader.inputs['Alpha'].default_value = .19
+            slot.material = mat
+    bpy.ops.export_scene.gltf(filepath=str(path), export_format='GLB', use_selection=True,
+                              export_yup=True, export_animations=False, export_lights=False,
+                              export_cameras=False, export_texcoords=False)
 
 
 def geometry(scene, views):
@@ -81,10 +132,12 @@ def export(staging, samples):
     if not hero or hero.name != '机位一 · 桌边全景' or scene.render.engine != 'CYCLES':
         raise ValueError('请使用会前的桌边精修工程与主机位')
 
-    movable = set(FOLIOS)
+    movable = set(FOLIOS) | PROPS
+    props = [obj for obj in scene.objects if obj.name in PROPS or obj.parent and obj.parent.name in PROPS]
     for obj in scene.objects:
         if obj.parent and obj.parent.name in movable:
             obj.hide_render = True
+    scene.objects['灯芯光'].data.energy *= .58
     base = hero.matrix_world.copy()
     pivot = base @ Vector((0, 0, -hero.data.dof.focus_distance))
     settings = scene.render
@@ -94,10 +147,11 @@ def export(staging, samples):
     camera.data = hero.data.copy()
     scene.collection.objects.link(camera)
 
-    photos, outputs = [], []
-    for name, yaw in VIEWS:
-        camera.matrix_world = camera_at(base, pivot, yaw)
-        overscan = SIDE_OVERSCAN if yaw else 1
+    photos, views = [], []
+    manifest = json.loads((ASSETS / 'desk-space.json').read_text(encoding='utf-8'))
+    for name, yaw, pitch in ANGLES:
+        camera.matrix_world = camera_at(base, pivot, yaw, pitch)
+        overscan = SIDE_OVERSCAN if yaw or pitch else 1
         camera.data.sensor_width = hero.data.sensor_width * overscan
         camera.data.sensor_height = hero.data.sensor_height * overscan
         filename = f'desk-world-{name}.jpg'
@@ -105,7 +159,8 @@ def export(staging, samples):
         frame(scene, camera, image, 1280, aspect, samples)
         vp = projection(camera, scene) @ camera.matrix_world.inverted()
         photos.append((np.asarray(vp), camera.matrix_world.translation.copy(), image_pixels(image)))
-        outputs.append(filename)
+        views.append({'yaw': yaw, 'pitch': pitch, 'eye': list(camera.matrix_world.translation), 'vp': matrix_columns(vp)})
+    manifest['views'] = views
 
     settings.resolution_x, settings.resolution_y = size
     scene.camera = hero
@@ -119,15 +174,16 @@ def export(staging, samples):
         faces.append(triangles + offset)
         offset += len(world)
     points, faces = np.concatenate(points), np.concatenate(faces)
-    colors = bake_colors(parts, points, faces, photos, clean, {})
+    colors = bake_colors(parts, points, faces, photos, clean, manifest)
     write_glb(staging / 'desk-world.glb', points, faces, colors)
-    for name in [*outputs, 'desk-world.glb']:
-        (staging / name).replace(ASSETS / name)
+    (staging / 'desk-space.json').write_text(json.dumps(manifest, separators=(',', ':')), encoding='utf-8')
+    export_props(staging / 'desk-props-source.glb', props)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--samples', type=int, default=24)
+    parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args(sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else [])
-    with TemporaryDirectory(prefix='live-desk-', dir=ASSETS) as folder:
-        export(Path(folder), args.samples)
+    args.output.mkdir(parents=True, exist_ok=True)
+    export(args.output.resolve(), args.samples)

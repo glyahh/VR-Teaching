@@ -22,6 +22,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 HERE = Path(__file__).resolve().parent
 ASSETS = HERE.parent / "assets"
 SOURCE_CACHE = HERE.parents[1] / ".march-build" / "opening-sources"
+RECORDED_3D = SOURCE_CACHE / "recorded-3d"
 VOICE_CACHE = SOURCE_CACHE / "voice-v2"
 NARRATION_TSV = HERE / "opening-narration.tsv"
 TTS_DEPS = HERE.parents[1] / ".march-build" / "opening-tts-deps"
@@ -63,12 +64,6 @@ SOURCES = (
         f"苍茫云山航拍｜Mixkit https://mixkit.co/free-stock-video/misty-mountains-and-clouds-100190/ ｜{MIXKIT}｜节选、调色、静音",
     ),
     Source(
-        "mixkit-wooden-boats-4314.mp4",
-        "https://mixkit.co/free-stock-video/canoes-on-the-lake-4314/",
-        "bd4daeb00d1c48998df222f446fa5598a5128ad942302010291ab80bc27bb464",
-        f"暮色水岸木船｜Mixkit https://mixkit.co/free-stock-video/canoes-on-the-lake-4314/ ｜{MIXKIT}｜节选、统一帧率、调色、静音",
-    ),
-    Source(
         "pexels-karst-river-36932826.mp4",
         "https://www.pexels.com/video/scenic-view-of-karst-mountains-and-river-36932826/",
         "b5a2a9ed8694d36a0f2932f293d5753f1b6a83496ea6e50022d998570008f152",
@@ -99,12 +94,6 @@ SOURCES = (
         f"急流近景与水声｜João Pavese https://www.pexels.com/video/a-close-up-shot-of-the-cascading-water-in-the-river-4058993/ ｜{PEXELS}｜节选、调色、低通混音",
     ),
     Source(
-        "wikimedia-zunyi-site.jpg",
-        "https://commons.wikimedia.org/wiki/File:%E4%B8%80%E4%BB%A3%E4%BC%9F%E4%BA%BA%E6%AF%9B%E6%B3%BD%E4%B8%9C%E5%B4%9B%E8%B5%B7%E7%9A%84%E5%9C%B0%E6%96%B9_-_panoramio.jpg",
-        "2e029518ee03259e0f8adbe8a7e35aeb87642029f7506cf9f11e2afe0316925a",
-        f"遵义会议会址实景｜涔水影人 https://commons.wikimedia.org/wiki/File:%E4%B8%80%E4%BB%A3%E4%BC%9F%E4%BA%BA%E6%AF%9B%E6%B3%BD%E4%B8%9C%E5%B4%9B%E8%B5%B7%E7%9A%84%E5%9C%B0%E6%96%B9_-_panoramio.jpg ｜{CC_BY_3}｜建筑主体光学裁切、调色、缓推",
-    ),
-    Source(
         "mixkit-sunrise-mist-28339.mp4",
         "https://mixkit.co/free-stock-video/forest-covered-by-mist-at-sunrise-from-the-heights-28339/",
         "b9f5487e78d9eabe420f0eca6c8941576708c5099fe8188beb7b311bc4c9c219",
@@ -126,20 +115,22 @@ TIMELINE_CUTS = (
     ("misty-mountains", 1.85, 10.45),
     ("map-yudu-west", 10.45, 16.05),
     ("yudu-prep", 16.05, 18.00),
-    ("yudu-boats", 18.00, 21.10),
-    ("yudu-crossing", 21.10, 26.45),
+    ("yudu-bridge-3d", 18.00, 21.10),
+    ("yudu-night-3d", 21.10, 23.45),
+    ("yudu-crossing", 23.45, 26.45),
     ("karst-river", 26.45, 32.55),
     ("xiang-valley", 32.55, 36.15),
     ("xiang-rain", 36.15, 38.20),
-    ("xiang-aftermath", 38.20, 43.30),
+    ("xiang-crossing-3d", 38.20, 43.30),
     ("liping-rain-roof", 43.30, 46.20),
     ("liping-street", 46.20, 48.75),
     ("map-liping-turn", 48.75, 60.25),
     ("canyon-aerial", 60.25, 65.95),
     ("shore-rapids", 65.95, 69.50),
     ("wujiang-march", 69.50, 72.25),
-    ("zunyi-site", 72.25, 76.65),
-    ("zunyi-meeting", 76.65, 83.15),
+    ("zunyi-hall-3d", 72.25, 76.65),
+    ("zunyi-meeting", 76.65, 79.85),
+    ("zunyi-desk-3d", 79.85, 83.15),
     ("map-turning-recap", 83.15, 88.55),
     ("dawn-sunrise", 88.55, 91.60),
     ("ending-assembly", 91.60, TOTAL_SECONDS),
@@ -1084,8 +1075,8 @@ def draw_map_label(
 
 
 def render_map_yudu_west(total_frames: int) -> list[Image.Image]:
-    """暗调动态地图上篇：于都集结双环脉冲 + 滚动兵力数字 + 发光箭头路线西进湘江。"""
-    west, north, east, south = 105.8, 28.85, 116.8, 23.65
+    """暗调动态地图上篇：于都集结双环脉冲 + 滚动兵力数字 + 发光箭头路线西进湘江（全安全区内收）。"""
+    west, north, east, south = 104.2, 29.25, 118.4, 23.35
     base = build_dark_relief_base(west, north, east, south)
 
     def proj(lon: float, lat: float) -> tuple[float, float]:
@@ -1161,20 +1152,20 @@ def render_map_yudu_west(total_frames: int) -> list[Image.Image]:
             draw_map_label(draw, (xx, xy + 24), "湘江", font_city, (242, 226, 200, int(244 * a_xiang)), anchor="mt")
 
         composed = Image.alpha_composite(canvas, overlay).convert("RGB")
-        # 动态跟拍：开局略近看于都（1.12），随路线向西推进缓缓拉展并西移（1.02）。
+        # 轻量动态跟拍，确保左右两端地名在 4:3 / 16:10 / 16:9 视口下全部处于中央安全区。
         p_cam = ease(t)
-        zoom = 1.12 - 0.10 * p_cam
+        zoom = 1.05 - 0.05 * p_cam
         cw, ch = WIDTH / zoom, HEIGHT / zoom
-        left = (WIDTH - cw) * (0.86 - 0.44 * p_cam)
-        top = (HEIGHT - ch) * 0.54
+        left = (WIDTH - cw) * (0.64 - 0.16 * p_cam)
+        top = (HEIGHT - ch) * 0.50
         composed = composed.resize((WIDTH, HEIGHT), Image.Resampling.BICUBIC, box=(left, top, left + cw, top + ch))
         frames.append(composed)
     return frames
 
 
 def render_map_liping_turn(total_frames: int, shot_start_sec: float) -> list[Image.Image]:
-    """暗调动态地图下篇：流动北上虚线遇动态脉冲重兵防线 -> 黎平波纹决策改向黔北。"""
-    west, north, east, south = 105.6, 28.95, 112.1, 24.85
+    """暗调动态地图下篇：流动北上虚线遇动态脉冲重兵防线 -> 黎平波纹决策改向黔北（全安全区内收）。"""
+    west, north, east, south = 104.5, 29.35, 113.0, 24.55
     base = build_dark_relief_base(west, north, east, south)
 
     def proj(lon: float, lat: float) -> tuple[float, float]:
@@ -1328,18 +1319,18 @@ def render_map_liping_turn(total_frames: int, shot_start_sec: float) -> list[Ima
 
         composed = Image.alpha_composite(canvas, overlay).convert("RGB")
         p_cam = ease(i / max(1, total_frames - 1))
-        zoom = 1.00 + 0.065 * p_cam
+        zoom = 1.00 + 0.04 * p_cam
         cw, ch = WIDTH / zoom, HEIGHT / zoom
-        left = (WIDTH - cw) * (0.74 - 0.44 * p_cam)
-        top = (HEIGHT - ch) * (0.56 - 0.24 * p_cam)
+        left = (WIDTH - cw) * (0.60 - 0.22 * p_cam)
+        top = (HEIGHT - ch) * (0.52 - 0.12 * p_cam)
         composed = composed.resize((WIDTH, HEIGHT), Image.Resampling.BICUBIC, box=(left, top, left + cw, top + ch))
         frames.append(composed)
     return frames
 
 
 def render_map_turning_recap(total_frames: int) -> list[Image.Image]:
-    """全新全线四站时空回望动态沙盘（替代呆板翻书）：拉展全景、暖金流光巡掠四站并同步点亮时间轴。"""
-    west, north, east, south = 105.4, 29.15, 116.8, 23.45
+    """全线四站时空回望动态沙盘（安全区内收，底部四站时间轴交由前端响应式安全区叠层渲染）。"""
+    west, north, east, south = 104.0, 29.55, 118.2, 23.15
     base = build_dark_relief_base(west, north, east, south)
 
     def proj(lon: float, lat: float) -> tuple[float, float]:
@@ -1350,12 +1341,12 @@ def render_map_turning_recap(total_frames: int) -> list[Image.Image]:
     cum_dist = np.r_[0.0, np.cumsum(np.linalg.norm(np.diff(curve, axis=0), axis=1))]
     total_len = float(cum_dist[-1])
 
-    # 预计算四个核心站点的曲线位置比例与坐标。
+    # 预计算四个核心站点的曲线位置比例与坐标，地名严格收在中央水平安全区。
     milestones = [
-        ("于都", "1934.10", "集结", proj(115.41, 25.95), 0.00, (0, -34), "mb"),
+        ("于都", "1934.10", "集结", proj(115.41, 25.95), 0.00, (-12, -32), "rb"),
         ("湘江", "1934.11", "血战", proj(110.73, 25.83), 0.44, (0, 24), "mt"),
         ("黎平", "1934.12", "改向", proj(109.14, 26.23), 0.64, (-16, 26), "rm"),
-        ("遵义", "1935.01", "转折", proj(106.93, 27.69), 1.00, (-18, -4), "rm"),
+        ("遵义", "1935.01", "转折", proj(106.93, 27.69), 1.00, (16, -14), "lb"),
     ]
 
     # 常驻暗朱红全线底轨。
@@ -1444,46 +1435,13 @@ def render_map_turning_recap(total_frames: int) -> list[Image.Image]:
 
         composed = Image.alpha_composite(canvas, overlay).convert("RGB")
 
-        # 运镜：先略贴近西南（1.18），平滑拉远展露整条东—西长征全线（1.00）。
+        # 运镜：先略贴近全线中心（1.08），平滑拉远展露整条东—西长征全线（1.00）。
         p_cam = ease_out(t)
-        zoom = 1.18 - 0.18 * p_cam
+        zoom = 1.08 - 0.08 * p_cam
         cw, ch = WIDTH / zoom, HEIGHT / zoom
-        left = (WIDTH - cw) * (0.18 + 0.32 * p_cam)
-        top = (HEIGHT - ch) * (0.28 + 0.22 * p_cam)
+        left = (WIDTH - cw) * (0.42 + 0.08 * p_cam)
+        top = (HEIGHT - ch) * (0.36 + 0.14 * p_cam)
         composed = composed.resize((WIDTH, HEIGHT), Image.Resampling.BICUBIC, box=(left, top, left + cw, top + ch))
-
-        # 屏幕空间：在底部字幕正上方安全区（y=556）绘制极简动态四站细金时间轴，与地图流光同频点亮。
-        tl_alpha = ease_out((t_sec - 0.20) / 0.45) * (1.0 - ease((t_sec - (dur - 0.45)) / 0.45))
-        if tl_alpha > 0.01:
-            tl = Image.new("RGBA", (WIDTH, HEIGHT), (0, 0, 0, 0))
-            td = ImageDraw.Draw(tl)
-            x_start, x_end, ty = 220, WIDTH - 220, 566
-            # 轻透极简横条衬底。
-            td.rounded_rectangle(
-                (x_start - 58, ty - 34, x_end + 58, ty + 40),
-                radius=8,
-                fill=(13, 17, 16, int(124 * tl_alpha)),
-                outline=(218, 194, 146, int(74 * tl_alpha)),
-                width=1,
-            )
-            # 轨道底线与随流光推进的暖金进度线。
-            td.line([(x_start, ty), (x_end, ty)], fill=(214, 202, 176, int(76 * tl_alpha)), width=2)
-            prog_x = x_start + (x_end - x_start) * sweep
-            if prog_x > x_start + 1:
-                td.line([(x_start, ty), (prog_x, ty)], fill=(238, 186, 102, int(235 * tl_alpha)), width=3)
-
-            for idx_m, (name, date_s, kw, _, frac, _, _) in enumerate(milestones):
-                nx = x_start + (x_end - x_start) * (idx_m / 3.0)
-                lit_t = 0.45 + 3.70 * frac
-                lit_p = ease_out((t_sec - lit_t) / 0.40)
-                active = 0.38 + 0.62 * lit_p
-                r_node = 7 if (idx_m == 3 and lit_p > 0.5) else 5
-                fill_c = (248, 208, 128, int(250 * tl_alpha)) if lit_p > 0.1 else (170, 168, 158, int(155 * tl_alpha))
-                td.ellipse((nx - r_node, ty - r_node, nx + r_node, ty + r_node), fill=fill_c, outline=(255, 246, 224, int(220 * active * tl_alpha)), width=1)
-                td.text((nx, ty - 24), date_s, font=font_tl_date, fill=(224, 212, 184, int(218 * active * tl_alpha)), anchor="mm")
-                label_col = (252, 228, 166, int(250 * active * tl_alpha)) if idx_m == 3 and lit_p > 0.2 else (242, 232, 208, int(240 * active * tl_alpha))
-                td.text((nx, ty + 21), f"{name} · {kw}", font=font_tl_name, fill=label_col, anchor="mm")
-            composed = Image.alpha_composite(composed.convert("RGBA"), tl).convert("RGB")
 
         frames.append(composed)
     return frames
@@ -1622,25 +1580,13 @@ def render_all_shots(work: Path, sources: dict[str, Path]) -> list[tuple[dict, P
             write_frames_video(dst, seq)
 
         elif name == "misty-mountains":
-            def prologue_fx(frame: Image.Image, idx: int, total: int) -> Image.Image:
-                t_local = idx / FPS
-                dur = total / FPS
-                frame = draw_prologue_title_anim(frame, t_local)
-                # 第 02 句期间于右下安全区展开细线地标卡。
-                if t_local >= 4.70:
-                    frame = draw_animated_corner_badge(
-                        frame, t_local, dur, "中央苏区", "1934.10 · 战略转移",
-                        align="right", start_delay=4.75, end_margin=0.60,
-                    )
-                return frame
-
+            # 纯净苍茫云山航拍（序幕主纪年与中央苏区标牌由前端响应式安全区叠层同步渲染，彻底避免非 16:9 视口裁切）。
             render_video_clip(
                 sources["mixkit-misty-mountains-100190.mp4"],
                 dst,
                 start_sec=1.2,
                 frames=frames,
                 vf_extra="eq=brightness=-0.10:contrast=1.09:saturation=0.56,colorbalance=bs=0.05:gs=0.02:rs=-0.03",
-                overlay_fn=prologue_fx,
             )
 
         elif name == "map-yudu-west":
@@ -1655,14 +1601,24 @@ def render_all_shots(work: Path, sources: dict[str, Path]) -> list[tuple[dict, P
                 vf_extra="eq=brightness=-0.02:contrast=1.03:saturation=0.92",
             )
 
-        elif name == "yudu-boats":
-            # 暮色水岸停泊木船实拍（替代原浮桥静图放大），贴合“乡亲们卸下门板、划来渔船”。
+        elif name == "yudu-bridge-3d":
+            # 本课 3D 于都河岸黄昏架桥航拍（替代原违和欧美独木舟实拍）。
             render_video_clip(
-                sources["mixkit-wooden-boats-4314.mp4"],
+                RECORDED_3D / "3d-yudu-bridge.mp4",
                 dst,
-                start_sec=1.5,
+                start_sec=0.2,
                 frames=frames,
-                vf_extra="eq=brightness=-0.09:contrast=1.10:saturation=0.72,colorbalance=bs=0.05:rs=-0.02",
+                vf_extra="eq=brightness=-0.03:contrast=1.08:saturation=0.92",
+            )
+
+        elif name == "yudu-night-3d":
+            # 本课 3D 于都河岸星月夜渡低空滑移，与实景浮桥过河形成远近双机位衔接。
+            render_video_clip(
+                RECORDED_3D / "3d-yudu-night.mp4",
+                dst,
+                start_sec=0.2,
+                frames=frames,
+                vf_extra="eq=brightness=-0.02:contrast=1.07:saturation=0.94",
             )
 
         elif name == "yudu-crossing":
@@ -1702,42 +1658,24 @@ def render_all_shots(work: Path, sources: dict[str, Path]) -> list[tuple[dict, P
                 vf_extra="eq=brightness=-0.12:contrast=1.12:saturation=0.38,colorbalance=bs=0.07:gs=0.02:rs=-0.05",
             )
 
-        elif name == "xiang-aftermath":
-            mist = make_seamless_mist(1440, 320, seed=31)
-
-            def aftermath_fx(arr: np.ndarray, idx: int, total: int) -> None:
-                t_sec = idx / FPS
-                apply_drifting_mist(arr, mist, 0.22, 0.58, t_sec, speed_px_per_sec=22.0, opacity=0.22, x_mask_range=(0.24, 1.0))
-
-            seq = render_ken_burns(
-                ASSETS / "xiang-aftermath.jpg",
-                frames,
-                zoom_start=1.00,
-                zoom_end=1.065,
-                focus_start=(0.38, 0.54),
-                focus_end=(0.50, 0.48),
-                grade_rgb=(0.92, 0.94, 0.96),
-                brightness=-8.0,
-                pre_crop_fx=aftermath_fx,
-                overlay_fn=draw_xiang_aftermath_overlay(s["shot_start_sec"]),
+        elif name == "xiang-crossing-3d":
+            # 本课 3D 湘江寒江抢渡高空俯冲（替代原静图缩放与硬烧右侧兵力面板；兵力对比卡由前端响应式安全区叠层渲染）。
+            render_video_clip(
+                RECORDED_3D / "3d-xiang-crossing.mp4",
+                dst,
+                start_sec=0.3,
+                frames=frames,
+                vf_extra="eq=brightness=-0.04:contrast=1.08:saturation=0.88",
             )
-            write_frames_video(dst, seq)
 
         elif name == "liping-rain-roof":
-            # 青瓦老墙屋檐落雨动态实拍，自然接入贵州黎平古镇暮色，打破单图放大。
-            def roof_overlay(frame: Image.Image, idx: int, total: int) -> Image.Image:
-                return draw_animated_corner_badge(
-                    frame, idx / FPS, total / FPS, "贵州黎平", "1934.12",
-                    align="left", start_delay=0.40, end_margin=0.45,
-                )
-
+            # 青瓦老墙屋檐落雨动态实拍（贵州黎平标牌交由前端响应式安全区叠层渲染）。
             render_video_clip(
                 sources["mixkit-rain-roof-2738.mp4"],
                 dst,
                 start_sec=0.3,
                 frames=frames,
                 vf_extra="eq=brightness=-0.11:contrast=1.12:saturation=0.58,colorbalance=bs=0.06:gs=0.02:rs=-0.03",
-                overlay_fn=roof_overlay,
             )
 
         elif name == "liping-street":
@@ -1795,12 +1733,6 @@ def render_all_shots(work: Path, sources: dict[str, Path]) -> list[tuple[dict, P
                 t_sec = idx / FPS
                 apply_drifting_mist(arr, mist, 0.16, 0.54, t_sec, speed_px_per_sec=-26.0, opacity=0.26, tint_rgb=(188, 204, 214), x_mask_range=(0.28, 0.95))
 
-            def wujiang_overlay(frame: Image.Image, idx: int, total: int) -> Image.Image:
-                return draw_animated_corner_badge(
-                    frame, idx / FPS, total / FPS, "乌江天险", "1935.01",
-                    align="left", start_delay=0.35, end_margin=0.55,
-                )
-
             seq = render_ken_burns(
                 ASSETS / "wujiang.jpg",
                 frames,
@@ -1811,43 +1743,18 @@ def render_all_shots(work: Path, sources: dict[str, Path]) -> list[tuple[dict, P
                 grade_rgb=(0.91, 0.94, 0.97),
                 brightness=-8.0,
                 pre_crop_fx=wujiang_fx,
-                overlay_fn=wujiang_overlay,
             )
             write_frames_video(dst, seq)
 
-        elif name == "zunyi-site":
-            # 光学裁切会址二层核心立面，推近二楼正厅窗棂同时窗内柔亮起一丝油灯微光，无缝引向室内会议。
-            def site_fx(arr: np.ndarray, idx: int, total: int) -> None:
-                t_sec = idx / FPS
-                dur = total / FPS
-                lamp_p = ease((t_sec - 1.6) / max(0.5, dur - 2.0))
-                if lamp_p > 0.01:
-                    flicker = 1.0 + 0.08 * math.sin(t_sec * 6.0)
-                    # 二楼正厅中右两扇窗内透出微弱油灯暖意，预告下一镜室内长桌。
-                    apply_radial_glow(arr, 0.435, 0.565, 0.055, (255, 192, 100), 0.34 * lamp_p * flicker)
-                    apply_radial_glow(arr, 0.220, 0.565, 0.048, (255, 186, 94), 0.24 * lamp_p * flicker)
-
-            def site_overlay(frame: Image.Image, idx: int, total: int) -> Image.Image:
-                return draw_animated_corner_badge(
-                    frame, idx / FPS, total / FPS, "贵州遵义", "遵义会议会址",
-                    align="right", start_delay=0.55, end_margin=0.65,
-                )
-
-            seq = render_ken_burns(
-                sources["wikimedia-zunyi-site.jpg"],
-                frames,
-                zoom_start=1.00,
-                zoom_end=1.095,
-                focus_start=(0.48, 0.50),
-                focus_end=(0.41, 0.55),
-                grade_rgb=(0.86, 0.85, 0.82),
-                brightness=-12.0,
-                crop_norm=(0.255, 0.105, 0.895, 0.560),
-                top_nd_alpha=0.72,
-                pre_crop_fx=site_fx,
-                overlay_fn=site_overlay,
+        elif name == "zunyi-hall-3d":
+            # 本课 3D 遵义材料厅暮色庭院一镜穿门运镜（替代原静态会址老照片缩放，贵州遵义标牌交由前端安全区叠层）。
+            render_video_clip(
+                RECORDED_3D / "3d-zunyi-hall.mp4",
+                dst,
+                start_sec=0.3,
+                frames=frames,
+                vf_extra="eq=brightness=-0.02:contrast=1.06:saturation=0.94",
             )
-            write_frames_video(dst, seq)
 
         elif name == "zunyi-meeting":
             render_video_clip(
@@ -1858,8 +1765,18 @@ def render_all_shots(work: Path, sources: dict[str, Path]) -> list[tuple[dict, P
                 vf_extra="eq=brightness=-0.01:contrast=1.04:saturation=0.95",
             )
 
+        elif name == "zunyi-desk-3d":
+            # 本课精修 3D 会议桌实景特写（煤油灯下翻开手记、解绳揭封、展开路线图），自然呼应“集中解决军事和组织问题”。
+            render_video_clip(
+                RECORDED_3D / "3d-zunyi-desk.mp4",
+                dst,
+                start_sec=0.8,
+                frames=frames,
+                vf_extra="eq=brightness=-0.01:contrast=1.06:saturation=0.96",
+            )
+
         elif name == "map-turning-recap":
-            # 彻底取代呆板机械翻书：四站流光全线回望 + 细金动态时间轴。
+            # 四站流光全线回望动态沙盘（底部时间轴交由前端响应式叠层渲染）。
             write_frames_video(dst, render_map_turning_recap(frames))
 
         elif name == "dawn-sunrise":
@@ -1984,7 +1901,6 @@ def assemble_final(work: Path, rendered: list[tuple[dict, Path]], ass_path: Path
     )
     filters.append(
         f"[{cur_label}][vig]overlay=0:0:shortest=1:enable='between(t,0.65,{vig_end:.3f})',"
-        f"subtitles=filename='{ass_path.name}',"
         f"trim=end_frame={TOTAL_FRAMES},setpts=PTS-STARTPTS,format=yuv420p[picture]"
     )
 

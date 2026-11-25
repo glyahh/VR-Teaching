@@ -1,16 +1,19 @@
 const wujiangApproach = route.slice(7);
-const journeyLegs: Record<string, [number, number] | undefined> = {
-  'liping-table/wujiang': [7, 8],
-  'wujiang/zunyi': [8, 9],
-};
+const abandonedNorthPlan: readonly Point[] = [
+  [109.14, 26.23], [109.55, 27.12], [110.41, 28.76],
+];
+
 const spatialJourneys = [
-  { id: 'yudu-xiang', from: 'yudu', to: 'xiang', first: 0, last: 4 },
-  { id: 'xiang-liping', from: 'xiang-aftermath', to: 'liping-street', first: 4, last: 6 },
+  { id: 'yudu-xiang', fromTitle: '夜渡于都河', toTitle: '湘江河谷', from: 'yudu', first: 0, last: 4, abandoned: false },
+  { id: 'xiang-liping', fromTitle: '渡江之后', toTitle: '黎平翘街', from: 'xiang-aftermath', first: 4, last: 6, abandoned: false },
+  { id: 'liping-houchang', fromTitle: '进军方向', toTitle: '猴场会议', from: 'liping-table', first: 6, last: 7, abandoned: true },
+  { id: 'houchang-wujiang', fromTitle: '猴场会议', toTitle: '渡过乌江', from: 'liping-table', first: 7, last: 8, abandoned: false },
+  { id: 'wujiang-zunyi', fromTitle: '渡过乌江', toTitle: '遵义会议室', from: 'wujiang', first: 8, last: 9, abandoned: false },
 ] as const;
 type SpatialJourney = { id: typeof spatialJourneys[number]['id']; startedAt: number };
 
-function findSpatialJourney(from: string, to: string) {
-  return spatialJourneys.find(leg => leg.from === from && leg.to === to)?.id;
+function findSpatialJourney(fromTitle: string, toTitle: string) {
+  return spatialJourneys.find(leg => leg.fromTitle === fromTitle && leg.toTitle === toTitle)?.id;
 }
 
 function routeCanvas() {
@@ -41,6 +44,7 @@ function playSpatialJourney(scene: HTMLElement, journey: SpatialJourney, signal:
   const leg = spatialJourneys.find(route => route.id === journey.id);
   const traceEnd = 1460, pullbackStart = 1680, overviewStart = 2500, fadeStart = 3410, end = 3670;
   if (!leg || reducedMotion.matches || sceneNow() - journey.startedAt >= end || signal.aborted) return;
+  if (!projectionMode) soundscape.playSfx('route');
   const layer = element('div','journey-layer spatial-journey');
   layer.setAttribute('aria-hidden','true');
   const before = photo(leg.from);
@@ -50,11 +54,18 @@ function playSpatialJourney(scene: HTMLElement, journey: SpatialJourney, signal:
   const svg = routeCanvas();
   const full = diagramPath('','route spatial-full');
   const earlier = diagramPath('','route spatial-prior');
+  const abandoned = leg.abandoned ? diagramPath('','route spatial-abandoned') : undefined;
   const trace = diagramPath('','route past');
-  for (const line of [full, earlier, trace]) line.setAttribute('vector-effect','non-scaling-stroke');
-  svg.append(full, earlier, trace);
+  for (const line of [full, earlier, trace, ...(abandoned ? [abandoned] : [])]) {
+    line.setAttribute('vector-effect','non-scaling-stroke');
+  }
+  svg.append(full, earlier);
+  if (abandoned) svg.append(abandoned);
+  svg.append(trace);
 
+  const comet = element('span', 'spatial-comet');
   const names = element('div','spatial-map-names');
+  names.append(comet);
   const labels = routeStops.flatMap(({ name, point, side }, index) => {
     if (!name) return [];
     const node = element('span','spatial-station',name);
@@ -70,6 +81,7 @@ function playSpatialJourney(scene: HTMLElement, journey: SpatialJourney, signal:
   const past = sampleTerrainPath(points.slice(0, leg.first + 1));
   const total = sampleTerrainPath(points);
   const line = sampleTerrainPath(section);
+  const abandonedLine = leg.abandoned ? sampleTerrainPath(abandonedNorthPlan.map(position)) : [];
   const relief = createTerrainSurface(projectGeometry);
   let anchors: Point[] = [];
   let far: Point[] = [];
@@ -92,6 +104,7 @@ function playSpatialJourney(scene: HTMLElement, journey: SpatialJourney, signal:
     near = section.map(relief.project);
     full.setAttribute('d',routePath(total.map(relief.project)));
     if (past.length > 1) earlier.setAttribute('d',routePath(past.map(relief.project)));
+    if (abandoned && abandonedLine.length > 1) abandoned.setAttribute('d', routePath(abandonedLine.map(relief.project)));
     projectedLine = line.map(relief.project);
     let distance = 0;
     distances = projectedLine.map(([x,y], index) => {
@@ -104,15 +117,16 @@ function playSpatialJourney(scene: HTMLElement, journey: SpatialJourney, signal:
     layer.dataset.terrain = relief.ready ? 'relief' : 'raster';
   }
 
-  function tracedPath(fraction: number) {
-    if (fraction <= 0) return '';
-    if (fraction >= 1) return routePath(projectedLine);
+  function tracedPointAndPath(fraction: number): { d: string; head?: Point } {
+    if (fraction <= 0 || !projectedLine.length) return { d: '' };
+    if (fraction >= 1) return { d: routePath(projectedLine), head: projectedLine[projectedLine.length - 1] };
     const distance = distances[distances.length - 1] * fraction;
     const next = distances.findIndex(value => value > distance);
-    if (next < 1) return '';
+    if (next < 1) return { d: '', head: projectedLine[0] };
     const [x,y] = projectedLine[next - 1], [toX,toY] = projectedLine[next];
     const t = (distance - distances[next - 1]) / (distances[next] - distances[next - 1]);
-    return routePath([...projectedLine.slice(0,next), [x+(toX-x)*t,y+(toY-y)*t]]);
+    const head: Point = [x + (toX - x) * t, y + (toY - y) * t];
+    return { d: routePath([...projectedLine.slice(0,next), head]), head };
   }
 
   function fit(path: readonly Point[], roomX: number, roomY: number) {
@@ -145,7 +159,16 @@ function playSpatialJourney(scene: HTMLElement, journey: SpatialJourney, signal:
     before.style.opacity = String(1 - clamp(elapsed / 205));
     full.style.opacity = String(.14 + .37 * pull);
     earlier.style.opacity = '.53';
-    trace.setAttribute('d',tracedPath(reveal));
+    if (abandoned) abandoned.style.opacity = String(0.56 * (1 - 0.55 * reveal));
+    const { d, head } = tracedPointAndPath(reveal);
+    trace.setAttribute('d', d);
+    if (head && reveal > 0.01 && reveal < 0.995) {
+      comet.style.opacity = '1';
+      comet.style.left = (left + worldWidth * head[0] / 100) + 'px';
+      comet.style.top = (top + worldHeight * head[1] / 100) + 'px';
+    } else {
+      comet.style.opacity = '0';
+    }
 
     type Box = { x: number; y: number; w: number; h: number };
     const used: Box[] = [];
@@ -261,47 +284,6 @@ function centerRouteWorld(world: HTMLElement, focus: Point, zoom: number) {
   world.style.width = world.style.height = (zoom * 100) + '%';
   world.style.left = (50 - focus[0] * zoom) + '%';
   world.style.top = (50 - focus[1] * zoom) + '%';
-}
-
-function playJourney(scene: HTMLElement, departing: HTMLImageElement | null, leg: [number, number], terrain: HTMLElement | null) {
-  if (reducedMotion.matches || (!terrain && (!departing?.complete || !departing.naturalWidth))) return;
-  const layer = element('div','journey-layer');
-  layer.setAttribute('aria-hidden','true');
-  const before = terrain ?? element('img','journey-departure');
-  if (before instanceof HTMLImageElement && departing) {
-    before.src = departing.currentSrc || departing.src;
-    before.alt = '';
-  }
-  const atlas = element('div','journey-atlas');
-  const world = element('div','journey-world');
-  const backdrop = element('div','terrain-surface');
-  backdrop.style.backgroundImage = 'url(' + mediaAssets.terrain + ')';
-  const svg = routeCanvas();
-  const [start,end] = leg;
-  const points = route.slice(start,end+1).map(position);
-  const begin = points[0], finish = points.at(-1)!;
-  const zoom = Math.min(5.2, 54 / Math.max(10, Math.abs(begin[0]-finish[0]), Math.abs(begin[1]-finish[1])));
-  centerRouteWorld(world,[(begin[0]+finish[0])/2,(begin[1]+finish[1])/2],zoom);
-  const previous = route.slice(0,start+1).map(position);
-  if (previous.length > 1) svg.append(diagramPath(routePath(previous),'route'));
-  const path = routePath(points);
-  svg.append(diagramPath(path,'route'));
-  const advance = diagramPath(path,'route past');
-  svg.append(advance);
-  world.append(backdrop,svg);
-  atlas.append(world);
-  layer.append(before,atlas);
-  scene.append(layer);
-  before.style.zIndex = '0';
-  before.style.opacity = '0';
-  const trip = animatePart(atlas,[
-    {opacity:0},{opacity:1,offset:.21},{opacity:1,offset:.8},{opacity:0},
-  ],1150,0,'linear');
-  animatePart(before,[{opacity:1},{opacity:1,offset:.94},{opacity:0}],265,0,'linear');
-  drawLine(advance,210,665);
-  const remove = () => layer.remove();
-  if (trip) void trip.finished.then(remove,remove);
-  else remove();
 }
 
 function playRiverExit(scene: HTMLElement, departing: HTMLCanvasElement) {

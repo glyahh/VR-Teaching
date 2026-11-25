@@ -69,12 +69,14 @@ class Classroom:
 
 
 @contextmanager
-def launch(html, viewport, reduced='no-preference'):
+def launch(html, viewport, reduced='no-preference', video_dir=None):
     with TemporaryDirectory(prefix='long-march-edge-') as directory, sync_playwright() as playwright:
         standalone = Path(directory) / 'lesson.html'
         copyfile(html, standalone)
         with playwright.chromium.launch(channel='msedge', headless=True, args=['--enable-unsafe-swiftshader']) as browser:
-            with browser.new_context(offline=True, service_workers='block', viewport=viewport, reduced_motion=reduced) as context:
+            video = {'record_video_dir': video_dir, 'record_video_size': viewport} if video_dir else {}
+            with browser.new_context(offline=True, service_workers='block', viewport=viewport,
+                    reduced_motion=reduced, **video) as context:
                 errors = []
                 context.on('weberror', lambda event: errors.append(str(event.error)))
                 yield context, standalone.as_uri(), browser.version, errors
