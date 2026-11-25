@@ -33,6 +33,31 @@
   border-color: rgb(var(--silver) / 0.20);
 }
 
+/* Video never blends with the live scene. The matte also covers portrait aspect ratios. */
+.exploration-stage .river-short,
+.exploration-stage .river-short-backdrop {
+  position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%;
+  pointer-events: none;
+}
+.exploration-stage .river-short { object-fit: contain; opacity: 0; }
+.exploration-stage .river-short-backdrop { display: none; background: #0c131b center / contain no-repeat; }
+.exploration-stage[data-river-short-visible] .river-short-backdrop { display: block; }
+.lesson-exploration[data-river-short-visible] #river-instruction {
+  inset: auto 0 calc(max(var(--river-action-bottom, 28px), 24px) + 58px);
+  margin-inline: auto;
+  width: max-content;
+  max-width: min(92%, 1000px);
+  box-sizing: border-box;
+  padding: .28em .68em;
+  border-radius: 5px;
+  text-align: center;
+  color: #fff;
+  font-size: clamp(18px, 1.68vw, 31px);
+  font-weight: 600;
+  background: rgb(12 14 18 / 0.66);
+}
+.exploration-stage[data-river-short-visible] #markers { visibility: hidden; }
+
 #markers { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .exploration-stage .marker {
   position: absolute; transform: translate(-50%, -100%); pointer-events: auto;

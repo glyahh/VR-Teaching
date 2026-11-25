@@ -19,6 +19,16 @@ for (const name of ['yudu','xiang','zunyi']) {
   assets[name] = 'data:image/png;base64,' + (await read('./assets/'+name+'.png')).toString('base64');
   assets[name+'-video'] = 'data:video/mp4;base64,' + (await read('./assets/'+name+'.mp4')).toString('base64');
 }
+const riverShortCaptions = JSON.parse(await read('./media-source/yudu-voice-captions.json','utf8'));
+for (const name of ['approach','under-bridge','deck','night-crossing','clear-bridge']) {
+  assets['river-short-caption-'+name] = riverShortCaptions[name];
+  assets['river-short-'+name] = 'data:video/mp4;base64,' +
+    (await read('./assets/yudu-river/shorts/'+name+'.mp4')).toString('base64');
+  for (const edge of ['start','end']) {
+    assets['river-short-'+name+'-'+edge] = 'data:image/jpeg;base64,' +
+      (await read('./assets/yudu-river/shorts/'+name+'-'+edge+'.jpg')).toString('base64');
+  }
+}
 assets['yudu-preparation-video'] = 'data:video/mp4;base64,' + (await read('./assets/yudu-preparation.mp4')).toString('base64');
 for (const name of ['yudu-bank','yudu-bridge','xiang-ford','liping-street','liping-table','yudu-assembly','xiang-aftermath','wujiang','zunyi-dawn']) {
   assets[name] = 'data:image/jpeg;base64,' + (await read('./assets/'+name+'.jpg')).toString('base64');

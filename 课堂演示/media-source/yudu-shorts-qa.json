@@ -1,0 +1,162 @@
+[
+  {
+    "key": "approach",
+    "prompt": "Open on the reference's composition. One continuous 1934 Yudu documentary-reconstruction take. Keep the same stone landing, boat-supported planks, queue, palette, and clothing. The first two people move forward one natural short step, the rest follow with staggered pauses, the hooded lantern swings faintly, the water ripples. Gentle shoulder-height forward drift behind the line, ending with the bridge entrance clear. Faces mostly turned away. Preserve timber geometry, identities and hill silhouette. No added people, no dialogue, no text, no cut, no fade.",
+    "input_sha256": "e87555ab27977c768f4387220b5cc8c11abf321a83f7632973e96c165d8c3230",
+    "source_sha256": "379fd5995a8829f9e5b1bfc2ac8d5670aa6e67a9e866ab06b3486a5ebf065965",
+    "output_sha256": "3d041a48594bf8cc4755130086b7b8d46e55f9769789d1f0520c65bc8cae47ca",
+    "fps": 24,
+    "source_in": 0,
+    "source_out_exclusive": 89,
+    "bytes": 700361,
+    "music": {
+      "title": "Hiraeth",
+      "creator": "Scott Buckley",
+      "license": "CC BY 4.0",
+      "source_sha256": "6130087add8fb7a20ce20e2651ab8703baf4901c23fd471833ab47873512ff6d",
+      "in": 0.0,
+      "out": 3.708333
+    },
+    "narration": {
+      "source": "Kokoro v1.1 zh (int8)",
+      "speaker": "zm_009",
+      "speed": 0.98,
+      "voice_sha256": "cbb1115d49dbf38a55746256239a1427f8c563d96d540b53c890beed989d3e7d",
+      "trim": [
+        0.015,
+        2.81
+      ],
+      "time_stretch": 1,
+      "in": 0.14,
+      "out": 2.935
+    }
+  },
+  {
+    "key": "under-bridge",
+    "prompt": "Open on the reference's side-on waterline composition. A single short slow lateral track along the surface of the same two sampans, looking at the hemp ties and fixed contact between beam and boat gunwale. Water moves separately below; the fastened hulls and structure move as one only by a few millimetres. End with the nearer support and the attached ropes sharp enough to see. Preserve every beam, hull and rope; physically rigid connected wooden components; no floating wood, no person, no text, no cut, no fade.",
+    "input_sha256": "2c888af731a07045144ab3c16911c73efdf637a7336e9244b0ae42eaa37b49b3",
+    "source_sha256": "f2a742beabd70cd7a695d79059c623ebc06c5fb520c80bc50eb9cd49a8d39294",
+    "output_sha256": "fc39395e09a01db557a97d7dcb463c35899158e95e436d3142438d0aeacc18f3",
+    "fps": 24,
+    "source_in": 7,
+    "source_out_exclusive": 83,
+    "bytes": 598954,
+    "music": {
+      "title": "Hiraeth",
+      "creator": "Scott Buckley",
+      "license": "CC BY 4.0",
+      "source_sha256": "6130087add8fb7a20ce20e2651ab8703baf4901c23fd471833ab47873512ff6d",
+      "in": 3.708333,
+      "out": 6.875
+    },
+    "narration": {
+      "source": "Kokoro v1.1 zh (int8)",
+      "speaker": "zm_009",
+      "speed": 0.98,
+      "voice_sha256": "916f7fe01c5026518ebd4f5310bba4ce3d7ce765d587eb333c38f624330bb922",
+      "trim": [
+        0.015,
+        2.49
+      ],
+      "time_stretch": 1,
+      "in": 0.14,
+      "out": 2.615
+    }
+  },
+  {
+    "key": "deck",
+    "prompt": "Open on the reference's two men already holding the reclaimed wooden door plank. Single fixed medium shot from the same angle. In the first two seconds they bend their knees naturally and lower that one rigid horizontal plank onto both visible timber rails; in the third second it sits flush and still on both supports; only after stable contact do both adults release their fingers and straighten slightly. End with the board and its supports unobscured. Exact same pair, costumes and location; keep hands anatomically stable and contact readable. No cuts, no fade, no other changes, no added text.",
+    "input_sha256": "4b024ea8e9a4f444c55c14c539ee96391e721da88605911b399892962e452184",
+    "source_sha256": "703d89f478e15ed168a1ef329672409d538edb2f8f9abccaf2061646cd63e365",
+    "output_sha256": "539161ac1c69e784d2e25739f211db9739cf18aafb0bb39ba576b505da56efe0",
+    "fps": 24,
+    "source_in": 1,
+    "source_out_exclusive": 97,
+    "bytes": 741891,
+    "music": {
+      "title": "Hiraeth",
+      "creator": "Scott Buckley",
+      "license": "CC BY 4.0",
+      "source_sha256": "6130087add8fb7a20ce20e2651ab8703baf4901c23fd471833ab47873512ff6d",
+      "in": 6.875,
+      "out": 10.875
+    },
+    "narration": {
+      "source": "Kokoro v1.1 zh (int8)",
+      "speaker": "zm_009",
+      "speed": 0.98,
+      "voice_sha256": "c77753004499c1574dc36c5790aca43757d79e8bf13e5466930a2b34ba506d23",
+      "trim": [
+        0.025,
+        3.42
+      ],
+      "time_stretch": 1,
+      "in": 0.14,
+      "out": 3.535
+    }
+  },
+  {
+    "key": "night-crossing",
+    "prompt": "Open on the reference's night setup. The same small group walks to the right in spaced single file across this single visible crossing; two natural heel-to-toe steps per nearest walker, no feet clipping or skating. The camera tracks very slowly parallel from the bank, same horizon. Small shielded lanterns and water reflections drift naturally; plank geometry is stable and the boat hulls remain attached. Keep the silhouettes readable and the same number of people. No dialogue, no cuts, no transition, no text.",
+    "input_sha256": "0a6dda240215ad402c9f90044759b4b44084604605460237fd45ba9329b7fcb4",
+    "source_sha256": "7b70f6d9d0ec0c397c0773e416489734cb2c474cdd6bdf29edd24097513c6448",
+    "output_sha256": "74d471dbc7d685ae9fc14854a755bec4be365d9e37d19f195009356ebc1e7cef",
+    "fps": 24,
+    "source_in": 1,
+    "source_out_exclusive": 89,
+    "bytes": 696110,
+    "music": {
+      "title": "Hiraeth",
+      "creator": "Scott Buckley",
+      "license": "CC BY 4.0",
+      "source_sha256": "6130087add8fb7a20ce20e2651ab8703baf4901c23fd471833ab47873512ff6d",
+      "in": 10.875,
+      "out": 14.541667
+    },
+    "narration": {
+      "source": "Kokoro v1.1 zh (int8)",
+      "speaker": "zm_009",
+      "speed": 0.98,
+      "voice_sha256": "4585c5069bd4c0139e994a2ceca83cc11bc0f89e19d124bf9533a1d891b9d87b",
+      "trim": [
+        0.015,
+        2.79
+      ],
+      "time_stretch": 1,
+      "in": 0.14,
+      "out": 2.915
+    }
+  },
+  {
+    "key": "clear-bridge",
+    "prompt": "Open on the reference's pale dawn composition. Still camera, single unbroken shot. The nearer boatman pays out a short length of slack hemp rope smoothly with both hands while the other steadies his stance and holds his coil; the empty sampan glides gently away from the already-open gap, a slight wake appears, a stack of removed planks stays motionless on the bank. End holding the readable water gap and the boat. Keep both landing sides, distant ridge and rope's continuity stable. No sudden collapse, no time lapse, no cuts, no fade, no text.",
+    "input_sha256": "3d9089893c3e304935e6193785889e94ebddf346e90309d59043f707382bb769",
+    "source_sha256": "4187c23992a353373cc1d48137e15f917abceeddf3d14bc0f32d6da979851a3f",
+    "output_sha256": "0c3c4e742fed8768212e8cfd332627e520bac56e9fed54460ae669ee0db17c87",
+    "fps": 24,
+    "source_in": 1,
+    "source_out_exclusive": 96,
+    "bytes": 794774,
+    "music": {
+      "title": "Hiraeth",
+      "creator": "Scott Buckley",
+      "license": "CC BY 4.0",
+      "source_sha256": "6130087add8fb7a20ce20e2651ab8703baf4901c23fd471833ab47873512ff6d",
+      "in": 14.541667,
+      "out": 18.5
+    },
+    "narration": {
+      "source": "Kokoro v1.1 zh (int8)",
+      "speaker": "zm_009",
+      "speed": 0.98,
+      "voice_sha256": "2ecdcb54d364a02afde31d15dcff985f7d67acde95e5014a63feec8c179a322f",
+      "trim": [
+        0.015,
+        3.27
+      ],
+      "time_stretch": 1,
+      "in": 0.14,
+      "out": 3.395
+    }
+  }
+]

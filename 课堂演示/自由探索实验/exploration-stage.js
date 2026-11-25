@@ -55,9 +55,10 @@ export function hallClues(view) {
 
 /** @param {{
  *   assets: Readonly<Record<string, string>>, stage?: HTMLElement, projection?: boolean,
- *   onChange?: (immediate: boolean) => void, onSwitch?: (id: string, previous?: string) => void
+ *   onChange?: (immediate: boolean) => void, onSwitch?: (id: string, previous?: string) => void,
+ *   narration?: { isMuted: () => boolean, onMuteChange: (fn: (muted: boolean) => void) => () => void, setVideoDuck: (active: boolean) => void }
  * }} options */
-export function createExploration({ assets, stage: sampleStage, onSwitch, projection = false, onChange }) {
+export function createExploration({ assets, stage: sampleStage, onSwitch, projection = false, onChange, narration }) {
   const stage = sampleStage ?? document.createElement('section');
   if (!sampleStage) {
     stage.className = 'lesson-exploration exploration-stage';
@@ -95,7 +96,7 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
     const subscriptions = [];
     const entry = { id, markers, subscriptions, input: null, controller: null };
     const loaded = scenes[id].start({
-      ...overlay, stage, canvas, reduced, viewport, projection,
+      ...overlay, stage, canvas, reduced, viewport, projection, narration,
       inspect: stage.querySelector('#inspect'),
       instruction: stage.querySelector('#instruction'),
       summary: stage.querySelector('#summary'),

@@ -39,7 +39,7 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
 }) {
   const labels = explorationLabels[id];
   const activity = () => explorationActivity ??= explorationStage.createExploration({
-    assets: mediaAssets,
+    assets: mediaAssets, narration: soundscape,
   });
   let surface: 'static' | 'loading' | 'exploration' = 'static';
   let request = 0;

@@ -109,6 +109,121 @@ export async function startRiver(ui, assets) {
   let comparisonRound = firstRound;
   let viewBeforeComparison = null;
 
+  // The guided sequence is original video. The live canvas is used only for
+  // free observation, evidence inspection and the allocation simulation.
+  const clipKeys = ['approach','under-bridge','deck','night-crossing','clear-bridge'];
+  const clip = !ui.projection && clipKeys.every(key => assets['river-short-'+key])
+    ? document.createElement('video') : null;
+  const backdrop = clip ? document.createElement('div') : null;
+  let clipIndex = -1;
+  let clipGeneration = 0;
+  let clipRequested = 0;
+  let clipMoved = 0;
+  let clipTime = 0;
+  let staticClip = false;
+  let clipStarted = false;
+  let releaseVoiceMute;
+  function setVoiceDuck(playing) { ui.narration?.setVideoDuck(playing && !clip?.muted); }
+  if (clip && backdrop) {
+    backdrop.className = 'river-short-backdrop';
+    backdrop.setAttribute('aria-hidden','true');
+    clip.className = 'river-short';
+    clip.muted = ui.narration?.isMuted() ?? false;
+    releaseVoiceMute = ui.narration?.onMuteChange(muted => {
+      clip.muted = muted;
+      setVoiceDuck(!clip.paused && phase === 'playing');
+    });
+    clip.playsInline = true;
+    clip.preload = 'auto';
+    clip.setAttribute('aria-hidden','true');
+    ui.canvas.after(backdrop, clip);
+  }
+
+  function paintClip(decoded, key = '', edge = 'start') {
+    if (!clip || !backdrop) return;
+    const visible = !!key;
+    const poster = visible && assets['river-short-'+key+'-'+edge];
+    backdrop.style.backgroundImage = poster ? 'url("'+poster+'")' : '';
+    clip.style.opacity = decoded ? '1' : '0';
+    ui.stage.toggleAttribute('data-river-short-visible', visible);
+  }
+
+  function stopClip(clear = false) {
+    if (!clip) return;
+    ++clipGeneration;
+    clip.pause();
+    setVoiceDuck(false);
+    paintClip(false);
+    if (clear) {
+      clipIndex = -1;
+      if (clip.hasAttribute('src')) {
+        clip.removeAttribute('src');
+        clip.load();
+      }
+    }
+  }
+
+  function holdClip(i) {
+    if (!clip || !clipKeys[i]) return;
+    ++clipGeneration;
+    clip.pause();
+    setVoiceDuck(false);
+    clipIndex = -1;
+    if (clip.hasAttribute('src')) {
+      clip.removeAttribute('src');
+      clip.load();
+    }
+    paintClip(false, clipKeys[i], 'end');
+  }
+
+  function playClip() {
+    const key = clipKeys[index];
+    if (!clip || !key) return;
+    const request = ++clipGeneration;
+    staticClip = ui.reduced.matches;
+    clipStarted = false;
+    clipRequested = clipMoved = performance.now();
+    clipTime = elapsed;
+    const stillDecoded = clipIndex === index && elapsed > 0 &&
+      clip.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && !clip.seeking;
+    paintClip(!staticClip && stillDecoded,key,staticClip ? 'end' : 'start');
+    if (staticClip) return;
+    if (clipIndex !== index || !clip.hasAttribute('src')) {
+      clipIndex = index;
+      clip.src = assets['river-short-'+key];
+      if (elapsed > 0) clip.currentTime = elapsed;
+    }
+    void clip.play().then(() => {
+      if (request === clipGeneration && !clip.paused) {
+        clipStarted = true;
+        clipMoved = performance.now();
+        setVoiceDuck(true);
+      }
+    }).catch(() => {
+      if (request === clipGeneration) {
+        staticClip = true;
+        holdClip(index);
+      }
+    });
+  }
+
+  function videoDelta(now) {
+    if (!clip) return null;
+    if (staticClip || ui.reduced.matches || clip.error) {
+      holdClip(index);
+      return beats[index].duration - elapsed;
+    }
+    if (!clipStarted || clip.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || clip.seeking || clipIndex !== index) {
+      if (now - clipRequested > 4000) { staticClip = true; return 0; }
+      return 0;
+    }
+    const next = Math.min(beats[index].duration, clip.ended ? beats[index].duration : clip.currentTime);
+    if (next > clipTime + 0.001) { clipTime = next; clipMoved = now; }
+    if (now - clipMoved > 4000) { staticClip = true; return 0; }
+    if (clip.style.opacity !== '1') paintClip(true,clipKeys[index]);
+    return Math.max(0,next - elapsed);
+  }
+
   function notify() {
     ui.changed?.(true);
   }
@@ -216,7 +331,7 @@ export async function startRiver(ui, assets) {
     },
     {
       label: '看桥下', duration: 3.1,
-      caption: '从侧面看桥板下面。', hold: '缺船的地方，桥板断开了。',
+      caption: '从侧面看桥板下面。', hold: '船舷托住纵梁。想看缺船处的断口，点「看构件」。',
       enter() {
         selected = 'downstream';
         cameraTo(downstream.anchor.clone().add(new THREE.Vector3(0, 0.46, 0.7)),
@@ -239,7 +354,7 @@ export async function startRiver(ui, assets) {
     },
     {
       label: '看夜渡', duration: 3.6,
-      caption: '两处渡口分别放行。', hold: '夜里能过河的时间有限。分到不同渡口，几路队伍就能同时过河。',
+      caption: '镜头里是一处渡口。队伍也能从别处同时过河。', hold: '夜里能过河的时间有限。分到不同渡口，几路队伍就能同时过河。',
       enter() {
         selected = null;
         cameraTo(wide, 1.28, duskView, 0.78);
@@ -261,6 +376,11 @@ export async function startRiver(ui, assets) {
   ];
 
   function home() {
+    if (phase === 'playing') {
+      phase = 'paused';
+      controlsForBeat(false);
+    }
+    stopClip(true);
     if (comparison) {
       leaveComparison();
       return;
@@ -330,6 +450,7 @@ export async function startRiver(ui, assets) {
 
   function openInspection(key = 'hull') {
     if (phase !== 'waiting' || (index !== 1 && index !== 2)) return;
+    stopClip();
     ui.closeReading({ immediate: true, restoreFocus: false });
     const bay = downstream.bays[index === 2 ? 2 : 3];
     const board = index === 2 ? world.door : world.timber.children.at(-1);
@@ -360,7 +481,7 @@ export async function startRiver(ui, assets) {
     controls.enableDamping = !ui.projection;
     viewport.updateShadows();
     controlsForBeat(false);
-    if (restoreFocus) inspectButton.focus({ preventScroll: true });
+    if (restoreFocus) { holdClip(index); inspectButton.focus({ preventScroll: true }); }
     notify();
   }
 
@@ -416,7 +537,7 @@ export async function startRiver(ui, assets) {
     inspectButton.hidden = phase !== 'waiting' || (index !== 1 && index !== 2);
     const previousCaption = caption.textContent;
     if (phase === 'playing' || phase === 'paused') {
-      caption.textContent = beats[index].caption;
+      caption.textContent = (clip && assets['river-short-caption-'+clipKeys[index]]) || beats[index].caption;
       paintPlayback(action, phase === 'playing' ? 'pause' : 'play', phase === 'playing' ? '暂停' : '继续');
     } else {
       caption.textContent = index < 0 ? '中央红军要秘密转移。于都河上没有固定桥，八万多人得在夜里过河。' :
@@ -445,6 +566,7 @@ export async function startRiver(ui, assets) {
     const groupsChanged = !comparison || comparison.groups !== next.groups;
     const phaseChanged = !comparison || comparison.phase !== next.phase;
     if (!comparison) {
+      stopClip();
       world.setBridges(true);
       workers.show(0);
       world.focusShadow(null);
@@ -506,6 +628,7 @@ export async function startRiver(ui, assets) {
   }
 
   function resetScene() {
+    stopClip(true);
     if (inspection) closeInspection(false);
     comparison = viewBeforeComparison = null;
     controls.enabled = !ui.projection;
@@ -531,6 +654,7 @@ export async function startRiver(ui, assets) {
     prepareBeat();
     beats[index].enter();
     beats[index].draw(0);
+    playClip();
     controlsForBeat();
     viewport.invalidate();
     notify();
@@ -541,6 +665,8 @@ export async function startRiver(ui, assets) {
     if (phase === 'waiting' || phase === 'finished') playNext();
     else {
       phase = phase === 'playing' ? 'paused' : 'playing';
+      if (phase === 'paused') { ++clipGeneration; clip?.pause(); setVoiceDuck(false); }
+      else playClip();
       previousFrame = performance.now();
       controlsForBeat();
       notify();
@@ -587,6 +713,7 @@ export async function startRiver(ui, assets) {
       world.water.uniforms.elapsed.value = dawnWater;
       caption.textContent = beats.at(-1).hold;
     }
+    holdClip(recallTime === 'night' ? 3 : 4);
     updateRecall();
     viewport.updateShadows();
   }
@@ -609,6 +736,7 @@ export async function startRiver(ui, assets) {
   ui.on(ui.canvas, 'pointermove', event => {
     if (tap?.id === event.pointerId && Math.hypot(tap.x - event.clientX, tap.y - event.clientY) > 6) {
       tap.moved = true;
+      if (phase !== 'playing' && phase !== 'paused') stopClip();
       following = false;
       focus = null;
     }
@@ -635,10 +763,11 @@ export async function startRiver(ui, assets) {
   }
 
   ui.on(window, 'blur', cancelPointers);
+  ui.on(ui.reduced, 'change', () => { if (ui.reduced.matches && phase === 'paused') holdClip(index); });
   ui.on(document, 'visibilitychange', () => {
     previousFrame = performance.now();
   });
-  ui.on(ui.canvas, 'wheel', () => { following = false; focus = null; }, { passive: true });
+  ui.on(ui.canvas, 'wheel', () => { if (phase !== 'playing' && phase !== 'paused') stopClip(); following = false; focus = null; }, { passive: true });
   ui.on(ui.canvas, 'keydown', event => {
     if (!event.repeat && !inspection && phase === 'waiting' && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault();
@@ -680,6 +809,7 @@ export async function startRiver(ui, assets) {
       world.water.uniforms.elapsed.value = riverTime;
     }
     if (elapsed === beat.duration) {
+      holdClip(index);
       if (index === 3) nightWater = world.water.uniforms.elapsed.value;
       if (index === 4) dawnWater = world.water.uniforms.elapsed.value;
       phase = index === beats.length - 1 ? 'finished' : 'waiting';
@@ -699,7 +829,10 @@ export async function startRiver(ui, assets) {
       }
       showComparison();
       ui.changed?.(comparison.phase === 'finished');
-    } else if (!ui.projection && phase === 'playing') advanceBeat(delta);
+    } else if (!ui.projection && phase === 'playing') {
+      const shotDelta = videoDelta(now);
+      if (shotDelta !== 0) advanceBeat(shotDelta ?? delta);
+    }
     else if (focus && (inspection || index < 0)) {
       advanceCamera(delta);
       viewport.invalidate();
@@ -781,6 +914,10 @@ export async function startRiver(ui, assets) {
   }
 
   function dispose() {
+    stopClip(true);
+    clip?.remove();
+    backdrop?.remove();
+    releaseVoiceMute?.();
     if (controls.domElement) controls.dispose();
     const geometries = new Set();
     const materials = new Set();
@@ -832,6 +969,13 @@ export async function startRiver(ui, assets) {
       } else controlsForBeat(false);
       if (view) restore(view);
       viewport.activate();
+      if (clip && index >= 0 && !inspection && !comparison) {
+        if (phase === 'paused' && !ui.reduced.matches) {
+          paintClip(clipIndex === index && clip.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,clipKeys[index]);
+        } else if (phase !== 'playing') {
+          holdClip(phase === 'finished' && recallTime === 'night' ? 3 : index);
+        }
+      }
     },
     pauseForSwitch() {
       if (comparison?.phase === 'playing') {
@@ -840,10 +984,14 @@ export async function startRiver(ui, assets) {
       }
       if (phase === 'playing') {
         phase = 'paused';
+        ++clipGeneration;
+        clip?.pause();
+        setVoiceDuck(false);
         controlsForBeat(false);
       }
     },
     deactivate({ preserveInspection = false } = {}) {
+      stopClip();
       if (!ui.projection) {
         cancelPointers();
         const view = cameraView();
