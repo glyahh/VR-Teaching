@@ -80,7 +80,7 @@ type PracticeState = { question: number; shown: number[]; retry: boolean } | nul
 let currentPractice: ReturnType<typeof mountPractice> | undefined;
 const completedPractices = new Set<PracticeId>();
 
-function mountPractice(id: PracticeId, position: number, scene: HTMLElement, caption: HTMLElement,
+function mountPractice(id: PracticeId, scene: HTMLElement, caption: HTMLElement,
   first: () => string, showReference?: (focus: PracticeQuestion['focus']) => void) {
   const practice = practices[id];
   let state: PracticeState = null;
@@ -103,11 +103,11 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
 
   const entry = control('展开练习',()=>{
     if (state) {
-      publish(null);
+      showPractice(null);
       return;
     }
     const selected = practice.questions.findIndex(item=>item.focus === first());
-    publish({question:Math.max(0,selected),shown:[],retry:false});
+    showPractice({question:Math.max(0,selected),shown:[],retry:false});
     heading.focus({preventScroll:true});
   },'practice-entry');
   entry.setAttribute('aria-label','展开练习 · '+practice.title);
@@ -116,7 +116,7 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
     if (!state || choice === undefined) return;
     if (choice === practice.questions[state.question].answer) showAnswer();
     else {
-      publish({...state,retry:true});
+      showPractice({...state,retry:true});
       options.querySelector('button')?.focus({preventScroll:true});
     }
   },'primary');
@@ -127,7 +127,7 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
     if (allDone) {
       completedPractices.add(id);
       soundscape.playSfx('complete');
-      publish(null);
+      showPractice(null);
       return;
     }
     // 优先跳转到下一道尚未核对的题目，避免死循环
@@ -139,14 +139,12 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
         break;
       }
     }
-    publish({...state,question:nextQ,retry:false});
+    showPractice({...state,question:nextQ,retry:false});
     heading.focus({preventScroll:true});
   });
-  if (!projectionMode) {
-    const actions = element('div','practice-actions');
-    actions.append(confirm,reveal,advance);
-    panel.append(actions);
-  }
+  const actions = element('div','practice-actions');
+  actions.append(confirm,reveal,advance);
+  panel.append(actions);
 
   function showAnswer() {
     if (state && !state.shown.includes(state.question)) {
@@ -157,12 +155,12 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
       } else {
         soundscape.playSfx('confirm');
       }
-      publish({...state,shown:nextShown,retry:false});
+      showPractice({...state,shown:nextShown,retry:false});
       advance.focus({preventScroll:true});
     }
   }
 
-  function restore(next: PracticeState) {
+  function showPractice(next: PracticeState) {
     const wasOpen = Boolean(state);
     state = next;
     const item = state ? practice.questions[state.question] : undefined;
@@ -179,7 +177,7 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
     showReference?.(state?.retry || answered ? item?.focus : undefined);
     window.dispatchEvent(new Event('lesson-reading'));
     if (!state || !item) {
-      if (wasOpen && !projectionMode) entry.focus({preventScroll:true});
+      if (wasOpen) entry.focus({preventScroll:true});
       return;
     }
     counter.textContent = (state.question + 1) + ' / ' + practice.questions.length;
@@ -187,13 +185,6 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
     prompt.textContent = item.prompt;
     options.replaceChildren(...item.options.map((value,index)=>{
       const correct = answered && index === item.answer;
-      if (projectionMode) {
-        const option = element('span','practice-option');
-        if (correct) option.append(svgIcon('check'),element('span','',value));
-        else option.textContent = value;
-        option.dataset.correct = String(correct);
-        return option;
-      }
       const option = control(value,()=>{
         choice = index;
         Array.from(options.children).forEach((node,i)=>node.setAttribute('aria-pressed',String(i===index)));
@@ -226,14 +217,9 @@ function mountPractice(id: PracticeId, position: number, scene: HTMLElement, cap
     else setButtonContent(advance, '下一题', 'arrowRight', true);
   }
 
-  function publish(next: PracticeState) {
-    restore(next);
-    sendProjection({type:'practice',position,state:next});
-  }
-
-  return {panel, entry, restore, read:()=>state, close:()=>{
+  return {panel, entry, close:()=>{
     if (!state) return false;
-    publish(null);
+    showPractice(null);
     return true;
   }};
 }

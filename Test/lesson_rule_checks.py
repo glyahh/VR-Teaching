@@ -36,9 +36,8 @@ def blank(page):
 
 
 def narration(room, url):
-    page = room.teacher
+    page = room.page
     page.goto(url)
-    screen = room.project()
     page.evaluate("""() => {
       function finishWhileTyping() {
         const scene = document.querySelector('.classroom-slide[data-entry-phase=ready]');
@@ -63,7 +62,7 @@ def narration(room, url):
     page.wait_for_function("window.finishedTypingClick")
     first = "第五次反“围剿”失败后，中央红军开始战略转移。"
     narrated(page, first)
-    expect(caption(screen).locator(".visually-hidden")).to_have_text(first)
+    expect(caption(page).locator(".visually-hidden")).to_have_text(first)
     expect(caption(page)).to_have_attribute("data-narration-count", "1")
     x, y = blank(page)
     page.mouse.move(x, y)
@@ -84,16 +83,11 @@ def narration(room, url):
     boat = "木船托住桥面。船舷上的纵梁把船和桥板连在一起。"
     button(page, "船体").click()
     narrated(page, boat, "point")
-    narrated(screen, boat, "point")
     expect(caption(page)).to_have_attribute("data-narration-count", "1")
-    room.close_projection()
-    screen = room.project()
-    narrated(screen, boat, "point")
     page.mouse.click(*blank(page))
     narrated(page, "先看桥下面的船，再看铺在上面的木板。")
-    expect(caption(screen)).to_have_attribute("data-narration-count", "2")
-    room.shot("圆点后接回主讲", screen)
-    button(page, "结束双屏").click()
+    expect(caption(page)).to_have_attribute("data-narration-count", "2")
+    room.shot("圆点后接回主讲")
     page.set_viewport_size({"width": 1063, "height": 811})
     button(page, "湘江战役").click()
     heading(page, "湘江河谷")
@@ -142,9 +136,8 @@ def narration(room, url):
 
 
 def disclosures(room, url):
-    page = room.teacher
+    page = room.page
     page.goto(url)
-    screen = room.project()
     begin(page)
     button(page, "遵义会议").click()
     heading(page, "遵义会议室")
@@ -157,66 +150,46 @@ def disclosures(room, url):
         expect(panel.get_by_role("button")).to_have_count(3)
         rows = panel.locator(".story-step")
         finished = title == "遵义会议的转折意义"
-        summary = screen.locator(".assembly-conclusion")
+        summary = page.locator(".assembly-conclusion")
         for count, index in enumerate((2,0,1), 1):
             item = rows.nth(index)
             item.press("Enter") if count == 1 else item.click()
             expect(item).to_have_attribute("aria-expanded", "true")
             shown = panel.locator(".story-detail:visible")
             expect(shown).to_have_count(1)
-            expect(screen.locator(".story-detail:visible")).to_have_text(shown.inner_text())
-            expect(screen.locator(".story-stop:visible")).to_have_count(count)
+            expect(page.locator(".story-stop[data-revealed=true]")).to_have_count(count)
             if finished and count < 3:
                 expect(summary).to_be_hidden()
             if count == 2:
                 item.press("Space")
                 expect(shown).to_have_count(0)
-                if finished:
-                    room.close_projection()
-                    screen = room.project()
-                    summary = screen.locator(".assembly-conclusion")
-                    expect(screen.locator(".story-stop:visible")).to_have_count(2)
-                    expect(screen.locator(".story-detail:visible")).to_have_count(0)
-                    expect(summary).to_be_hidden()
         if title == "组织问题":
             page.locator(".practice-entry").click()
             button(page,"返回原页").click()
             expect(rows.nth(1)).to_have_attribute("aria-expanded", "true")
     expect(summary).to_be_visible()
-    screen.set_viewport_size({"width":1024, "height":480})
+    page.set_viewport_size({"width":1024, "height":480})
     expect(summary).to_be_in_viewport(ratio=.90)
-    room.shot("窄投影读结论", screen)
+    room.shot("窄窗读结论")
     button(page, "课堂回顾").click()
     button(page, "全景总结").click()
     heading(page, "全课结论")
-    expect(screen.locator(".review-conclusion")).to_be_hidden()
+    expect(page.locator(".review-conclusion")).to_be_hidden()
     button(page, "揭示结论").click()
-    expect(screen.locator(".review-conclusion")).to_be_visible()
+    expect(page.locator(".review-conclusion")).to_be_visible()
     button(page, "地图").click()
-    for trial in range(2):
-        button(page, "教师备课").click()
-        button(page, "开始遵义 3 分钟试讲").click()
-        onward(page, "会议桌上的两份材料")
-        onward(page, "遵义会议的转折意义")
-        expect(page.locator(".assembly-conclusion")).to_be_hidden()
-        if trial == 0:
-            for name in ("湘江受挫","黎平转向","遵义调整"):
-                button(page,name).click()
-            expect(page.locator(".assembly-conclusion")).to_be_visible()
-        button(page,"结束试讲").click()
     begin(page)
     button(page,"遵义会议").click()
     for title in ("会议桌上的两份材料","军事问题","组织问题","遵义会议的转折意义"):
         onward(page,title)
     expect(page.locator(".assembly-conclusion")).to_be_hidden()
-    expect(screen.locator(".story-stop:visible")).to_have_count(0)
-    room.steps.append("遵义三页乱序开合、重连、练习返回、试讲重开和正式授课重置已验证")
+    expect(page.locator(".story-stop[data-revealed=true]")).to_have_count(0)
+    room.steps.append("遵义三页乱序开合、练习返回和重新开课重置已验证")
 
 
 def journeys(room, url):
-    page = room.teacher
+    page = room.page
     page.goto(url)
-    screen = room.project()
     begin(page)
     for title in ("岸边备桥", "浮桥近景", "夜渡于都河"):
         onward(page, title)
@@ -231,7 +204,7 @@ def journeys(room, url):
         layer = page.locator(".spatial-journey")
         expect(layer).to_have_attribute("data-phase", "near")
         expect(layer).to_have_attribute("data-terrain", "relief")
-        expect(caption(screen)).to_have_attribute("data-narration-count", "0")
+        expect(caption(page)).to_have_attribute("data-narration-count", "0")
         page.wait_for_function("""names => {
           const nodes = [...document.querySelectorAll('.spatial-journey[data-phase=near] .spatial-station')];
           return names.every(name => nodes.some(node => node.textContent === name && Number(getComputedStyle(node).opacity) > .5));
@@ -243,16 +216,16 @@ def journeys(room, url):
         close_width = layer.locator(".journey-world").evaluate("world => world.clientWidth")
         if index < 3:
             room.shot(f"路段{index+1}近景")
-        overview = screen.locator(".spatial-journey")
+        overview = page.locator(".spatial-journey")
         expect(overview).to_have_attribute("data-phase", "overview")
         expect(layer).to_have_attribute("data-route-progress", "1.000")
         assert layer.locator(".journey-world").evaluate("world => world.clientWidth") < close_width
-        expect(caption(screen)).to_have_attribute("data-narration-count", "0")
+        expect(caption(page)).to_have_attribute("data-narration-count", "0")
         expect(overview.locator(".spatial-station").filter(has_text="遵义")).not_to_have_css("opacity","0")
         if index < 3:
-            room.shot(f"路段{index+1}总览", screen)
+            room.shot(f"路段{index+1}总览")
         expect(layer).to_have_count(0)
-        expect(caption(screen)).to_have_attribute("data-narration-count", "1")
+        expect(caption(page)).to_have_attribute("data-narration-count", "1")
         for page_title in after_titles:
             onward(page, page_title)
     button(page,"湘江战役").click()
@@ -260,13 +233,13 @@ def journeys(room, url):
     button(page,"下一页").click()
     page.keyboard.press("PageDown")
     heading(page,"进军方向")
-    expect(screen.locator(".spatial-journey")).to_have_count(0)
-    expect(caption(screen).locator(".visually-hidden")).to_have_text("原计划是去湘西北，与红二、红六军团会合。")
+    expect(page.locator(".spatial-journey")).to_have_count(0)
+    expect(caption(page).locator(".visually-hidden")).to_have_text("原计划是去湘西北，与红二、红六军团会合。")
     room.steps.append("全线五段按近景描线、拉远、总览、进场顺序播放，连翻只保留当前页")
 
 
 def controls(room, url):
-    page = room.teacher
+    page = room.page
     page.goto(url)
     card = page.locator(".event-card")
     tools = page.locator(".map-tools")

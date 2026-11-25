@@ -59,4 +59,4 @@ python -B "课堂演示/media-source/make-opening.py"
 
 如需修改 `opening-narration.tsv` 并重合成男声旁白，加 `--synthesize` 参数。重剪依赖 Python（Pillow、NumPy、Playwright）、系统微软雅黑/宋体字体以及 FFmpeg/FFprobe。正式课件打包时只内嵌 `课堂演示/assets/opening.mp4`，离线运行无需片源缓存。
 
-正式课件重建后，用 `python -B "Test/verify-dual.py" --check-join opening terrain yudu-assembly` 核对 Edge 实际解码首尾帧误差，并在 16:9 与 16:10/3:2 窗口下检查响应式安全区信息层零裁切、双屏同步、暂停续播与进入课堂衔接。
+正式课件重建后，用 `python -B "Test/verify-course-media.py" --check-join opening terrain yudu-assembly` 核对 Edge 实际解码首尾帧误差，并在 16:9 与 16:10/3:2 窗口下检查响应式安全区信息层零裁切、暂停续播与进入课堂衔接。

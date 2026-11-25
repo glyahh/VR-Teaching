@@ -36,9 +36,6 @@ function playDeskHandoff(frame:HTMLElement, handoff:HallHandoff, poster:HTMLImag
 
 type DeskPlayer = {
   transport:HTMLElement;
-  read:()=>DeskView;
-  restore:(state:DeskView)=>void;
-  setClues:(clues:HallClue[])=>void;
   dismiss:()=>void;
   dispose:()=>void;
 };
@@ -55,7 +52,6 @@ function resetDeskHistory() {
 function releaseDesk() {
   currentDesk?.dispose();
   currentDesk=undefined;
-  deskAddress=undefined;
 }
 
 const deskHoverLabels:Readonly<Record<string,string|undefined>> = {
@@ -69,7 +65,7 @@ const deskHoverLabels:Readonly<Record<string,string|undefined>> = {
 function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):DeskPlayer {
   const historyKey=(standaloneDesk?'standalone:':'lesson:')+position;
   const frame=element('div','desk-live-frame');
-  frame.tabIndex=projectionMode?-1:0;
+  frame.tabIndex=0;
   frame.dataset.space='loading';
   frame.setAttribute('aria-label','会前的桌边，三维观察区');
   const poster=photo('desk-front','遵义会议室桌边');
@@ -97,7 +93,7 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
   transport.append(cluesGroup);
   const manifest=JSON.parse(mediaAssets['desk-manifest']);
   const anchors:Record<DeskObject,Point>={journal:manifest.anchorUV.left,dossier:manifest.anchorUV.right,map:[.707,.80]};
-  let clues:HallClue[]=retainedHallClues.slice();
+  const clues:HallClue[]=retainedHallClues.slice();
   let disposed=false;
   let focusReturn:HTMLElement|undefined;
   let focusedPin:DeskTarget|undefined;
@@ -130,15 +126,14 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
 
   frame.append(poster,canvas,pinLayer,guide,tools);
   stage.append(frame);
-  const session=mountDeskSession(frame,canvas,projectionMode?freshDesk():deskHistory.get(historyKey)??freshDesk(),
-    (view,publish)=>{paint(view);if (publish) publishDesk(view);});
+  const session=mountDeskSession(frame,canvas,deskHistory.get(historyKey)??freshDesk(),paint);
   const reader=mountDeskReader(stage,session,dismiss);
   if (handoff) requestAnimationFrame(()=>{
     if (frame.isConnected) playDeskHandoff(frame,handoff,poster,anchors.dossier);
   });
 
   function renderClues() {
-    cluesGroup.hidden=projectionMode || !clues.length;
+    cluesGroup.hidden=!clues.length;
     clueButtons=clues.map((item,index)=>{
       const button=control(item.title,()=>{
         focusReturn=button;
@@ -151,7 +146,7 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
   function dismiss() {
     const wasOpen=!!session.read().reading;
     session.dismiss();
-    if (!wasOpen || projectionMode) return;
+    if (!wasOpen) return;
     const target=focusReturn?.isConnected && !focusReturn.hidden ? focusReturn : frame;
     focusReturn=undefined;
     target.focus({preventScroll:true});
@@ -186,7 +181,7 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
   function showGuide() {
     const {reading,preview}=session.read();
     const target=focusedPin??frame.dataset.hover??'';
-    const message=projectionMode || reading || preview ? '' : deskHoverLabels[target]??'';
+    const message=reading || preview ? '' : deskHoverLabels[target]??'';
     guide.hidden=!message;
     if (guide.textContent!==message) guide.textContent=message;
   }
@@ -218,11 +213,11 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
     const left=seen.includes('journal') || saved.spread>0;
     const finished=left && right;
     frame.dataset.inquiry=finished?'done':'active';
-    if (!projectionMode && finished) revealed.add('materials-compared');
+    if (finished) revealed.add('materials-compared');
 
     const moving=!!preview && preview.kind!=='inspect';
     for (const {object,target,pin} of pins) {
-      pin.hidden=projectionMode || !!reading || moving;
+      pin.hidden=!!reading || moving;
       pin.dataset.seen=String(seen.includes(object));
       if (seen.includes(object)) pin.setAttribute('aria-description','已查看，可再次打开');
       else pin.removeAttribute('aria-description');
@@ -242,7 +237,7 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
       }
     }
 
-    tools.hidden=projectionMode || !usable || !!reading;
+    tools.hidden=!usable || !!reading;
     zoomOut.setAttribute('aria-disabled',String(camera.zoom<=.921));
     zoomIn.setAttribute('aria-disabled',String(camera.zoom>=1.279));
     overhead.setAttribute('aria-pressed',String(camera.pitch>=13));
@@ -284,22 +279,15 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
   }).catch(fallback);
   renderClues();
   paint(session.read());
-  beginDeskVisit(position);
-  queueMicrotask(()=>{if (!disposed) publishDesk(session.read());});
   return {
-    transport,read:session.read,restore:session.restore,
-    setClues(next) {
-      clues=next.slice();
-      renderClues();
-      paint(session.read());
-    },
+    transport,
     dismiss,
     dispose() {
       disposed=true;
       observer.disconnect();
       reader.dispose();
       const saved=session.leave();
-      if (!projectionMode) deskHistory.set(historyKey,saved);
+      deskHistory.set(historyKey,saved);
     },
   };
 }

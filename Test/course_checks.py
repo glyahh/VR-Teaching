@@ -43,11 +43,9 @@ def visible_motion(new, previous):
         return max(ImageStat.Stat(ImageChops.difference(active.convert('RGB'),resting.convert('RGB'))).mean)
 
 
-def exercise_desk(page, screen, right_first=False, shot=None):
+def exercise_desk(page, right_first=False, shot=None):
     desk = page.locator(DESK)
-    mirror = screen.locator(DESK)
     expect(desk).to_have_attribute('data-space', 'ready', timeout=18000)
-    expect(mirror).to_have_attribute('data-space', 'ready', timeout=18000)
     canvas = desk.locator('canvas')
     raw_forward = object_point(page, 'page-forward')
     page.mouse.move(raw_forward[0]-30, raw_forward[1]+7)
@@ -57,38 +55,33 @@ def exercise_desk(page, screen, right_first=False, shot=None):
     if right_first:
         open_dossier(page)
     desk.press('ArrowRight')
-    expect(mirror).to_have_attribute('data-yaw', '4.000')
+    expect(desk).to_have_attribute('data-yaw', '4.000')
     before = canvas.screenshot()
     drag_desk(page, 'page-forward', -.040, hold=True)
     expect(desk).to_have_attribute('data-gesture', 'page')
-    expect(mirror).to_have_attribute('data-gesture', 'page')
     assert visible_motion(canvas.screenshot(), before) > .12, '拖动时纸面没有可见变化'
     if shot:
         shot('01-斜看翻页中', page)
-        shot('02-投影同步翻页', screen)
     page.mouse.up()
-    expect(mirror).to_have_attribute('data-gesture', '')
-    expect(mirror).to_have_attribute('data-spread', '0')
+    expect(desk).to_have_attribute('data-gesture', '')
+    expect(desk).to_have_attribute('data-spread', '0')
 
     for spread in (1, 2):
         drag_desk(page, 'page-forward', -.22)
-        expect(mirror).to_have_attribute('data-spread', str(spread))
+        expect(desk).to_have_attribute('data-spread', str(spread))
     drag_desk(page, 'page-back', .21)
-    expect(mirror).to_have_attribute('data-spread', '1')
+    expect(desk).to_have_attribute('data-spread', '1')
 
     button(page, '翻阅左册 · 会前形势').click()
     reader = page.locator('.desk-reader')
-    public = screen.locator('.desk-reader')
-    expect(public.get_by_role('heading', name='会前手记')).to_be_visible()
+    expect(reader.get_by_role('heading', name='会前手记')).to_be_visible()
     expect(desk).to_have_attribute('data-focus', '1.000')
-    expect(public.locator('.desk-reader-footer')).to_be_hidden()
     if shot:
         shot('03-手记正读', page)
-        shot('04-手记投影', screen)
     page.keyboard.press('ArrowRight')
     page.keyboard.press('ArrowRight')
     page.keyboard.press('ArrowRight')
-    expect(mirror).to_have_attribute('data-spread', '4')
+    expect(desk).to_have_attribute('data-spread', '4')
     expect(reader.get_by_role('heading', name='遵义会前')).to_be_visible()
     book = reader.locator('.desk-reader-book')
     box = book.bounding_box()
@@ -97,45 +90,44 @@ def exercise_desk(page, screen, right_first=False, shot=None):
     page.mouse.down()
     page.mouse.move(x+box['width']*.17,y,steps=8)
     expect(reader.locator('.desk-reader-turn')).to_be_visible()
-    assert mirror.get_attribute('data-spread') == '4'
+    assert desk.get_attribute('data-spread') == '4'
     page.mouse.up()
-    expect(mirror).to_have_attribute('data-spread', '3')
+    expect(desk).to_have_attribute('data-spread', '3')
     expect(reader.get_by_role('heading', name='渡过乌江')).to_be_visible()
     page.keyboard.press('Escape')
     expect(reader).to_be_hidden()
-    expect(mirror).to_have_attribute('data-focus', '0.000')
+    expect(desk).to_have_attribute('data-focus', '0.000')
     expect(desk).to_have_attribute('data-yaw', '4.000')
     expect(button(page, '翻阅左册 · 会前形势')).to_be_focused()
 
     if not right_first:
         expect(desk).to_have_attribute('data-dossier', 'sealed')
         open_dossier(page)
-    expect(mirror).to_have_attribute('data-dossier', 'open')
+    expect(desk).to_have_attribute('data-dossier', 'open')
 
     center = object_point(page, 'table')
     edge = desk.bounding_box()
     for target,attr,direction in [('discussion-sheet','data-sheet-discussion',1),('before-sheet','data-sheet-before',-1)]:
         drag_desk(page,target,destination=(center[0]+direction*edge['width']*.062,center[1]))
         expect(desk).not_to_have_attribute(attr,'')
-        expect(mirror).to_have_attribute(attr,desk.get_attribute(attr))
+        expect(desk).to_have_attribute(attr,desk.get_attribute(attr))
     page.mouse.click(*object_point(page,'discussion-sheet'))
-    expect(public.get_by_role('heading',name='会议讨论')).to_be_visible()
+    expect(reader.get_by_role('heading',name='会议讨论')).to_be_visible()
     expect(reader.locator('.desk-reader-surface')).to_have_css('opacity','1')
     if shot:
         shot('05-会议讨论纸页正读',page)
     page.keyboard.press('Escape')
-    expect(public).to_be_hidden()
+    expect(reader).to_be_hidden()
 
     drag_desk(page,'map',-.17,dy=-.12)
-    expect(mirror).to_have_attribute('data-map','original')
+    expect(desk).to_have_attribute('data-map','original')
     drag_desk(page,'overlay',dy=-.26)
-    expect(mirror).to_have_attribute('data-map','both')
+    expect(desk).to_have_attribute('data-map','both')
     drag_desk(page,'overlay',dy=-.26)
-    expect(mirror).to_have_attribute('data-map','original')
+    expect(desk).to_have_attribute('data-map','original')
     # 在摊开的实际纸面上点选，进入与圆点入口相同的正视阅读。
     page.mouse.click(*object_point(page,'overlay'))
     plots=page.locator('.desk-map-plots')
-    projected_plots=screen.locator('.desk-map-plots')
     expect(plots).to_have_attribute('data-mode','original')
     expect(plots).to_have_attribute('data-drawing','false')
     expect(plots.locator('[data-place="湘西北"] span')).to_be_visible()
@@ -143,14 +135,14 @@ def exercise_desk(page, screen, right_first=False, shot=None):
     if shot:
         shot('06-原议湘西',page)
     button(page,'改向黔北').click()
-    expect(projected_plots).to_have_attribute('data-mode','revised')
+    expect(plots).to_have_attribute('data-mode','revised')
     expect(plots).to_have_attribute('data-drawing','false')
     expect(plots.locator('[data-place="遵义"] span')).to_be_visible()
     expect(plots.locator('[data-place="湘西北"]')).to_have_count(0)
     if shot:
         shot('07-改向黔北',page)
     button(page,'叠加').click()
-    expect(projected_plots).to_have_attribute('data-mode','both')
+    expect(plots).to_have_attribute('data-mode','both')
     expect(plots).to_have_attribute('data-drawing','false')
     expect(plots.locator('figure')).to_have_count(1)
     expect(plots.locator('[data-place="遵义"] span')).to_be_visible()
@@ -158,21 +150,18 @@ def exercise_desk(page, screen, right_first=False, shot=None):
     if shot:
         shot('08-同图叠加',page)
     button(page,'并排').click()
-    expect(projected_plots).to_have_attribute('data-mode','parallel')
+    expect(plots).to_have_attribute('data-mode','parallel')
     expect(plots).to_have_attribute('data-drawing','false')
     expect(plots.locator('figure')).to_have_count(2)
     expect(plots.locator('figure[data-route="original"] [data-place="湘西北"] span')).to_be_visible()
     expect(plots.locator('figure[data-route="revised"] [data-place="遵义"] span')).to_be_visible()
     assert plots.locator('figure').nth(0).bounding_box()['x'] < plots.locator('figure').nth(1).bounding_box()['x']
-    expect(public.locator('.desk-map-toolbar')).to_be_hidden()
-    expect(public.locator('.desk-reader-back')).to_be_hidden()
     if shot:
         shot('09-同尺度并排',page)
-        shot('10-路线对比投影',screen)
     button(page,'返回桌面').click()
     expect(reader).to_be_hidden()
-    expect(mirror).to_have_attribute('data-focus','0.000')
-    expect(mirror).to_have_attribute('data-yaw','4.000')
+    expect(desk).to_have_attribute('data-focus','0.000')
+    expect(desk).to_have_attribute('data-yaw','4.000')
     return {key:desk.get_attribute(key) for key in (
         'data-spread','data-dossier','data-sheet-discussion','data-sheet-before','data-map','data-yaw',
     )}
@@ -185,8 +174,37 @@ def enter_lesson(page, url):
     expect(page.locator('.scene-head h1')).to_have_text('于都集结')
 
 
+def single_screen(room, url):
+    page = room.page
+    page.goto(url)
+    for name in ('遵义实景', '教师备课', '开始双屏授课', '双屏授课'):
+        expect(button(page, name)).to_have_count(0)
+    expect(page.locator('#presenter')).to_have_count(0)
+    expect(button(page, '课堂回顾')).to_be_visible()
+    room.shot('单屏首页')
+    page.locator('.timeline button').filter(has_text='遵义会议').click()
+    button(page, '进入「遵义会议」场景').click()
+    expect(page.locator('.scene-head h1')).to_have_text('遵义会议室')
+    button(page, '下一页').click()
+    expect(page.locator(DESK)).to_have_attribute('data-space', 'ready', timeout=20000)
+    expect(button(page, '双屏授课')).to_have_count(0)
+    button(page, '翻阅左册 · 会前形势').click()
+    expect(page.get_by_role('heading', name='会前手记')).to_be_visible()
+    room.shot('从章节进入会议桌')
+    assert page.context.pages == [page]
+
+    legacy = page.context.new_page()
+    try:
+        legacy.goto(url + '#projection=' + '0' * 32)
+        expect(button(legacy, '开始授课')).to_be_visible()
+        expect(legacy.locator('#presenter,.projection-mode')).to_have_count(0)
+    finally:
+        legacy.close()
+    room.steps.append('单屏首页、遵义章节、会议桌和旧投影链接已验证')
+
+
 def entry(room, url):
-    page = room.teacher
+    page = room.page
     enter_lesson(page, url)
     slide = page.locator('.classroom-slide')
     expect(slide).to_have_attribute('data-entry-phase','ready',timeout=18000)
@@ -231,9 +249,8 @@ def entry(room, url):
 
 
 def opening(room, url):
-    page = room.teacher
+    page = room.page
     page.goto(url)
-    room.project()
     button(page, '开始授课').click()
     film = page.locator('.opening-page video')
     expect(film).to_be_visible()
@@ -245,26 +262,24 @@ def opening(room, url):
     assert abs(film.evaluate('video => video.currentTime')-frozen) < .1
     button(page, '继续播放').click()
     page.wait_for_function('time => document.querySelector(".opening-page video").currentTime > time',arg=frozen)
-    for target in (page, room.screen):
-        target.locator('.opening-page video').evaluate('v => { v.currentTime = Math.max(0, v.duration - 1.2); }')
+    page.locator('.opening-page video').evaluate('v => { v.currentTime = Math.max(0, v.duration - 1.2); }')
     page.wait_for_function('''() => {
       const video=document.querySelector('.opening-page video');
       return video.duration>85 && video.currentTime>=video.duration-.22;
     }''',timeout=15000)
     room.shot('开场收尾')
     button(page, '进入课堂').click()
-    expect(room.screen.locator('.scene-head h1')).to_have_text('于都集结')
-    room.steps.append('双屏播放、暂停续播、进入于都集结')
+    expect(page.locator('.scene-head h1')).to_have_text('于都集结')
+    room.steps.append('播放、暂停续播、进入于都集结')
 
 
 def desk(room, url):
-    page = room.teacher
+    page = room.page
     page.goto(url + '#desk')
     desk_area = page.locator('.desk-live-frame')
     expect(desk_area).to_have_attribute('data-space','ready', timeout=20000)
     expect(desk_area).to_have_attribute('data-dossier','sealed',timeout=3500)
-    room.project()
-    expected=exercise_desk(page,room.screen,right_first=True,shot=room.shot)
+    expected=exercise_desk(page,right_first=True,shot=room.shot)
     drag_desk(page,'page-forward',-.11,hold=True)
     expect(desk_area).to_have_attribute('data-gesture','page')
     page.keyboard.press('PageUp')
@@ -274,13 +289,8 @@ def desk(room, url):
     expect(desk_area).to_have_attribute('data-space','ready')
     for field,value in expected.items():
         expect(desk_area).to_have_attribute(field,value)
-        expect(room.screen.locator(DESK)).to_have_attribute(field,value)
-    room.close_projection()
-    room.project()
-    for field,value in expected.items():
-        expect(room.screen.locator(DESK)).to_have_attribute(field,value)
-    room.shot('重连后仍在原位',room.screen)
-    room.steps.append('真实翻页、松绳、揭封、摆置、提近、叠图，手势未松开切页后只恢复已提交状态，重连保持位置')
+    room.shot('回到桌景仍在原位')
+    room.steps.append('真实翻页、松绳、揭封、摆置、提近、叠图，手势未松开切页后只恢复已提交状态')
 
 
-FEATURES = {check.__name__:check for check in (opening, entry, desk, narration, disclosures, journeys, controls)}
+FEATURES = {check.__name__:check for check in (single_screen, opening, entry, desk, narration, disclosures, journeys, controls)}

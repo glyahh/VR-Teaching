@@ -53,7 +53,6 @@ const deskSession = await readScript('./src/desk-live-session.ts');
 const deskReader = await readScript('./src/desk-reader.ts');
 const deskPlayer = await readScript('./src/desk-player.ts');
 const practice = await readScript('./src/practice.ts');
-const teaching = await readScript('./src/teaching.ts');
 const explorationPage = await readScript('./src/exploration-page.ts');
 const pageEntry = await readScript('./src/page-entry.ts');
 const narration = await readScript('./src/narration.ts');
@@ -63,7 +62,7 @@ const recapStage = await readScript('./src/recap-stage.ts');
 const openingOverlay = await readScript('./src/opening-overlay.ts');
 const script = await readScript('./src/app.ts');
 const routeScenes = await readScript('./src/route-scenes.ts');
-const presenter = await readScript('./src/presenter.ts');
+const lessonSession = await readScript('./src/lesson-session.ts');
 const [exploration, explorationCss, pageCss] = await Promise.all([
   buildExplorationStage(), readExplorationStyle(), read('./src/exploration-page.css', 'utf8'),
 ]);
@@ -73,8 +72,8 @@ assertDemoTemplate(template);
 const html = normalize(template
   .replace('/* COURSE_STYLES */',()=>css)
   .replace('/* COURSE_SCRIPT */',()=>'const mediaAssets = '+JSON.stringify(assets)+';\n'+[
-    exploration,soundscapeScript,content,terrain,cinemagraph,deskState,deskSession,deskReader,deskPlayer,practice,teaching,explorationPage,
-    pageEntry,narration,sceneLesson,mapCard,recapStage,openingOverlay,script,routeScenes,presenter,
+    exploration,soundscapeScript,content,terrain,cinemagraph,deskState,deskSession,deskReader,deskPlayer,practice,explorationPage,
+    pageEntry,narration,sceneLesson,mapCard,recapStage,openingOverlay,script,routeScenes,lessonSession,
   ].join('\n')));
 async function writeArtifact(destination, content) {
   const staging = new URL('./.course-'+randomUUID()+'.tmp',destination);

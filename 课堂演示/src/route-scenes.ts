@@ -44,7 +44,7 @@ function playSpatialJourney(scene: HTMLElement, journey: SpatialJourney, signal:
   const leg = spatialJourneys.find(route => route.id === journey.id);
   const traceEnd = 1460, pullbackStart = 1680, overviewStart = 2500, fadeStart = 3410, end = 3670;
   if (!leg || reducedMotion.matches || sceneNow() - journey.startedAt >= end || signal.aborted) return;
-  if (!projectionMode) soundscape.playSfx('route');
+  soundscape.playSfx('route');
   const layer = element('div','journey-layer spatial-journey');
   layer.setAttribute('aria-hidden','true');
   const before = photo(leg.from);
@@ -340,10 +340,10 @@ function mountWujiangView(stage: HTMLElement, tools: HTMLElement) {
     }
     draw();
   }
-  const open = syncControl('wujiang-open','看地形',() => select('top'),'journey-control','compass');
-  const top = syncControl('wujiang-top','俯视',() => select('top'),'journey-control');
-  const slope = syncControl('wujiang-slope','斜视',() => select('slope'),'journey-control');
-  const shore = syncControl('wujiang-shore','江岸',() => select('shore'),'journey-control');
+  const open = lessonControl('wujiang-open','看地形',() => select('top'),'journey-control','compass');
+  const top = lessonControl('wujiang-top','俯视',() => select('top'),'journey-control');
+  const slope = lessonControl('wujiang-slope','斜视',() => select('slope'),'journey-control');
+  const shore = lessonControl('wujiang-shore','江岸',() => select('shore'),'journey-control');
   top.hidden = slope.hidden = shore.hidden = true;
   tools.append(open,top,slope,shore);
 }

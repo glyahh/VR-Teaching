@@ -18,7 +18,7 @@ function createDeskMapReader(body:HTMLElement, onMode:(mode:DeskRouteMode,replay
   replay.setAttribute('aria-label','重画路线');
   tools.setAttribute('role','group');
   tools.setAttribute('aria-label','路线显示方式');
-  tools.hidden=projectionMode;
+
   tools.append(...buttons,replay);
   body.append(tools,plots,legend,fact);
   let active:Extract<DeskReading,{kind:'map'}>|undefined;
@@ -46,7 +46,7 @@ function createDeskMapReader(body:HTMLElement, onMode:(mode:DeskRouteMode,replay
     const figure=element('figure','desk-map-plot');
     figure.dataset.route=mode;
     const label=mode==='original' ? '原议湘西' : mode==='revised' ? '改向黔北' : '两条进军路线';
-    if (paired || projectionMode) figure.append(element('figcaption','',label));
+    if (paired) figure.append(element('figcaption','',label));
     const geography=element('div','desk-map-geography');
     const canvas=element('canvas','desk-map-ink');
     canvas.width=W;
@@ -179,7 +179,7 @@ function mountDeskReader(stage:HTMLElement, session:ReturnType<typeof mountDeskS
   root.hidden=true;
   title.id='desk-reader-title';
   root.setAttribute('aria-labelledby',title.id);
-  close.hidden=projectionMode;
+
   context.append(route,compare,close);
   bar.append(title,context);
   footer.append(back,pageLabel,next);
@@ -212,7 +212,7 @@ function mountDeskReader(stage:HTMLElement, session:ReturnType<typeof mountDeskS
     spread.append(left,right,turn);
     let input:{id:number;x:number;y:number;drag?:DeskLeafDrag;ignore?:boolean}|undefined;
     spread.addEventListener('pointerdown',event=>{
-      if (projectionMode || !event.isPrimary || event.button!==0) return;
+      if (!event.isPrimary || event.button!==0) return;
       input={id:event.pointerId,x:event.clientX,y:event.clientY};
       spread.setPointerCapture(event.pointerId);
     });
@@ -294,9 +294,9 @@ function mountDeskReader(stage:HTMLElement, session:ReturnType<typeof mountDeskS
 
     root.dataset.reading=reading.kind;
     const showBook=reading.kind==='journal';
-    footer.hidden=projectionMode || !showBook;
-    compare.hidden=projectionMode || (reading.kind!=='journal' && reading.kind!=='dossier' && reading.kind!=='clue');
-    route.hidden=projectionMode || reading.kind!=='clue' || reading.source!=='map';
+    footer.hidden=!showBook;
+    compare.hidden=(reading.kind!=='journal' && reading.kind!=='dossier' && reading.kind!=='clue');
+    route.hidden=reading.kind!=='clue' || reading.source!=='map';
     if (!wasOpen || kindChanged) {
       fade?.cancel();
       rotate?.cancel();
@@ -315,7 +315,7 @@ function mountDeskReader(stage:HTMLElement, session:ReturnType<typeof mountDeskS
       shownClue=undefined;
       content.replaceChildren();
       content.scrollTop=0;
-      if (!projectionMode && (!wasOpen || !context.contains(document.activeElement))) close.focus({preventScroll:true});
+      if ((!wasOpen || !context.contains(document.activeElement))) close.focus({preventScroll:true});
     }
 
     if (reading.kind==='map') {
@@ -366,7 +366,7 @@ function mountDeskReader(stage:HTMLElement, session:ReturnType<typeof mountDeskS
     }
   }
 
-  if (!projectionMode) {
+  {
     backdrop.addEventListener('click',closed);
     root.addEventListener('keydown',event=>{
       if (event.key==='Escape') {event.preventDefault();closed();return;}

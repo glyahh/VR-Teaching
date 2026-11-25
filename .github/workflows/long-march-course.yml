@@ -29,7 +29,7 @@ jobs:
       - name: 断网 Edge 回归
         run: |
           $failed = @()
-          foreach ($feature in @('entry','narration','disclosures','journeys','controls','reduced-motion')) {
+          foreach ($feature in @('single_screen','opening','entry','narration','disclosures','journeys','controls','desk','reduced-motion')) {
             $options = @('--output', ".march-build/ci/$feature")
             $check = $feature
             if ($feature -eq 'reduced-motion') {

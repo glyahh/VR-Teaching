@@ -129,7 +129,6 @@ h1,h2,p{margin:0}
 .river-zone{fill:#6db7cf38;stroke:#8ed3ea88;stroke-width:.32;stroke-dasharray:1.1 .7}
 .crossing-inscene-line{fill:none;stroke:#ffd584;stroke-width:.75;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px #ffbf57)}
 .map-tag{position:absolute;padding:5px 12px;border-radius:6px;background:#111914e6;border:1px solid #e8c48577;color:var(--ink);font-size:clamp(15px,1.35vw,24px);white-space:nowrap;box-shadow:0 4px 14px #0008}
-.projection-mode .map-tag{font-size:clamp(22px,1.55vw,26px)}
 .tag-xingan{left:22%;top:72%;color:#acd3e2;border-color:#72b0c977}
 .tag-quanzhou{left:71%;top:50%;color:#acd3e2;border-color:#72b0c977}
 .tag-zone{left:50%;top:41%;transform:translateX(-50%);max-width:calc(100% - 28px);white-space:normal;text-align:center;color:var(--gold);border-color:var(--gold);font-weight:700}
@@ -139,7 +138,6 @@ h1,h2,p{margin:0}
 .curtain-after{clip-path:inset(0 0 0 var(--split,50%));transition:none}
 .curtain-divider{position:absolute;top:0;bottom:0;left:var(--split,50%);width:2px;background:var(--gold);box-shadow:0 0 12px #f6dca6cc;pointer-events:none;z-index:5}
 .curtain-handle{position:absolute;left:50%;top:56%;transform:translate(-50%,-50%);width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:#172119f2;border:2px solid var(--gold);color:var(--gold);box-shadow:0 6px 20px #000b;pointer-events:auto;touch-action:none;cursor:ew-resize}
-.projection-mode .curtain-handle{pointer-events:none}
 .troop-hud{position:absolute;z-index:12;right:clamp(18px,3vw,50px);top:clamp(96px,14vh,136px);width:min(360px,34%)}
 .curtain-range{width:100%;accent-color:var(--gold);cursor:pointer;height:24px}
 
@@ -152,7 +150,6 @@ h1,h2,p{margin:0}
 .paper-line.west{stroke:#d88a1e;stroke-width:1.9;filter:drop-shadow(0 0 3px #ffc96b)}
 .paper-guide{fill:none;stroke:none;visibility:hidden}
 .paper-node{position:absolute;transform:translate(-50%,-50%) rotateX(-22deg) skewX(2deg);padding:4px 11px;border-radius:6px;font-size:clamp(14px,1.3vw,22px);white-space:nowrap;box-shadow:0 3px 10px #0006;line-height:1.25;text-align:center}
-.projection-mode .paper-node{font-size:clamp(20px,1.5vw,25px)}
 .paper-node em{display:block;font-style:normal;font-size:.82em;opacity:.92}
 .paper-node.origin{left:50%;top:84%;background:#2d2419f0;border:1px solid #cfa45e;color:#f7edd7;font-weight:700}
 .paper-node.east{left:82%;top:22%;background:#3a1f1be8;border:1px solid #d16856;color:#ffd9cf}
@@ -168,7 +165,6 @@ h1,h2,p{margin:0}
 .march-marker-arrow{width:24px;height:28px;background:#6f4824;filter:drop-shadow(0 1px 4px #271608a8);clip-path:polygon(50% 0,96% 85%,50% 65%,4% 85%)}
 .march-marker[data-side=west] .march-marker-arrow{transform:rotate(-33deg)}
 .march-marker[data-side=east] .march-marker-arrow{transform:rotate(33deg)}
-.projection-mode #app button.march-marker{display:grid;pointer-events:none}
 .liping-troops{position:absolute;z-index:12;top:clamp(112px,25vh,240px);right:clamp(15px,3vw,47px);width:min(350px,40%);padding:12px 16px;display:grid;gap:9px;border:1px solid #e8d4af67;border-radius:8px;background:#211f1aba;backdrop-filter:blur(12px)}
 .liping-troop-record{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 9px;font-size:clamp(14px,1.16vw,22px);color:var(--ink)}
 .liping-troop-record time{color:var(--muted);font-variant-numeric:tabular-nums}
@@ -186,7 +182,6 @@ h1,h2,p{margin:0}
 .spatial-journey .route.past{stroke:#f5d086;stroke-width:3.8px}
 .spatial-map-names{position:absolute;inset:0;pointer-events:none}
 .spatial-station{position:absolute;white-space:nowrap;color:#fff0cb;font-size:clamp(17px,1.6vw,25px);font-weight:700;text-shadow:0 1px 3px #1d1f16,0 0 10px #2a2816}
-.projection-mode .spatial-station{font-size:clamp(20px,1.85vw,28px);text-shadow:0 1px 2px #14150e,0 2px 5px #14150e,0 0 12px #1a180d}
 .spatial-map-pin{position:absolute;width:7px;height:7px;border:1px solid #2c2118;border-radius:50%;background:#f6d38f;translate:-50% -50%}
 .journey-route .route{stroke-width:2px;vector-effect:non-scaling-stroke}
 .journey-route .route.past{stroke-width:clamp(3px,.3vw,6px)}
@@ -215,7 +210,6 @@ dialog::backdrop{background:#070b09ba;animation:fade-in var(--dur-fast) var(--ea
 #dialog-content li{padding:8px 0}
 #dialog-content a{color:var(--gold);text-underline-offset:4px}
 #dialog-content a:hover{color:var(--gold-soft)}
-.dialog-split{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px}
 .comparison{width:min(1100px,calc(100vw - 36px))}
 .materials{display:grid;gap:14px}
 .comparison .materials{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -224,8 +218,6 @@ dialog::backdrop{background:#070b09ba;animation:fade-in var(--dur-fast) var(--ea
 .material p+p{margin-top:10px}
 .troop-track{height:12px;background:#0e1811;border-radius:6px;overflow:hidden}
 .troop-bar{display:block;height:100%;background:var(--gold);border-radius:inherit;transform-origin:left center}
-.teacher-outline{padding-left:1.4em}
-.teacher-outline ul{padding-left:1.1em}
 .review{background:radial-gradient(ellipse at top right,#2e3a2b,transparent 60%),#121a15}
 .review-body{width:min(1070px,100%);margin-inline:auto;padding:clamp(18px,3.4vw,54px) clamp(16px,4vw,54px)}
 .review-body h2{font:700 clamp(24px,3vw,48px)/1.2 var(--font-serif);margin-bottom:clamp(12px,2.3vw,30px)}
@@ -241,36 +233,10 @@ dialog::backdrop{background:#070b09ba;animation:fade-in var(--dur-fast) var(--ea
 @media(max-width:1000px){.slide-caption{grid-template-columns:1fr}.scene-navigation{justify-content:space-between}.slide-line{font-size:clamp(19px,2.3vw,27px)}.troop-hud{width:min(340px,44vw)}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
-#presenter{background:#172119;border:1px solid var(--line);border-radius:8px;padding:clamp(16px,2vw,28px);line-height:1.65;min-width:0;overflow-wrap:anywhere}
-.presenter-mode{display:grid;grid-template-columns:minmax(0,1fr) minmax(275px,30vw);align-items:start;gap:12px;padding:12px}
-.presenter-mode #app{min-width:0;min-height:0}
-.presenter-mode #presenter{position:sticky;top:12px;max-height:calc(100dvh - 24px);overflow:auto}
-.presenter-mode .scene,.presenter-mode .shell{min-height:calc(100dvh - 24px)}
-.presenter-mode .scene-head{flex-wrap:wrap}
-.presenter-mode .scene-head h1{font-size:clamp(25px,3.3vw,52px)}
-.presenter-mode .slide-caption{grid-template-columns:1fr}
-.presenter-mode .slide-line{font-size:clamp(18px,1.75vw,28px)}
-.presenter-mode .scene-navigation{justify-content:flex-start}
-.presenter-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
-.presenter-status,.presenter-setup,.presenter-time{font-size:14px;color:var(--muted)}
-.presenter-setup{margin-top:10px}
-.presenter-notes{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
-.presenter-notes h2{font-size:clamp(19px,1.7vw,26px);line-height:1.35}
-.presenter-notes h3{font-size:16px;color:var(--gold);margin:16px 0 3px}
-.presenter-time{margin:4px 0 10px}
-.presenter-notes p+p{margin-top:.7em}
-.teaching-pace{display:flex;align-items:center;gap:10px;margin:10px 0;font-size:15px}
-.teaching-pace select{font:inherit;color:var(--ink);background:#253126;border:1px solid #8b8e6c;border-radius:4px;padding:6px 8px}
-.lesson-clock{display:flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums}
-.lesson-clock button{min-height:34px;padding:4px 8px;font-size:14px}
-.teacher-outline summary{cursor:pointer;color:var(--gold-soft)}
-.teacher-outline ul{margin-block:.5em 1em}
 .practice{display:grid;gap:8px;align-content:start;min-width:0;padding:12px 16px;background:#141a16eb;border:1px solid #d1bb8f46;border-radius:10px;backdrop-filter:blur(8px)}
 .practice-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .practice-title,.practice-source{font-size:clamp(14px,1.2vw,22px);color:var(--gold-soft)}
 .practice-step{font-size:clamp(13px,1.05vw,19px);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-.projection-mode :is(.practice-title,.practice-source){font-size:clamp(18px,1.45vw,26px)}
-.projection-mode .practice-step{font-size:clamp(16px,1.3vw,22px)}
 .practice-prompt{font-size:clamp(20px,2.05vw,36px);line-height:1.3;font-weight:650}
 .practice-options,.practice-actions{display:flex;flex-wrap:wrap;gap:8px}
 .practice-option,.practice-actions button{min-height:40px;padding:6px 12px;border-radius:8px}
@@ -285,26 +251,9 @@ dialog::backdrop{background:#070b09ba;animation:fade-in var(--dur-fast) var(--ea
 .practice-board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .practice-evidence{border-top:1px solid var(--line);padding:4px 0;color:var(--ink)}
 .practice-evidence strong{font-size:.8em;color:var(--muted)}
-.projection-mode .practice-option{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border:1px solid var(--line);border-radius:8px;font-size:clamp(19px,1.55vw,30px)}
 [data-practice-focus=plank] .bridge-outline[data-part=plank],[data-practice-focus=boat] .bridge-outline[data-part=boat]{visibility:visible;stroke:#ffda91}
 [data-practice-focus=before] .troop-hud-row[data-term=before] .troop-row-top span,[data-practice-focus=after] .troop-hud-row[data-term=after] .troop-row-top span,[data-practice-focus=dates] .troop-row-top span{color:var(--gold);text-decoration:underline;text-underline-offset:4px}
-.presenter-question{color:var(--gold-soft)}
-.presenter-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
-.projection-mode #app button,.projection-mode #close-dialog,.projection-mode #dialog-content .dialog-split,.projection-mode .tabletop-deck,.projection-mode .curtain-range{display:none}
-.projection-mode #app button.pin,.projection-mode #app button.time-button,.projection-mode #app button.review-choice,.projection-mode #app button.hotspot[data-visited=true],.projection-mode #app button.probe-pin{display:grid;pointer-events:none}
-.projection-mode #app button.pin,.projection-mode #app button.hotspot[data-visited=true],.projection-mode #app button.probe-pin{display:inline-flex}
-.projection-mode #app button:focus{outline:none}
-.projection-mode #app .pin,.projection-mode #app .time-button,.projection-mode #app .review-choice,.projection-mode #app .hotspot,.projection-mode .map{cursor:default}
-.projection-mode .slide-caption{grid-template-columns:1fr}
-.projection-mode .scene-navigation,.projection-mode .chapter-nav,.projection-mode .review-tools,.projection-mode .map-tools{display:none}
-.projection-mode .event-copy p{margin-bottom:0}
-@media(max-width:850px){.presenter-mode{display:flex;flex-direction:column-reverse}.presenter-mode #presenter{position:static;max-height:none;margin-bottom:12px}.presenter-mode #app,.presenter-mode #presenter{width:100%}}
 
-@media(min-width:851px){
-  .presenter-mode dialog{left:12px;right:calc(30vw + 24px);width:min(720px,calc(70vw - 60px))}
-  .presenter-mode dialog.comparison{width:min(1100px,calc(70vw - 60px))}
-  .presenter-mode dialog::backdrop{background:linear-gradient(to right,#070b09ba 0 calc(70vw - 24px),transparent calc(70vw - 24px))}
-}
 
 /* 课堂数据对照面板。 */
 .classroom-sheet{display:grid;gap:clamp(10px,1.25vw,17px);padding:clamp(14px,1.7vw,25px);border:1px solid #e3dbca3b;border-radius:13px;background:#212423eb;backdrop-filter:blur(16px) saturate(.75);box-shadow:0 12px 32px #13140e4a}
@@ -320,8 +269,6 @@ dialog::backdrop{background:#070b09ba;animation:fade-in var(--dur-fast) var(--ea
 .troop-controls{display:flex;align-items:center;gap:10px;padding-inline:8px}
 .troop-controls .curtain-range{min-width:0;min-height:32px;margin:0}
 .troop-center{padding:4px 9px;min-height:38px;font-size:14px;white-space:nowrap;background:transparent}
-.projection-mode .troop-controls{display:none}
-.projection-mode #app button.troop-hud-row{display:grid;pointer-events:none}
 
 
 
@@ -331,9 +278,7 @@ dialog::backdrop{background:#070b09ba;animation:fade-in var(--dur-fast) var(--ea
 .opening-controls button:not(.primary){background:#1e211ee8;border-color:#e3dbca42}
 .opening-controls .primary{background:var(--gold);color:#22261d;border-color:var(--gold)}
 .opening-controls .primary:hover:not(:disabled){background:var(--gold-soft)}
-.projection-mode .opening-controls{display:none}
 .map::after{content:"";position:absolute;inset:0;z-index:2;background:linear-gradient(180deg,transparent 76%,#111511e0);pointer-events:none}
-.projection-mode .lesson-footer{gap:0}
 
 .story-panel{position:absolute;z-index:12;top:clamp(112px,17vh,170px);bottom:var(--story-bottom,140px);width:min(38%,460px);display:flex;flex-direction:column;align-items:stretch;gap:10px;padding:3px 6px 10px;overflow:auto;scrollbar-width:thin}
 .story-panel--right{right:clamp(22px,4.3vw,75px)}
@@ -345,9 +290,6 @@ dialog::backdrop{background:#070b09ba;animation:fade-in var(--dur-fast) var(--ea
 .scene[data-activity="organization"] .scene-shade{background:linear-gradient(270deg,transparent 31%,#12130f87 59%,#12130ff5 100%),linear-gradient(180deg,#161512ac,transparent 25%,transparent 67%,#151613ed)}
 .scene[data-activity="result"] .scene-camera :is(img,.scene-motion){filter:brightness(var(--dawn-brightness,1))}
 .assembly-conclusion{margin-inline-start:21px;padding-block-start:10px;border-block-start:1px solid #d7c09d78;color:#f3e0bd;font-size:clamp(16px,1.3vw,22px);line-height:1.5}
-.projection-mode .story-panel:not(:has([data-revealed="true"])){visibility:hidden}
-.projection-mode .story-panel .story-stop:not([data-revealed="true"]){display:none}
-.projection-mode #app .story-stop[data-revealed="true"] .story-step{display:grid;pointer-events:none}
 @media(max-width:720px){
   .top{padding:12px;flex-wrap:wrap;align-items:center}
   .top .course-title{font-size:26px}
@@ -431,8 +373,6 @@ dialog::backdrop{background:#070b09ba;animation:fade-in var(--dur-fast) var(--ea
 .recap-arc-link{width:24px;height:2px;background:linear-gradient(90deg,#e8c48545,#f5d086,#e8c48545)}
 .recap-finale .review-conclusion{margin:0;padding:15px 26px;font-size:clamp(18px,1.65vw,26px);line-height:1.55;text-align:center;background:rgb(20 26 21/.78);border:1px solid #e8c48573;backdrop-filter:blur(14px);box-shadow:0 16px 42px #000a;pointer-events:auto}
 .recap-footer{position:absolute;z-index:13;inset-inline:clamp(18px,3vw,48px);bottom:clamp(14px,2.4vh,26px);margin:0}
-.projection-mode .recap-footer,.projection-mode .recap-card-actions{display:none}
-.projection-mode #app button.recap-node{display:grid;pointer-events:none}
 
 /* ---- 开场导览响应式安全区信息层（任何窗口比例零裁切、双屏同步） ---- */
 .opening-hud{position:absolute;inset:0;z-index:4;pointer-events:none;overflow:clip}
@@ -478,7 +418,6 @@ dialog::backdrop{background:#070b09ba;animation:fade-in var(--dur-fast) var(--ea
 .opening-tl-stop strong{font-size:clamp(13px,1.25vw,19px);color:#f2e8d0;white-space:nowrap}
 .opening-tl-stop[data-major=true][data-lit=true] strong{color:#fce4a6}
 .opening-sub{position:absolute;left:50%;bottom:clamp(16px,3.2vh,38px);transform:translateX(-50%);width:max-content;max-width:min(88vw,980px);padding:5px 16px;border-radius:7px;background:rgb(10 13 12/.52);backdrop-filter:blur(6px);color:#f6efe0;font-size:clamp(18px,2.1vw,34px);line-height:1.38;text-align:center;letter-spacing:.03em;text-shadow:0 1px 3px #080a0a,0 2px 10px #080a0ae0}
-.projection-mode .opening-sub{font-size:clamp(24px,2.2vw,38px)}
 
 .classroom-slide.desk-live-page {
   display: grid;
@@ -798,18 +737,6 @@ dialog::backdrop{background:#070b09ba;animation:fade-in var(--dur-fast) var(--ea
 .desk-map-key.is-revised i { border-color: #9b3129 }
 .desk-map-fact { margin: 5px 0 0; line-height: 1.4; color: #493321; font-size: clamp(15px,1.46vw,27px) }
 
-.presenter-mode .desk-live-page { height: calc(100dvh - 24px); min-height: min(460px, 96dvh) }
-.presenter-mode .desk-live-page .desk-project { display: none }
-.projection-mode .desk-live-page { grid-template-rows: 1fr; height: 100dvh; min-height: 0 }
-.projection-mode .desk-live-page .scene-stage { grid-row: 1; background: #080a08 }
-.projection-mode .desk-live-page :is(.scene-head,.lesson-footer) { display: none }
-.projection-mode .desk-reader { pointer-events: none }
-.projection-mode .desk-reader .desk-reader-surface { width: min(90%, 1300px) }
-.projection-mode .desk-reader[data-reading="map"] .desk-reader-surface { width: min(92%, 1520px) }
-.projection-mode .desk-map-plots:not([data-mode="parallel"]) .desk-map-plot {
-  max-width: min(100%, clamp(270px,calc((100cqh - 220px) * 2.08),1180px));
-}
-.projection-mode .desk-reader :is(.desk-reader-article,.desk-reader-leaf) { font-size: clamp(23px,2vw,38px) }
 @media (prefers-reduced-motion: reduce) {
   .desk-reader[data-phase] .desk-reader-backdrop { animation: none; transition: none }
 }
@@ -1329,11 +1256,6 @@ button.story-step[aria-expanded="true"] {
   border-radius: 10px;
   background: #202422e9;
 }
-.projection-mode .lesson-exploration { --dock-bottom: clamp(38px, 8vh, 88px); pointer-events: none; }
-.projection-mode .lesson-exploration #view { cursor: default; }
-.projection-mode .lesson-exploration :is(.dock-actions, #river-recall) { display: none; }
-.projection-mode .scene[data-exploration] .lesson-footer { display: none; }
-.projection-mode .lesson-exploration .river-label { font-size: clamp(18px, 1.36vw, 26px); }
 
 .desk-live-frame .scene-note, .lesson-exploration .scene-note {
   position: absolute;
@@ -1353,7 +1275,6 @@ button.story-step[aria-expanded="true"] {
 }
 .lesson-exploration .scene-note { position: fixed; }
 .lesson-exploration #reading h2 { font-family: var(--font-serif); }
-.projection-mode .lesson-exploration :is(#instruction,#river-instruction,#xiang-instruction) { font-size: clamp(22px,1.7vw,33px); }
 .lesson-exploration :is(#inspect,#river-tools,#xiang-tools) {
   inset-inline: 0;
   margin-inline: auto;
@@ -1365,9 +1286,7 @@ button.story-step[aria-expanded="true"] {
 .lesson-exploration #river-tools:has(#river-action:not([hidden])) { bottom: var(--river-action-bottom,var(--dock-bottom)); }
 .lesson-exploration #river-tools:has(#river-actions[hidden]) { bottom: var(--dock-bottom); }
 .lesson-exploration #inspect[data-tool=explore],
-.projection-mode .lesson-exploration #inspect { padding: 0; border: 0; background: transparent; }
 .lesson-exploration #inspect[data-tool=explore]::before,
-.projection-mode .lesson-exploration #inspect::before { content: none; }
 .lesson-exploration #river-actions { position: relative; justify-content: center; }
 .lesson-exploration .river-options { position: absolute; bottom: 0; right: calc(100% + 12px); width: max-content; }
 .lesson-exploration #river-comparison :is(label,output) { text-shadow: 0 1px 3px #19120c, 0 2px 6px #19120c; }
@@ -1388,7 +1307,6 @@ button.story-step[aria-expanded="true"] {
 </head>
 <body>
   <main id="app"></main>
-  <aside id="presenter" aria-label="教师视图" hidden></aside>
   <dialog id="dialog" aria-labelledby="dialog-title">
     <div class="dialog-heading"><h2 id="dialog-title"></h2><button type="button" id="close-dialog" aria-label="关闭弹窗"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>
     <div id="dialog-content"></div>
@@ -7211,66 +7129,6 @@ function settleDesk(saved          ,gesture            )           {
   }
 }
 
-function isDeskMaterial(value        )                       {
-  return value==='before' || value==='discussion';
-}
-function isDeskPose(value        )                   {
-  return !!value && typeof value==='object' && 'yaw' in value && 'pitch' in value && 'zoom' in value &&
-    typeof value.yaw==='number' && value.yaw>=-18 && value.yaw<=18 &&
-    typeof value.pitch==='number' && value.pitch>=-5 && value.pitch<=16 &&
-    typeof value.zoom==='number' && value.zoom>=.92 && value.zoom<=1.28;
-}
-function isDeskPoint(value        )                    {
-  return !!value && typeof value==='object' && 'x' in value && 'z' in value &&
-    typeof value.x==='number' && Math.abs(value.x)<=4 && typeof value.z==='number' && Math.abs(value.z)<=4;
-}
-function isDeskGesture(value        )                      {
-  if (!value || typeof value!=='object' || !('kind' in value)) return false;
-  if (value.kind==='camera') return 'pose' in value && isDeskPose(value.pose);
-  if (value.kind==='inspect') return 'id' in value && isDeskMaterial(value.id);
-  if (value.kind==='sheet') return 'id' in value && isDeskMaterial(value.id) && 'at' in value && isDeskPoint(value.at) &&
-    'lift' in value && typeof value.lift==='number' && value.lift>=0 && value.lift<=1;
-  if (!('progress' in value) || typeof value.progress!=='number' || !(value.progress>=0 && value.progress<=1)) return false;
-  if (value.kind==='page') return 'direction' in value && (value.direction==='forward' || value.direction==='back');
-  return value.kind==='cord' || value.kind==='cover' || value.kind==='map' || value.kind==='overlay';
-}
-function isDeskReading(value        )                      {
-  if (!value || typeof value!=='object' || !('kind' in value)) return false;
-  if (value.kind==='sheet') return 'id' in value && isDeskMaterial(value.id);
-  const mode='mode' in value ? value.mode : undefined;
-  if (value.kind==='map') return deskRouteModes.some(option=>option===mode) &&
-    'drawAt' in value && typeof value.drawAt==='number' && Number.isSafeInteger(value.drawAt) && value.drawAt>=0;
-  const validIndex=(index        )=>typeof index==='number' && Number.isSafeInteger(index) && index>=0 && index<=32;
-  if (value.kind==='clue') return 'index' in value && validIndex(value.index) && 'source' in value &&
-    (value.source==='map' || value.source==='journal');
-  if (value.kind==='compare') return !('clueIndex' in value) || value.clueIndex===undefined || validIndex(value.clueIndex);
-  return value.kind==='journal' || value.kind==='dossier';
-}
-function isDeskSaved(value        )                    {
-  if (!value || typeof value!=='object' || !('camera' in value) || !isDeskPose(value.camera)) return false;
-  const dossier='dossier' in value ? value.dossier : undefined;
-  const map='map' in value ? value.map : undefined;
-  const routeReading='routeReading' in value ? value.routeReading : undefined;
-  return 'spread' in value && typeof value.spread==='number' && Number.isInteger(value.spread) &&
-    value.spread>=0 && value.spread<=deskSpreads &&
-    ['sealed','untied','open'].some(state=>state===dossier) &&
-    ['stored','original','revised','both'].some(mode=>mode===map) &&
-    (routeReading===undefined || deskRouteModes.some(mode=>mode===routeReading)) &&
-    'sheets' in value && Array.isArray(value.sheets) && value.sheets.length<=deskMaterials.length &&
-    value.sheets.every(sheet=>sheet && isDeskMaterial(sheet.id) && isDeskPoint(sheet.at)) &&
-    new Set(value.sheets.map(sheet=>sheet.id)).size===value.sheets.length &&
-    (!('seen' in value) || value.seen===undefined || Array.isArray(value.seen) &&
-      value.seen.length<=deskObjects.length && value.seen.every(item=>deskObjects.some(object=>object===item)));
-}
-function isDeskView(value        )                   {
-  return !!value && typeof value==='object' && 'saved' in value && isDeskSaved(value.saved) &&
-    (!('preview' in value) || value.preview===undefined || isDeskGesture(value.preview)) &&
-    (!('reading' in value) || value.reading===undefined || isDeskReading(value.reading)) &&
-    (!('camera' in value) || value.camera===undefined || isDeskPose(value.camera)) &&
-    (!('focus' in value) || value.focus===undefined || isDeskPoint(value.focus) &&
-      'amount' in value.focus && typeof value.focus.amount==='number' && value.focus.amount>=0 && value.focus.amount<=1);
-}
-
 
 
 
@@ -7293,7 +7151,7 @@ function isDeskView(value        )                   {
 
 
 function mountDeskSession(frame            , canvas                  , starting          ,
-  onChange                                      ) {
+  onChange                      ) {
   let saved=starting;
   let preview                      ;
   let reading                      ;
@@ -7310,22 +7168,19 @@ function mountDeskSession(frame            , canvas                  , starting 
   let ambientStart=performance.now();
   let hovered                =null;
   let completeObject                     ;
-  let lastSent=-Infinity;
   let disposed=false;
 
   const read=()         =>({saved,preview,reading,camera:pose,focus});
-  function redraw(send=false, final=true) {
+  function redraw() {
     if (disposed) return;
     cancelAnimationFrame(paintFrame);
     paintFrame=0;
     const now=performance.now();
     world?.draw(read(),reducedMotion.matches ? 0 : (now-ambientStart)*.001);
-    const publish=send && !projectionMode && (final || now-lastSent>=38);
-    if (publish) lastSent=now;
-    onChange(read(),publish);
+    onChange(read());
   }
   function queueDraw() {
-    if (!paintFrame) paintFrame=requestAnimationFrame(()=>redraw(true,false));
+    if (!paintFrame) paintFrame=requestAnimationFrame(()=>redraw());
   }
   function startAmbientLoop() {
     if (ambientFrame || disposed || reducedMotion.matches) return;
@@ -7349,7 +7204,6 @@ function mountDeskSession(frame            , canvas                  , starting 
     completeObject=undefined;
   }
   function playPaper(gesture                               ) {
-    if (projectionMode) return;
     if (gesture.kind==='page' || gesture.kind==='cover') soundscape.playSfx('paper-turn');
     else if (gesture.kind==='cord') soundscape.playSfx('rope-untie');
     else soundscape.playSfx('paper-slide');
@@ -7367,7 +7221,7 @@ function mountDeskSession(frame            , canvas                  , starting 
       saved={...next,camera:saved.camera,seen:saved.seen};
       preview=undefined;
     };
-    if (reducedMotion.matches || !world) {finish();redraw(true);options.then?.();return;}
+    if (reducedMotion.matches || !world) {finish();redraw();options.then?.();return;}
     completeObject=finish;
     const started=performance.now();
     const goal=gesture.kind==='sheet' ? 0 : Number(next!==saved);
@@ -7382,7 +7236,7 @@ function mountDeskSession(frame            , canvas                  , starting 
       } else preview={...gesture,progress:current};
       if (progress===1) {
         clearObjectAnimation(true);
-        redraw(true);
+        redraw();
         options.then?.();
       } else {
         objectFrame=requestAnimationFrame(tick);
@@ -7391,7 +7245,7 @@ function mountDeskSession(frame            , canvas                  , starting 
     };
     preview=gesture.kind==='sheet' ? {...gesture,lift:from} : {...gesture,progress:from};
     objectFrame=requestAnimationFrame(tick);
-    redraw(true,false);
+    redraw();
   }
 
   const leafStep=(direction                  )=>direction==='forward' ? 1 : -1;
@@ -7411,7 +7265,7 @@ function mountDeskSession(frame            , canvas                  , starting 
       preview=undefined;
       objectFrame=0;
       steerLeaf();
-      redraw(true);
+      redraw();
     }
     if (reducedMotion.matches || !world) {finish();return;}
     preview=leaf;
@@ -7423,10 +7277,10 @@ function mountDeskSession(frame            , canvas                  , starting 
       else {objectFrame=requestAnimationFrame(tick);queueDraw();}
     };
     objectFrame=requestAnimationFrame(tick);
-    redraw(true,false);
+    redraw();
   }
   function turn(direction                  ) {
-    if (projectionMode || disposed) return;
+    if (disposed) return;
     clearPointer();
     if (preview?.kind!=='page') {
       clearObjectAnimation(true);
@@ -7439,7 +7293,7 @@ function mountDeskSession(frame            , canvas                  , starting 
     steerLeaf();
   }
   function beginLeaf(direction                  )                        {
-    if (disposed || projectionMode) return;
+    if (disposed) return;
     const current=preview?.kind==='page' ? preview : undefined;
     if (!current && direction==='back' && reading?.kind==='journal' && saved.spread<=1) return;
     if (!current && deskClamp(saved.spread+leafStep(direction),0,deskSpreads)===saved.spread) return;
@@ -7476,7 +7330,7 @@ function mountDeskSession(frame            , canvas                  , starting 
     if (!world || reducedMotion.matches || (start===target && !startFocus?.amount && !endFocus?.amount)) {
       pose=target;
       focus=nextFocus;
-      redraw(true);
+      redraw();
       return;
     }
     const began=performance.now();
@@ -7494,7 +7348,7 @@ function mountDeskSession(frame            , canvas                  , starting 
         amount:blend(startFocus.amount,endFocus.amount,eased),
       };
       cameraFrame=fraction===1 ? 0 : requestAnimationFrame(tick);
-      if (fraction===1) redraw(true);
+      if (fraction===1) redraw();
       else queueDraw();
     };
     cameraFrame=requestAnimationFrame(tick);
@@ -7519,7 +7373,7 @@ function mountDeskSession(frame            , canvas                  , starting 
     return value.kind;
   }
   function openReading(next            ) {
-    if (projectionMode || disposed) return;
+    if (disposed) return;
     clearPointer();
     const previous=reading;
     if (!previous && cameraFrame) saved={...saved,camera:pose};
@@ -7543,14 +7397,14 @@ function mountDeskSession(frame            , canvas                  , starting 
     if ((next.kind==='map' || next.kind==='clue' && next.source==='map') && saved.map==='stored' && world) {
       settleObject({kind:'map',progress:1},true,0);
     }
-    redraw(true);
+    redraw();
   }
   function chooseMap(mode              , replay=false) {
-    if (projectionMode || disposed || reading?.kind!=='map' || (reading.mode===mode && !replay)) return;
+    if (disposed || reading?.kind!=='map' || (reading.mode===mode && !replay)) return;
     clearObjectAnimation(true);
     saved={...saved,map:mode==='parallel' ? 'both' : mode,routeReading:mode};
     reading={kind:'map',mode,drawAt:Date.now()};
-    redraw(true);
+    redraw();
   }
   function openMap() {
     const mode=saved.routeReading ?? (saved.map==='stored' ? 'original' : saved.map);
@@ -7558,7 +7412,7 @@ function mountDeskSession(frame            , canvas                  , starting 
   }
 
   function dismiss() {
-    if (projectionMode || disposed) return;
+    if (disposed) return;
     const active=pointer;
     clearPointer();
     if (active) cancelPointerMotion(active);
@@ -7567,10 +7421,10 @@ function mountDeskSession(frame            , canvas                  , starting 
       reading=undefined;
       travelCamera(saved.camera,undefined,315);
     }
-    redraw(true);
+    redraw();
   }
   function switchCamera(target         ,duration       ) {
-    if (projectionMode || disposed || !world) return;
+    if (disposed || !world) return;
     if (pointer?.moved) {
       if (preview?.kind==='page') cancelLeaf();
       else preview=undefined;
@@ -7579,7 +7433,7 @@ function mountDeskSession(frame            , canvas                  , starting 
     reading=undefined;
     saved={...saved,camera:deskCamera(target)};
     travelCamera(saved.camera,undefined,duration);
-    redraw(true);
+    redraw();
   }
   function zoom(factor       ) {
     switchCamera({...saved.camera,zoom:saved.camera.zoom*factor},155);
@@ -7591,7 +7445,7 @@ function mountDeskSession(frame            , canvas                  , starting 
   };
   function targetAt(uv      ) {return world?.pick(...uv,read()) ?? undefined;}
   function start(event             ) {
-    if (projectionMode || !world || reading || !event.isPrimary || event.button!==0 ||
+    if (!world || reading || !event.isPrimary || event.button!==0 ||
       (event.target instanceof Element && event.target.closest('button'))) return;
     const uv=pointerAt(event), target=targetAt(uv);
     let original                              ;
@@ -7611,7 +7465,7 @@ function mountDeskSession(frame            , canvas                  , starting 
     frame.setPointerCapture(event.pointerId);
   }
   function move(event             ) {
-    if (!world || projectionMode || reading) return;
+    if (!world || reading) return;
     if (!pointer || pointer.id!==event.pointerId) {
       const target=event.target instanceof Element && event.target.closest('button') ? null : targetAt(pointerAt(event)) ?? null;
       canvas.style.cursor=target ? 'pointer' : 'grab';
@@ -7669,7 +7523,7 @@ function mountDeskSession(frame            , canvas                  , starting 
         settleObject(preview,preview.kind==='sheet' || preview.progress>=.43,preview.kind==='sheet' ? preview.lift : preview.progress);
       } else {
         saved={...saved,camera:pose};
-        redraw(true);
+        redraw();
       }
       return;
     }
@@ -7713,13 +7567,13 @@ function mountDeskSession(frame            , canvas                  , starting 
   frame.addEventListener('lostpointercapture',cancel);
   frame.addEventListener('pointerleave',()=>{if (!pointer) setHover(null);});
   frame.addEventListener('wheel',event=>{
-    if (projectionMode || !world || reading) return;
+    if (!world || reading) return;
     event.preventDefault();
     const delta=event.deltaY*(event.deltaMode===1 ? 16 : event.deltaMode===2 ? 360 : 1);
     zoom(Math.exp(-deskClamp(delta,-200,200)*.0016));
   },{passive:false});
   frame.addEventListener('keydown',event=>{
-    if (projectionMode || reading || event.target!==frame) return;
+    if (reading || event.target!==frame) return;
     const target={...saved.camera};
     switch (event.key) {
       case 'ArrowLeft': target.yaw-=4;break;
@@ -7744,7 +7598,7 @@ function mountDeskSession(frame            , canvas                  , starting 
     connect(next          ) {
       world=next;
       ambientStart=performance.now();
-      if (reading && !projectionMode) {
+      if (reading) {
         const point=world.focusPoint(selectedKind(reading),read());
         travelCamera(saved.camera,{...point,amount:reading.kind==='compare' ? .45 : 1},375);
       }
@@ -7752,12 +7606,6 @@ function mountDeskSession(frame            , canvas                  , starting 
       startAmbientLoop();
     },
     resize(width       ,height       ) {world?.resize(width,height);redraw();},
-    restore(view         ) {
-      if (!projectionMode || disposed) return;
-      ({saved,preview,reading,focus}=view);
-      pose=view.camera ?? (preview?.kind==='camera' ? preview.pose : saved.camera);
-      redraw();
-    },
     home() {
       switchCamera(deskHome(),330);
       frame.focus({preventScroll:true});
@@ -7812,7 +7660,7 @@ function createDeskMapReader(body            , onMode                           
   replay.setAttribute('aria-label','重画路线');
   tools.setAttribute('role','group');
   tools.setAttribute('aria-label','路线显示方式');
-  tools.hidden=projectionMode;
+
   tools.append(...buttons,replay);
   body.append(tools,plots,legend,fact);
   let active                                            ;
@@ -7840,7 +7688,7 @@ function createDeskMapReader(body            , onMode                           
     const figure=element('figure','desk-map-plot');
     figure.dataset.route=mode;
     const label=mode==='original' ? '原议湘西' : mode==='revised' ? '改向黔北' : '两条进军路线';
-    if (paired || projectionMode) figure.append(element('figcaption','',label));
+    if (paired) figure.append(element('figcaption','',label));
     const geography=element('div','desk-map-geography');
     const canvas=element('canvas','desk-map-ink');
     canvas.width=W;
@@ -7973,7 +7821,7 @@ function mountDeskReader(stage            , session                             
   root.hidden=true;
   title.id='desk-reader-title';
   root.setAttribute('aria-labelledby',title.id);
-  close.hidden=projectionMode;
+
   context.append(route,compare,close);
   bar.append(title,context);
   footer.append(back,pageLabel,next);
@@ -8006,7 +7854,7 @@ function mountDeskReader(stage            , session                             
     spread.append(left,right,turn);
     let input                                                                           ;
     spread.addEventListener('pointerdown',event=>{
-      if (projectionMode || !event.isPrimary || event.button!==0) return;
+      if (!event.isPrimary || event.button!==0) return;
       input={id:event.pointerId,x:event.clientX,y:event.clientY};
       spread.setPointerCapture(event.pointerId);
     });
@@ -8088,9 +7936,9 @@ function mountDeskReader(stage            , session                             
 
     root.dataset.reading=reading.kind;
     const showBook=reading.kind==='journal';
-    footer.hidden=projectionMode || !showBook;
-    compare.hidden=projectionMode || (reading.kind!=='journal' && reading.kind!=='dossier' && reading.kind!=='clue');
-    route.hidden=projectionMode || reading.kind!=='clue' || reading.source!=='map';
+    footer.hidden=!showBook;
+    compare.hidden=(reading.kind!=='journal' && reading.kind!=='dossier' && reading.kind!=='clue');
+    route.hidden=reading.kind!=='clue' || reading.source!=='map';
     if (!wasOpen || kindChanged) {
       fade?.cancel();
       rotate?.cancel();
@@ -8109,7 +7957,7 @@ function mountDeskReader(stage            , session                             
       shownClue=undefined;
       content.replaceChildren();
       content.scrollTop=0;
-      if (!projectionMode && (!wasOpen || !context.contains(document.activeElement))) close.focus({preventScroll:true});
+      if ((!wasOpen || !context.contains(document.activeElement))) close.focus({preventScroll:true});
     }
 
     if (reading.kind==='map') {
@@ -8160,7 +8008,7 @@ function mountDeskReader(stage            , session                             
     }
   }
 
-  if (!projectionMode) {
+  {
     backdrop.addEventListener('click',closed);
     root.addEventListener('keydown',event=>{
       if (event.key==='Escape') {event.preventDefault();closed();return;}
@@ -8220,9 +8068,6 @@ function playDeskHandoff(frame            , handoff            , poster         
 
 
 
-
-
-
 let currentDesk                     ;
 let standaloneDesk=location.hash==='#desk';
 const deskHistory=new Map                  ();
@@ -8235,7 +8080,6 @@ function resetDeskHistory() {
 function releaseDesk() {
   currentDesk?.dispose();
   currentDesk=undefined;
-  deskAddress=undefined;
 }
 
 const deskHoverLabels                                           = {
@@ -8249,7 +8093,7 @@ const deskHoverLabels                                           = {
 function mountDesk(stage            , position       , handoff             )            {
   const historyKey=(standaloneDesk?'standalone:':'lesson:')+position;
   const frame=element('div','desk-live-frame');
-  frame.tabIndex=projectionMode?-1:0;
+  frame.tabIndex=0;
   frame.dataset.space='loading';
   frame.setAttribute('aria-label','会前的桌边，三维观察区');
   const poster=photo('desk-front','遵义会议室桌边');
@@ -8277,7 +8121,7 @@ function mountDesk(stage            , position       , handoff             )    
   transport.append(cluesGroup);
   const manifest=JSON.parse(mediaAssets['desk-manifest']);
   const anchors                         ={journal:manifest.anchorUV.left,dossier:manifest.anchorUV.right,map:[.707,.80]};
-  let clues           =retainedHallClues.slice();
+  const clues           =retainedHallClues.slice();
   let disposed=false;
   let focusReturn                      ;
   let focusedPin                     ;
@@ -8310,15 +8154,14 @@ function mountDesk(stage            , position       , handoff             )    
 
   frame.append(poster,canvas,pinLayer,guide,tools);
   stage.append(frame);
-  const session=mountDeskSession(frame,canvas,projectionMode?freshDesk():deskHistory.get(historyKey)??freshDesk(),
-    (view,publish)=>{paint(view);if (publish) publishDesk(view);});
+  const session=mountDeskSession(frame,canvas,deskHistory.get(historyKey)??freshDesk(),paint);
   const reader=mountDeskReader(stage,session,dismiss);
   if (handoff) requestAnimationFrame(()=>{
     if (frame.isConnected) playDeskHandoff(frame,handoff,poster,anchors.dossier);
   });
 
   function renderClues() {
-    cluesGroup.hidden=projectionMode || !clues.length;
+    cluesGroup.hidden=!clues.length;
     clueButtons=clues.map((item,index)=>{
       const button=control(item.title,()=>{
         focusReturn=button;
@@ -8331,7 +8174,7 @@ function mountDesk(stage            , position       , handoff             )    
   function dismiss() {
     const wasOpen=!!session.read().reading;
     session.dismiss();
-    if (!wasOpen || projectionMode) return;
+    if (!wasOpen) return;
     const target=focusReturn?.isConnected && !focusReturn.hidden ? focusReturn : frame;
     focusReturn=undefined;
     target.focus({preventScroll:true});
@@ -8366,7 +8209,7 @@ function mountDesk(stage            , position       , handoff             )    
   function showGuide() {
     const {reading,preview}=session.read();
     const target=focusedPin??frame.dataset.hover??'';
-    const message=projectionMode || reading || preview ? '' : deskHoverLabels[target]??'';
+    const message=reading || preview ? '' : deskHoverLabels[target]??'';
     guide.hidden=!message;
     if (guide.textContent!==message) guide.textContent=message;
   }
@@ -8398,11 +8241,11 @@ function mountDesk(stage            , position       , handoff             )    
     const left=seen.includes('journal') || saved.spread>0;
     const finished=left && right;
     frame.dataset.inquiry=finished?'done':'active';
-    if (!projectionMode && finished) revealed.add('materials-compared');
+    if (finished) revealed.add('materials-compared');
 
     const moving=!!preview && preview.kind!=='inspect';
     for (const {object,target,pin} of pins) {
-      pin.hidden=projectionMode || !!reading || moving;
+      pin.hidden=!!reading || moving;
       pin.dataset.seen=String(seen.includes(object));
       if (seen.includes(object)) pin.setAttribute('aria-description','已查看，可再次打开');
       else pin.removeAttribute('aria-description');
@@ -8422,7 +8265,7 @@ function mountDesk(stage            , position       , handoff             )    
       }
     }
 
-    tools.hidden=projectionMode || !usable || !!reading;
+    tools.hidden=!usable || !!reading;
     zoomOut.setAttribute('aria-disabled',String(camera.zoom<=.921));
     zoomIn.setAttribute('aria-disabled',String(camera.zoom>=1.279));
     overhead.setAttribute('aria-pressed',String(camera.pitch>=13));
@@ -8464,22 +8307,15 @@ function mountDesk(stage            , position       , handoff             )    
   }).catch(fallback);
   renderClues();
   paint(session.read());
-  beginDeskVisit(position);
-  queueMicrotask(()=>{if (!disposed) publishDesk(session.read());});
   return {
-    transport,read:session.read,restore:session.restore,
-    setClues(next) {
-      clues=next.slice();
-      renderClues();
-      paint(session.read());
-    },
+    transport,
     dismiss,
     dispose() {
       disposed=true;
       observer.disconnect();
       reader.dispose();
       const saved=session.leave();
-      if (!projectionMode) deskHistory.set(historyKey,saved);
+      deskHistory.set(historyKey,saved);
     },
   };
 }
@@ -8566,7 +8402,7 @@ const practices                               = {
 let currentPractice                                              ;
 const completedPractices = new Set            ();
 
-function mountPractice(id            , position        , scene             , caption             ,
+function mountPractice(id            , scene             , caption             ,
   first              , showReference                                             ) {
   const practice = practices[id];
   let state                = null;
@@ -8589,11 +8425,11 @@ function mountPractice(id            , position        , scene             , cap
 
   const entry = control('展开练习',()=>{
     if (state) {
-      publish(null);
+      showPractice(null);
       return;
     }
     const selected = practice.questions.findIndex(item=>item.focus === first());
-    publish({question:Math.max(0,selected),shown:[],retry:false});
+    showPractice({question:Math.max(0,selected),shown:[],retry:false});
     heading.focus({preventScroll:true});
   },'practice-entry');
   entry.setAttribute('aria-label','展开练习 · '+practice.title);
@@ -8602,7 +8438,7 @@ function mountPractice(id            , position        , scene             , cap
     if (!state || choice === undefined) return;
     if (choice === practice.questions[state.question].answer) showAnswer();
     else {
-      publish({...state,retry:true});
+      showPractice({...state,retry:true});
       options.querySelector('button')?.focus({preventScroll:true});
     }
   },'primary');
@@ -8613,7 +8449,7 @@ function mountPractice(id            , position        , scene             , cap
     if (allDone) {
       completedPractices.add(id);
       soundscape.playSfx('complete');
-      publish(null);
+      showPractice(null);
       return;
     }
     // 优先跳转到下一道尚未核对的题目，避免死循环
@@ -8625,14 +8461,12 @@ function mountPractice(id            , position        , scene             , cap
         break;
       }
     }
-    publish({...state,question:nextQ,retry:false});
+    showPractice({...state,question:nextQ,retry:false});
     heading.focus({preventScroll:true});
   });
-  if (!projectionMode) {
-    const actions = element('div','practice-actions');
-    actions.append(confirm,reveal,advance);
-    panel.append(actions);
-  }
+  const actions = element('div','practice-actions');
+  actions.append(confirm,reveal,advance);
+  panel.append(actions);
 
   function showAnswer() {
     if (state && !state.shown.includes(state.question)) {
@@ -8643,12 +8477,12 @@ function mountPractice(id            , position        , scene             , cap
       } else {
         soundscape.playSfx('confirm');
       }
-      publish({...state,shown:nextShown,retry:false});
+      showPractice({...state,shown:nextShown,retry:false});
       advance.focus({preventScroll:true});
     }
   }
 
-  function restore(next               ) {
+  function showPractice(next               ) {
     const wasOpen = Boolean(state);
     state = next;
     const item = state ? practice.questions[state.question] : undefined;
@@ -8665,7 +8499,7 @@ function mountPractice(id            , position        , scene             , cap
     showReference?.(state?.retry || answered ? item?.focus : undefined);
     window.dispatchEvent(new Event('lesson-reading'));
     if (!state || !item) {
-      if (wasOpen && !projectionMode) entry.focus({preventScroll:true});
+      if (wasOpen) entry.focus({preventScroll:true});
       return;
     }
     counter.textContent = (state.question + 1) + ' / ' + practice.questions.length;
@@ -8673,13 +8507,6 @@ function mountPractice(id            , position        , scene             , cap
     prompt.textContent = item.prompt;
     options.replaceChildren(...item.options.map((value,index)=>{
       const correct = answered && index === item.answer;
-      if (projectionMode) {
-        const option = element('span','practice-option');
-        if (correct) option.append(svgIcon('check'),element('span','',value));
-        else option.textContent = value;
-        option.dataset.correct = String(correct);
-        return option;
-      }
       const option = control(value,()=>{
         choice = index;
         Array.from(options.children).forEach((node,i)=>node.setAttribute('aria-pressed',String(i===index)));
@@ -8712,108 +8539,12 @@ function mountPractice(id            , position        , scene             , cap
     else setButtonContent(advance, '下一题', 'arrowRight', true);
   }
 
-  function publish(next               ) {
-    restore(next);
-    sendProjection({type:'practice',position,state:next});
-  }
-
-  return {panel, entry, restore, read:()=>state, close:()=>{
+  return {panel, entry, close:()=>{
     if (!state) return false;
-    publish(null);
+    showPractice(null);
     return true;
   }};
 }
-
-let teachingPace               = 40;
-
-
-
-function lessonSchedule(pace              ) {
-  const column = teachingPaces.indexOf(pace);
-  let end = 0;
-  function schedule(beat              )                {
-    const start = end;
-    end += beat.seconds[column];
-    return {start, end, beat};
-  }
-  const map = schedule(mapBeat);
-  const chapters = events.map(event => event.pages.map(schedule));
-  const review = reviewBeats.map(schedule);
-  return {map, chapters, scenes: chapters.flat(), review};
-}
-
-function teachingTime(seconds        ) {
-  return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2,'0');
-}
-
-function teachingRange(first               , last = first) {
-  return teachingTime(first.start) + '–' + teachingTime(last.end);
-}
-
-function pacePicker(id        , change            ) {
-  const label = element('label','teaching-pace','授课时长');
-  const picker = element('select');
-  picker.id = id;
-  for (const pace of teachingPaces) {
-    const option = element('option','',pace+' 分钟');
-    option.value = String(pace);
-    picker.append(option);
-  }
-  picker.value = String(teachingPace);
-  picker.addEventListener('change',()=>{
-    const pace = teachingPaces.find(value => String(value) === picker.value);
-    if (pace === undefined) return;
-    teachingPace = pace;
-    document.querySelectorAll                   ('.teaching-pace select').forEach(input => { input.value = picker.value; });
-    change();
-  });
-  label.append(picker);
-  return label;
-}
-
-function lessonClock() {
-  const row = element('div','lesson-clock');
-  const time = element('time','','0:00');
-  time.setAttribute('aria-label','已授课时间');
-  let startedAt                    ;
-  function update() {
-    if (startedAt !== undefined) time.textContent = teachingTime(Math.floor((performance.now()-startedAt)/1000));
-  }
-  const timer = control('开始计时',()=>{
-    if (startedAt === undefined) {
-      startedAt = performance.now();
-      update();
-      setButtonContent(timer,'停止计时');
-    } else {
-      update();
-      startedAt = undefined;
-      setButtonContent(timer,'重新计时');
-    }
-  });
-  row.append(time,timer);
-  return { row, update };
-}
-
-function beatCopy(beat              , practice             ) {
-  const lines = [beat.notes];
-  if (practice) {
-    const task = practices[practice];
-    if (teachingPace >= task.from) lines.push(task.teacher);
-  }
-  if (teachingPace === 50 && beat.extension) lines.push(beat.extension);
-  return lines;
-}
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -8828,12 +8559,7 @@ const explorationLabels = {
 }                                                                                               ;
 
 let explorationActivity                         ;
-let currentExplorationPage                             ;
-let explorationVisit = 0;
-let explorationVersion = 0;
-let receivedExplorationVisit = 0;
-let receivedExplorationVersion = 0;
-let explorationPublishTimer                    ;
+let releaseCurrentExploration                        ;
 let retainedHallClues             = [];
 const visitedExplorations = new Set               ();
 
@@ -8848,65 +8574,12 @@ function captureHallHandoff()                          {
   if (frame) return {frame, ...explorationActivity?.captureDeskShot(document.createElement('canvas'))};
 }
 
-function readExplorationUpdate()                               {
-  const page = currentExplorationPage;
-  if (!page || page.visit === null) return;
-  return {
-    kind: 'view', position: page.position, visit: page.visit, version: ++explorationVersion,
-    view: explorationActivity?.read() ?? null,
-  };
-}
-
-function publishExplorationView(immediate         ) {
-  if (projectionMode || !projectionReady || !currentExplorationPage) return;
-  const send = () => {
-    explorationPublishTimer = undefined;
-    const update = readExplorationUpdate();
-    if (update) sendProjection({type: 'exploration', update});
-  };
-  if (immediate) {
-    window.clearTimeout(explorationPublishTimer);
-    send();
-  } else if (explorationPublishTimer === undefined) {
-    explorationPublishTimer = window.setTimeout(send, 45);
-  }
-}
-
-function applyExplorationUpdate(update         , reconnect = false) {
-  const page = currentExplorationPage;
-  if (!page || typeof update !== 'object' || update === null ||
-    !('position' in update && update.position === page.position) ||
-    !('visit' in update && typeof update.visit === 'number' && Number.isSafeInteger(update.visit) && update.visit > 0) ||
-    !('version' in update && typeof update.version === 'number' && Number.isSafeInteger(update.version) &&
-      update.version > receivedExplorationVersion) || !('kind' in update)) return;
-
-  if (update.kind === 'visit') {
-    if (update.visit <= receivedExplorationVisit) return;
-    page.visit = receivedExplorationVisit = update.visit;
-    receivedExplorationVersion = update.version;
-    return;
-  }
-  if (update.kind !== 'view' ||
-    !('view' in update && (update.view === null ||
-      explorationStage.isExplorationView(update.view) && update.view.id === page.id))) return;
-
-  if (reconnect) {
-    if (update.visit < receivedExplorationVisit) return;
-    page.visit = receivedExplorationVisit = update.visit;
-  }
-  if (update.visit !== page.visit) return;
-  receivedExplorationVersion = update.version;
-  page.apply(update.view);
-}
-
 function releaseExplorationPage() {
-  window.clearTimeout(explorationPublishTimer);
-  explorationPublishTimer = undefined;
-  currentExplorationPage?.release();
-  currentExplorationPage = undefined;
+  releaseCurrentExploration?.();
+  releaseCurrentExploration = undefined;
 }
 
-function mountExplorationPage({ id, position, scene, stage, tools, bottom, pauseMedia, backdrop, openDesk }
+function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, backdrop, openDesk }
 
 
 
@@ -8914,7 +8587,7 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
  ) {
   const labels = explorationLabels[id];
   const activity = () => explorationActivity ??= explorationStage.createExploration({
-    assets: mediaAssets, projection: projectionMode, onChange: publishExplorationView,
+    assets: mediaAssets,
   });
   let surface                                       = 'static';
   let request = 0;
@@ -8928,7 +8601,7 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
   const next = bottom.querySelector             ('[data-lesson-action=next]');
   function positionDock() {
     const frame = stage.getBoundingClientRect();
-    if (!projectionMode) {
+    {
       const gap = frame.bottom - bottom.getBoundingClientRect().top;
       scene.style.setProperty('--exploration-dock-bottom', Math.ceil(gap + 14) + 'px');
       const nav = next?.getBoundingClientRect();
@@ -8947,11 +8620,10 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
 
   function close(restoreBackdrop = true) {
     ++request;
-    if (id === 'zunyi-hall' && !projectionMode && surface === 'exploration') {
+    if (id === 'zunyi-hall' && surface === 'exploration') {
       const clues = explorationStage.hallClues(explorationActivity?.read() ?? null);
       if (clues.length) {
         retainedHallClues = clues;
-        sendProjection({type:'hall-clues', clues});
       }
     }
     explorationActivity?.close();
@@ -8964,22 +8636,20 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
     syncButtons();
   }
 
-  const toggle = projectionMode ? undefined : control(labels.enter, () => {
+  const toggle = control(labels.enter, () => {
     if (surface === 'static') {
       pauseMedia();
-      if (currentVideo) sendProjection({type: 'video', state: currentVideo.read()});
       void show(activity().open(id, stage));
     } else {
       close();
-      publishExplorationView(true);
       toggle?.focus({preventScroll: true});
     }
   }, '', 'compass');
-  const reset = projectionMode ? undefined : control(labels.reset, () => {
+  const reset = control(labels.reset, () => {
     if (id === 'yudu-river' || id === 'xiang-crossing') explorationActivity?.home();
     else explorationActivity?.restart();
   }, '', 'reset');
-  const desk = openDesk ? syncControl('hall-desk','会议桌',() => {
+  const desk = openDesk ? lessonControl('hall-desk','会议桌',() => {
     if (surface === 'exploration') openDesk();
   },'journey-control','layers') : undefined;
   if (desk) {
@@ -9022,8 +8692,7 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
       status.hidden = true;
       syncButtons();
       positionDock();
-      publishExplorationView(true);
-      if (!projectionMode) {
+      {
         if (id === 'yudu-river') soundscape.setScene('yudu', 0.6);
         else if (id === 'xiang-crossing') soundscape.setScene('xiang', 0.6);
         else if (id === 'zunyi-hall') soundscape.setScene('zunyi-yard', 0.6);
@@ -9037,26 +8706,10 @@ function mountExplorationPage({ id, position, scene, stage, tools, bottom, pause
   }
 
   syncButtons();
-  const visit = projectionMode ? null : ++explorationVisit;
-  currentExplorationPage = {
-    id, position, visit,
-    apply(view) {
-      if (view === null) {
-        close();
-      } else {
-        if (surface === 'static') pauseMedia();
-        const opening = activity().apply(stage, view);
-        if (surface === 'static') void show(opening);
-      }
-    },
-    release() {
-      close(false);
-      dockSize.disconnect();
-    },
+  releaseCurrentExploration = () => {
+    close(false);
+    dockSize.disconnect();
   };
-  if (visit !== null) {
-    sendProjection({type: 'exploration', update: {kind: 'visit', position, visit, version: ++explorationVersion}});
-  }
 }
 
 window.addEventListener('pagehide', event => {
@@ -9465,21 +9118,7 @@ function mountNarration(host             , total        , signal             ) {
 
 
 
-
-
-
-
-
-
-
-
-
 const lessonItemsSeen = new Set        ();
-const trialItemsSeen = new Set        ();
-let sceneVisit = 0;
-let sceneRevision = 0;
-let receivedSceneVisit = 0;
-let receivedSceneRevision = 0;
 let currentSceneLesson                                                 ;
 
 function releaseSceneLesson() {
@@ -9487,36 +9126,17 @@ function releaseSceneLesson() {
   currentSceneLesson = undefined;
 }
 
-function applySceneLesson(frame                              , entered = false) {
-  const lesson = currentSceneLesson;
-  if (!frame || !lesson || !lesson.matches(frame) ||
-    !Number.isSafeInteger(frame.visit) || frame.visit < 1 ||
-    !Number.isSafeInteger(frame.revision) || frame.revision <= receivedSceneRevision) return;
-  if (entered) {
-    if (frame.visit <= receivedSceneVisit) return;
-    receivedSceneVisit = frame.visit;
-    lesson.acceptVisit(frame.visit);
-  }
-  if (!lesson.accepts(frame.visit)) return;
-  receivedSceneRevision = frame.revision;
-  lesson.restore(frame,!entered);
-}
-
-function mountSceneLesson(address              , scene             , host             , page            ) {
+function mountSceneLesson(scene             , host             , page            ) {
   const life = new AbortController();
   const { signal } = life;
   const paragraphs = page.narration;
   const renderer = page.activity === 'materials' ? undefined : mountNarration(host, paragraphs.length, signal);
   const cues = new Map                  ();
-  const seenItems = address.variant === 'trial' ? trialItemsSeen : lessonItemsSeen;
   const steps                      = page.activity === 'military' || page.activity === 'organization' ||
     page.activity === 'result' ? page.steps : [];
   let narration                = { kind: 'main', progress: { kind: 'waiting' } };
   let openItem                = null;
   let drawItems                          ;
-  let visit = projectionMode ? 0 : ++sceneVisit;
-  let journey                            ;
-  let enterPage                                                  ;
   let pointer                                                  ;
   renderer?.show(undefined,narration);
 
@@ -9551,49 +9171,36 @@ function mountSceneLesson(address              , scene             , host       
     syncReadingState();
   }
 
-  function read()                   {
-    return { ...address, visit, revision: ++sceneRevision, narration, journey,
-      items: { open: openItem, seen: steps.filter(step => seenItems.has(step.id)).map(step => step.id) } };
-  }
-
-  function publish(entered = false) {
-    if (!projectionMode) sendProjection({ type: 'scene-lesson', frame: read(), entered });
-  }
-
   function speak(index        , previousFinishedAt = 0) {
     setNarration({ kind: 'main', progress: { kind: 'typing', index, startedAt: sceneNow(), previousFinishedAt } });
-    publish();
   }
 
   function start() {
-    if (!projectionMode && renderer && narration.kind === 'main' && narration.progress.kind === 'waiting') speak(0);
+    if (renderer && narration.kind === 'main' && narration.progress.kind === 'waiting') speak(0);
   }
 
   function advance() {
-    if (projectionMode || !renderer) return;
+    if (!renderer) return;
     const now = sceneNow();
     const progress = narration.kind === 'point' ? narration.resume : narration.progress;
     if (progress.kind === 'waiting') {
       speak(0);
     } else if (narration.kind === 'main' && renderer.isWriting()) {
       setNarration({ kind: 'main', progress: { kind: 'complete', index: progress.index, finishedAt: now } });
-      publish();
     } else if (narration.kind === 'point' && progress.kind === 'typing') {
       // 主讲句尚未打完即被圆点打断：点空白先补完原句而不跳过
       setNarration({ kind: 'main', progress: { kind: 'complete', index: progress.index, finishedAt: now } });
-      publish();
     } else if (progress.index + 1 < paragraphs.length) {
       const finished = narration.kind === 'point' ? narration.interruptedAt
         : progress.kind === 'complete' ? progress.finishedAt : now;
       speak(progress.index + 1, finished);
     } else if (narration.kind === 'point') {
       setNarration({ kind: 'main', progress: { kind: 'complete', index: progress.index, finishedAt: now } });
-      publish();
     }
   }
 
   function explain(id        ) {
-    if (projectionMode || !cues.has(id)) return;
+    if (!cues.has(id)) return;
     soundscape.playSfx('point');
     const now = sceneNow();
     const resume = narration.kind === 'point'
@@ -9603,16 +9210,14 @@ function mountSceneLesson(address              , scene             , host       
         : narration.progress;
     const interruptedAt = narration.kind === 'point' ? narration.interruptedAt : now;
     setNarration({ kind: 'point', id, startedAt: now, interruptedAt, resume });
-    publish();
   }
 
   function dismissPoint() {
-    if (projectionMode || narration.kind !== 'point') return false;
+    if (narration.kind !== 'point') return false;
     const { resume, interruptedAt } = narration;
     const progress = resume.kind === 'typing'
       ? { ...resume, startedAt: resume.startedAt + (sceneNow() - interruptedAt) } : resume;
     setNarration({ kind: 'main', progress });
-    publish();
     return true;
   }
 
@@ -9623,7 +9228,7 @@ function mountSceneLesson(address              , scene             , host       
       scene.dataset.entryPhase === 'ready';
   }
 
-  if (!projectionMode && renderer) {
+  if (renderer) {
     scene.addEventListener('pointerdown', e => {
       pointer = e.isPrimary && e.button === 0 && canAdvance(e.target) ? { id: e.pointerId, x: e.clientX, y: e.clientY } : undefined;
     }, { capture: true, signal });
@@ -9659,13 +9264,11 @@ function mountSceneLesson(address              , scene             , host       
       const detail = element('p', 'story-detail', step.detail);
       detail.id = 'detail-' + step.id;
       const button = control('', () => {
-        if (projectionMode) return;
         openItem = openItem === step.id ? null : step.id;
-        if (openItem) seenItems.add(openItem);
+        if (openItem) lessonItemsSeen.add(openItem);
         drawItems?.();
-        publish();
       }, 'story-step');
-      button.tabIndex = projectionMode ? -1 : 0;
+      button.tabIndex = 0;
       button.setAttribute('aria-controls', detail.id);
       button.append(element('strong', '', step.title));
       row.append(button, detail);
@@ -9684,12 +9287,12 @@ function mountSceneLesson(address              , scene             , host       
     }
     drawItems = () => {
       for (const { id, row, button, detail } of rows) {
-        row.dataset.revealed = String(seenItems.has(id));
+        row.dataset.revealed = String(lessonItemsSeen.has(id));
         button.setAttribute('aria-expanded', String(openItem === id));
         detail.hidden = openItem !== id;
       }
       if (summary) {
-        const count = rows.filter(row => seenItems.has(row.id)).length;
+        const count = rows.filter(row => lessonItemsSeen.has(row.id)).length;
         summary.hidden = count !== rows.length;
         stage.style.setProperty('--dawn-brightness', String(.84 + count * .09 + (summary.hidden ? 0 : .08)));
         fitSummary();
@@ -9705,33 +9308,9 @@ function mountSceneLesson(address              , scene             , host       
   }
 
   return {
-    signal, start, explain, dismissPoint, mountItems, read,
+    signal, start, explain, dismissPoint, mountItems,
     addCue(id        , cue          ) { cues.set(id, cue); },
-    enter(run                                    , spatial                 , awaitJourney = false) {
-      journey = spatial;
-      if (projectionMode && awaitJourney) {
-        scene.dataset.entryPhase = 'picture';
-        enterPage = run;
-      }
-      else run(journey);
-      if (!projectionMode) publish(true);
-    },
-    matches(frame              ) { return frame.position === address.position && frame.variant === address.variant; },
-    acceptVisit(value        ) { visit = value; },
-    accepts(value        ) { return visit === value; },
-    restore(frame                  , animate         ) {
-      if (enterPage) {
-        enterPage(frame.journey);
-        enterPage = undefined;
-      }
-      const previousCue = narration.kind === 'point' && frame.narration.kind === 'point' &&
-        narration.id === frame.narration.id && narration.startedAt === frame.narration.startedAt;
-      setNarration(previousCue ? narration : frame.narration, animate);
-      for (const step of steps) seenItems.delete(step.id);
-      for (const id of frame.items.seen) if (steps.some(step => step.id === id)) seenItems.add(id);
-      openItem = frame.items.open;
-      drawItems?.();
-    },
+    enter(run                                    , spatial                 ) { run(spatial); },
     dispose() {
       life.abort();
       delete scene.dataset.reading;
@@ -9986,10 +9565,10 @@ function mountRecapStage(shell             , conclusionPage         , onOpenRevi
   const cardVisual = element('div', 'recap-card-visual');
   const cardTag = element('p', 'story-detail review-step recap-card-tag');
   const cardActions = element('div', 'recap-card-actions');
-  const cardRevisit = syncControl('recap-revisit', '回看现场', () => {
+  const cardRevisit = lessonControl('recap-revisit', '回看现场', () => {
     if (recapFocusIndex !== null) onOpenRevisit(recapFocusIndex);
   }, 'recap-revisit-btn', 'arrowRight', true);
-  const cardClose = syncControl('recap-card-close', '', () => selectStation(null), 'recap-close-btn');
+  const cardClose = lessonControl('recap-card-close', '', () => selectStation(null), 'recap-close-btn');
   cardClose.setAttribute('aria-label', '收起站点卡片');
   cardClose.textContent = '×';
   cardMeta.append(cardTime, cardTitle, cardMetric);
@@ -10016,7 +9595,7 @@ function mountRecapStage(shell             , conclusionPage         , onOpenRevi
   // 四站交互圆镜节点（兼顾 .review-choice 与无障碍定位）
   const nodeElements = stations.map(st => {
     const ev = events[st.index];
-    const btn = syncControl('review-step-' + st.index, '', () => {
+    const btn = lessonControl('review-step-' + st.index, '', () => {
       const next = recapFocusIndex === st.index ? null : st.index;
       selectStation(next);
     }, 'recap-node review-choice');
@@ -10042,11 +9621,11 @@ function mountRecapStage(shell             , conclusionPage         , onOpenRevi
 
   // 底部极简图形导航与操作栏
   const footer = element('div', 'review-tools recap-footer');
-  const previous = syncControl('previous', '上一页', () => conclusionPage ? openReview() : openScene(chapterPages.length - 1), '', 'arrowLeft');
-  const next = conclusionPage ? undefined : syncControl('next', '全景总结', () => openReview(true), 'primary', 'arrowRight', true);
-  const reveal = conclusionPage ? syncControl('reveal-review', '揭示结论', () => startFinaleAnimation(), 'primary', 'play') : undefined;
+  const previous = lessonControl('previous', '上一页', () => conclusionPage ? openReview() : openScene(chapterPages.length - 1), '', 'arrowLeft');
+  const next = conclusionPage ? undefined : lessonControl('next', '全景总结', () => openReview(true), 'primary', 'arrowRight', true);
+  const reveal = conclusionPage ? lessonControl('reveal-review', '揭示结论', () => startFinaleAnimation(), 'primary', 'play') : undefined;
   if (reveal) reveal.hidden = reviewAnswer;
-  const replay = conclusionPage ? syncControl('replay-finale', '重播串联', () => startFinaleAnimation(true), '', 'reset') : undefined;
+  const replay = conclusionPage ? lessonControl('replay-finale', '重播串联', () => startFinaleAnimation(true), '', 'reset') : undefined;
   if (replay) replay.hidden = !reviewAnswer;
   footer.append(previous);
   if (next) footer.append(next);
@@ -10138,7 +9717,7 @@ function mountRecapStage(shell             , conclusionPage         , onOpenRevi
     if (replay) replay.hidden = false;
     finalePanel.hidden = false;
     conclusion.hidden = false;
-    if (!projectionMode) soundscape.playFinale();
+    soundscape.playFinale();
     if (reducedMotion.matches) {
       finaleProgress = 1;
       finaleRunning = false;
@@ -10230,9 +9809,7 @@ function mountRecapStage(shell             , conclusionPage         , onOpenRevi
 
   // 点击空白背景收起当前展开的站点卡片
   stage.addEventListener('click', event => {
-    if (projectionMode) return;
     if (recapFocusIndex !== null && !(event.target           ).closest('.recap-node,.recap-card,.review-tools')) {
-      sendAction('recap-card-close');
       selectStation(null);
     }
   });
@@ -10648,7 +10225,7 @@ function setIconButton(button                   , label        , icon          )
   setButtonContent(button,'',icon);
 }
 function syncScenePoint(id        , name        , action            , className        ) {
-  return explorationStage.markScenePoint(syncControl(id, '', action, className), name);
+  return explorationStage.markScenePoint(lessonControl(id, '', action, className), name);
 }
 function photo(key        , alt = '') {
   const node = element('img');
@@ -10723,11 +10300,11 @@ function modal(title        , ...nodes               ) {
 }
 closeDialog.onclick = () => closeMaterial();
 dialog.addEventListener('click', e => {
-  if (!projectionMode && e.target === dialog) closeMaterial();
+  if (e.target === dialog) closeMaterial();
 });
 dialog.addEventListener('cancel',event=>{
   event.preventDefault();
-  if (!projectionMode) closeMaterial();
+  closeMaterial();
 });
 dialog.addEventListener('close', () => {
   if (dialog.open) return;
@@ -10784,7 +10361,7 @@ function position([lon,lat]       )        {
 }
 let pageButtons                                                           = {};
 document.addEventListener('keydown', event => {
-  if (projectionMode || event.defaultPrevented || dialog.open || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if (event.defaultPrevented || dialog.open || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
   if (event.key === 'Escape' && currentPractice?.close()) {
     event.preventDefault();
     return;
@@ -10795,7 +10372,6 @@ document.addEventListener('keydown', event => {
   }
   if (event.key === 'Escape' && onStageDismiss) {
     event.preventDefault();
-    if (!currentDesk) sendAction('stage-dismiss');
     onStageDismiss();
     return;
   }
@@ -10815,7 +10391,7 @@ function chapterNav(current        , jump                         ) {
   const nav = element('nav','chapter-nav chapter-rail');
   nav.setAttribute('aria-label','章节导航');
   events.forEach((event, index) => {
-    const button = syncControl('chapter-'+index,event.name, () => jump(index),'chapter-link');
+    const button = lessonControl('chapter-'+index,event.name, () => jump(index),'chapter-link');
     if (index === current) button.setAttribute('aria-current','step');
     nav.append(button);
   });
@@ -10828,7 +10404,6 @@ function mountStoryRail(label        , steps                     , onSelect     
   const rows = steps.map(step => {
     const row = element('li','story-stop');
     const button = control('',()=>onSelect(step),'story-step');
-    if (projectionMode) button.tabIndex = -1;
     if (step.date) button.append(element('time','',step.date));
     button.append(element('strong','',step.title));
     row.append(button);
@@ -10856,8 +10431,6 @@ function openReview(conclusionPage = false) {
   currentPractice = undefined;
   activeSceneCue = undefined;
   currentVideo = undefined;
-  applyScrub = undefined;
-  applyRouteOffset = undefined;
   onStageDismiss = undefined;
   stopMotion();
   stopCinemagraphs();
@@ -10867,8 +10440,8 @@ function openReview(conclusionPage = false) {
   const shell = element('section','shell review recap-shell');
   const header = element('header','top recap-top');
   const actions = element('div','top-actions');
-  if (!projectionMode) actions.append(soundButton());
-  actions.append(fullscreenButton(),syncControl('map','地图',()=>renderMap(true),'','arrowLeft'));
+  actions.append(soundButton());
+  actions.append(fullscreenButton(),lessonControl('map','地图',()=>renderMap(true),'','arrowLeft'));
   const title = element('h1','course-title',conclusionPage ? '全课结论' : '课堂回顾');
   title.tabIndex = -1;
   header.append(title,actions);
@@ -10883,55 +10456,10 @@ function openReview(conclusionPage = false) {
   app.replaceChildren(shell);
   displayView({kind:'review',conclusionPage});
   pageButtons = {previous,next};
-  if (!projectionMode) title.focus({preventScroll:true});
+  title.focus({preventScroll:true});
   startPageEntry(shell, [[title,'left'],[actions,'right'],[footer,'bottom']]);
 }
 
-function openTeacher() {
-  if (projectionMode) return;
-  const outline = element('ol','teacher-outline');
-  function renderOutline() {
-    const schedule = lessonSchedule(teachingPace);
-    const sections = [
-      {name:'地图导入',pages:[{name:'开场',timing:schedule.map}]},
-      ...events.map((event,index)=>({name:event.name,pages:event.pages.map((page,i)=>({
-        name:page.title, timing:schedule.chapters[index][i], practice:page.practice,
-      }))})),
-      {name:'课堂回顾',pages:schedule.review.map((timing,index)=>({name:index ? '全课结论' : '回顾四站',timing}))},
-    ];
-    outline.replaceChildren(...sections.map(({name,pages})=>{
-      const item = element('li');
-      const details = element('details');
-      details.append(element('summary','',teachingRange(pages[0].timing,pages[pages.length-1].timing)+'  '+name));
-      const notes = element('ul');
-      pages.forEach(page=>{
-        const {timing} = page;
-        const turn = element('li');
-        turn.append(element('strong','',teachingRange(timing)+'  '+page.name),
-          ...beatCopy(timing.beat,'practice' in page ? page.practice : undefined).map(line=>element('p','',line)));
-        if (timing.beat.question) turn.append(element('p','presenter-question',timing.beat.question));
-        notes.append(turn);
-      });
-      details.append(notes);
-      item.append(details);
-      return item;
-    }));
-  }
-  renderOutline();
-  const picker = pacePicker('prep-pace',()=>{
-    renderOutline();
-    if (!teacherPanel.hidden) updatePresenterNotes();
-  });
-  const refs = element('div','dialog-split');
-  refs.append(...['于都渡河', '湘江战役', '中国共产党一百年大事记', '黎平会议', '猴场会议', '遵义会议',
-    '长征专题', '地形晕渲 · Mapzen / USGS / NOAA'].map(title => element('span', '', title)));
-  modal('教师备课', picker, outline, control('开始遵义 3 分钟试讲', () => {
-    sendAction('trial');
-    dialogOpener = null;
-    dialog.close();
-    openTrial();
-  }, 'primary', 'arrowRight', true), refs);
-}
 let updateMapSelection                                    ;
 function select(index        , focus                   ) {
   selected = index;
@@ -10949,8 +10477,6 @@ function renderMap(restoreFocus = false) {
   currentPractice = undefined;
   activeSceneCue = undefined;
   currentVideo = undefined;
-  applyScrub = undefined;
-  applyRouteOffset = undefined;
   onStageDismiss = undefined;
   stopMotion();
   stopCinemagraphs();
@@ -10960,14 +10486,8 @@ function renderMap(restoreFocus = false) {
   const shell = element('section','shell');
   const header = element('header','top');
   const actions = element('div','top-actions');
-  actions.append(syncControl('review','课堂回顾',()=>openReview()));
-  actions.append(syncControl('open-desk','遵义实景',openDeskPage,'','layers'));
-  if (!projectionMode) {
-    const project = control('',openProjection);
-    setIconButton(project,'开始双屏授课','screens');
-    actions.append(control('教师备课',openTeacher),project,soundButton());
-  }
-  actions.append(fullscreenButton());
+  actions.append(lessonControl('review','课堂回顾',()=>openReview()));
+  actions.append(soundButton(),fullscreenButton());
   header.append(element('h1','course-title','从于都到遵义'),actions);
   const map = element('section','map');
   map.setAttribute('aria-label','长征阶段地图');
@@ -11022,8 +10542,8 @@ function renderMap(restoreFocus = false) {
   const copy = element('div','event-copy');
   const date = element('time');
   const title = element('h2');
-  const enterScene = syncControl('enter-scene','进入场景',()=>openChapter(selected),'','arrowRight',true);
-  const start = syncControl('start','开始授课',()=>{
+  const enterScene = lessonControl('enter-scene','进入场景',()=>openChapter(selected),'','arrowRight',true);
+  const start = lessonControl('start','开始授课',()=>{
     explorationActivity?.reset();
     revealed.clear();
     lessonItemsSeen.clear();
@@ -11068,7 +10588,7 @@ function renderMap(restoreFocus = false) {
   const timeline = element('nav','timeline chapter-rail');
   timeline.setAttribute('aria-label','时间轴');
   const times = events.map((e,i) => {
-    const node = syncControl('time-'+i,'',()=>select(i,'timeline'),'time-button chapter-link');
+    const node = lessonControl('time-'+i,'',()=>select(i,'timeline'),'time-button chapter-link');
     node.append(element('time','',e.timeline),element('strong','',e.name));
     timeline.append(node);
     return node;
@@ -11079,7 +10599,7 @@ function renderMap(restoreFocus = false) {
   shell.append(header,map);
   app.replaceChildren(shell);
   displayView({kind:'map'});
-  if (!projectionMode) releaseMapCard = mountMapCard(map,card,mapFooter);
+  releaseMapCard = mountMapCard(map,card,mapFooter);
   let width = 0;
   let height = 0;
   let origin        = [0,0];
@@ -11118,8 +10638,6 @@ function renderMap(restoreFocus = false) {
     zoomOut.disabled = zoom <= .85;
     zoomIn.disabled = zoom >= 2.5;
     zoomReadout.textContent = Math.round(zoom * 100) + '%';
-    cameraPosition = [zoom,pan[0]/Math.max(1,width),pan[1]/Math.max(1,height),...mapAngle];
-    if (broadcast) sendCamera(cameraPosition,animate);
   }
   function changeZoom(next        , anchor        = [map.clientWidth*.65,map.clientHeight*.48], animate = false) {
     const newZoom = Math.max(.85,Math.min(2.5,next));
@@ -11133,13 +10651,13 @@ function renderMap(restoreFocus = false) {
   mapResize.observe(mapFooter);
   let drag                                                                      ;
   map.addEventListener('wheel', e => {
-    if (projectionMode || (e.target           ).closest('.event-card,.map-tools,.timeline')) return;
+    if ((e.target           ).closest('.event-card,.map-tools,.timeline')) return;
     e.preventDefault();
     const rect = map.getBoundingClientRect();
     changeZoom(zoom*Math.exp(-Math.sign(e.deltaY)*.12),[e.clientX-rect.left,e.clientY-rect.top],false);
   }, {passive:false});
   map.addEventListener('pointerdown', e => {
-    if (projectionMode || !e.isPrimary || e.button!==0 || (e.target           ).closest('button,.event-card,.map-tools,.timeline')) return;
+    if (!e.isPrimary || e.button!==0 || (e.target           ).closest('button,.event-card,.map-tools,.timeline')) return;
     const orbit = terrain.ready && !e.shiftKey;
     drag={id:e.pointerId,x:e.clientX,y:e.clientY,start:orbit ? mapAngle : pan,orbit};
     map.setPointerCapture(e.pointerId);
@@ -11163,7 +10681,7 @@ function renderMap(restoreFocus = false) {
     });
   }
   shell.addEventListener('keydown', ev => {
-    if (projectionMode || dialog.open || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+    if (dialog.open || ev.altKey || ev.ctrlKey || ev.metaKey) return;
     if (ev.key === '+' || ev.key === '=') {
       ev.preventDefault();
       changeZoom(zoom * 1.25, undefined, true);
@@ -11205,42 +10723,18 @@ function renderMap(restoreFocus = false) {
       pan = [(targetX-origin[0]-width*zoom*x/100)*focusAmount,
         (targetY-origin[1]-height*zoom*y/100)*focusAmount];
       moveCamera(!reducedMotion.matches);
-      if (!projectionMode) (focus==='pin'?pins:times)[selected].focus({preventScroll:true});
+      (focus==='pin'?pins:times)[selected].focus({preventScroll:true});
     }
   };
   updateMapSelection();
   layout();
-  applyCamera = ([nextZoom,x,y,azimuth,tilt],animate)=>{
-    zoom = nextZoom;
-    pan = [x*width,y*height];
-    mapAngle = [azimuth,tilt];
-    moveCamera(animate);
-  };
   pageButtons = {next: start};
-  if (restoreFocus && !projectionMode) times[selected].focus({preventScroll:true});
+  if (restoreFocus) times[selected].focus({preventScroll:true});
   startPageEntry(shell, [[header,'top'],[card,'left'],[mapFooter,'bottom']],thumb);
 }
-function showZunyiMaterials() {
-  const columns = element('div','materials');
-  for (const item of zunyiMaterials) {
-    const card = element('article','material');
-    card.append(element('h3','',item.title));
-    item.lines.forEach(line=>card.append(element('p','',line)));
-    columns.append(card);
-  }
-  dialog.classList.add('comparison');
-  modal('两份材料对照',columns);
-  if (!revealed.has('materials-compared')) {
-    Array.from(columns.children).forEach((card,index)=>{
-      animatePart(card,[{opacity:0,translate:index ? '18px 0' : '-18px 0'},{opacity:1,translate:'0 0'}],360,140+index*180);
-    });
-    revealed.add('materials-compared');
-  }
-}
-
 function openChapter(index        , variant             = 'lesson', returnToReview             ) {
   const first = chapterStarts[index];
-  openScene(variant === 'trial' ? first : (lastViewed.get(index) ?? first), variant, returnToReview);
+  openScene(lastViewed.get(index) ?? first, variant, returnToReview);
 }
 
 function openDeskPage() {
@@ -11283,8 +10777,6 @@ function renderOpening(autoplay = true) {
   currentPractice = undefined;
   activeSceneCue = undefined;
   currentVideo = undefined;
-  applyScrub = undefined;
-  applyRouteOffset = undefined;
   onStageDismiss = undefined;
   stopMotion();
   stopCinemagraphs();
@@ -11307,14 +10799,14 @@ function renderOpening(autoplay = true) {
   const player = attachVideo({mode:'opening',key:'opening'},'terrain',camera,controls);
   const openingVideo = camera.querySelector                  ('video');
   if (openingVideo) mountOpeningOverlay(scene, openingVideo);
-  const backToMap = syncControl('map','',()=>{
+  const backToMap = lessonControl('map','',()=>{
     player.pause();
     renderMap(true);
   });
   setIconButton(backToMap,'地图','map');
   actions.append(controls,fullscreenButton(),backToMap);
   heading.append(title,actions);
-  const next = syncControl('opening-next','进入课堂',()=>{
+  const next = lessonControl('opening-next','进入课堂',()=>{
     player.pause();
     openScene(0,'lesson',undefined,landing.complete && landing.naturalWidth ? landing : undefined);
   },'primary','arrowRight',true);
@@ -11335,19 +10827,18 @@ function renderOpening(autoplay = true) {
   sizeMedia();
   pageButtons = {next};
   displayView({kind:'opening'});
-  if (!projectionMode) {
+  {
     title.focus({preventScroll:true});
     if (autoplay) {
       const state             = {mode:'playing',time:0,at:sceneNow()};
       void player.set(state);
-      sendProjection({type:'video',state});
     }
   }
   startPageEntry(scene, [[title,'left'],[actions,'right']],openingPicture);
 }
 
 function openScene(position        , variant             = 'lesson', returnToReview             ,
-  matchedFrame                   , reconnectingJourney = false) {
+  matchedFrame                   ) {
   const departingPage = currentView.kind === 'scene' ? chapterPages[currentView.position]?.page : null;
   const arriving = chapterPages[position].page;
   const spatial = departingPage ? findSpatialJourney(departingPage.title, arriving.title) : undefined;
@@ -11362,8 +10853,6 @@ function openScene(position        , variant             = 'lesson', returnToRev
   currentPractice = undefined;
   activeSceneCue = undefined;
   currentVideo = undefined;
-  applyScrub = undefined;
-  applyRouteOffset = undefined;
   onStageDismiss = undefined;
   stopMotion();
   stopCinemagraphs();
@@ -11372,7 +10861,7 @@ function openScene(position        , variant             = 'lesson', returnToRev
   mapResize?.disconnect();
   const { event, chapter, page } = chapterPages[position];
   selected = chapter;
-  if (variant !== 'trial') lastViewed.set(chapter,position);
+  lastViewed.set(chapter,position);
   soundscape.setVideoDuck(false);
   soundscape.setScene(sceneSoundOf(event.id, page), 0.85);
 
@@ -11390,7 +10879,7 @@ function openScene(position        , variant             = 'lesson', returnToRev
   const shade = element('div','scene-shade');
   const picture = matchedFrame ?? (liveDesk ? element('img') : photo(page.image,page.title));
   const captionText = element('div','caption-copy');
-  const lesson = currentSceneLesson = mountSceneLesson({position,variant},scene,captionText,page);
+  const lesson = currentSceneLesson = mountSceneLesson(scene,captionText,page);
   if (!liveDesk) {
     camera.append(picture,spotlight);
     if (page.video?.mode !== 'loop') attachCinemagraph(page.image, picture);
@@ -11407,14 +10896,13 @@ function openScene(position        , variant             = 'lesson', returnToRev
   };
   let pauseVideo = () => {};
   const tools = element('div','scene-actions');
-  if (liveDesk && !projectionMode) tools.append(control('双屏授课',openProjection,'desk-project','expand'));
   if (page.video) {
     let movieAdvance                               ;
     if (page.video.mode === 'transition') {
       const destination = chapterPages[position+1].page;
       const landing = photo(destination.image,destination.title);
       const decoded = landing.decode().then(()=>landing,()=>undefined);
-      movieAdvance = syncControl('clip-next','',async()=>{
+      movieAdvance = lessonControl('clip-next','',async()=>{
         const frame = await decoded;
         if (movieAdvance?.isConnected && currentVideo?.read().mode === 'playing') turn(1,frame);
       });
@@ -11424,7 +10912,7 @@ function openScene(position        , variant             = 'lesson', returnToRev
     pauseVideo = attachVideo(page.video,page.image,camera,tools,()=>lesson.dismissPoint(),()=>movieAdvance?.click()).pause;
   }
   if (page.video?.key==='zunyi') {
-    camera.append(syncControl('visit-meeting-desk','进入会议桌实景',()=>{
+    camera.append(lessonControl('visit-meeting-desk','进入会议桌实景',()=>{
       pauseVideo();
       openScene(position+1,variant,returnToReview);
     },'desk-scene-link','layers'));
@@ -11446,9 +10934,9 @@ function openScene(position        , variant             = 'lesson', returnToRev
   const location = page.title === '猴场会议' ? '贵州瓮安 · 1935 年 1 月 1 日'
     : page.image === 'wujiang' ? '贵州乌江 · 1935 年 1 月初' : event.place+' · '+event.date;
   identity.append(title,element('p','scene-date',location));
-  const back = syncControl('map',returnToReview ? '返回回顾' : '地图',leave,'','arrowLeft');
+  const back = lessonControl('map',returnToReview ? '返回回顾' : '地图',leave,'','arrowLeft');
   if (!returnToReview) setIconButton(back,'地图','map');
-  if (!projectionMode) tools.append(soundButton());
+  tools.append(soundButton());
   tools.append(fullscreenButton(),back);
   heading.append(identity,tools);
 
@@ -11551,7 +11039,7 @@ function openScene(position        , variant             = 'lesson', returnToRev
     const hud = element('aside','troop-hud classroom-sheet');
     hud.setAttribute('aria-label','湘江前后兵力');
     const troopRow = (term                  , date        , label        , amount        , snap        ) => {
-      const row = syncControl('scrub-'+term,'',()=>updateSplit(snap,true),'troop-hud-row');
+      const row = lessonControl('scrub-'+term,'',()=>updateSplit(snap,true),'troop-hud-row');
       row.dataset.term = term;
       row.setAttribute('aria-label',label+' '+amount);
       const top = element('span','troop-row-top');
@@ -11586,12 +11074,10 @@ function openScene(position        , variant             = 'lesson', returnToRev
       barAfter.dataset.focus = String(clamped <= 55);
       barBefore.setAttribute('aria-pressed',barBefore.dataset.focus);
       barAfter.setAttribute('aria-pressed',barAfter.dataset.focus);
-      if (broadcast && !projectionMode) sendScrub(clamped);
     }
-    applyScrub = (v)=>updateSplit(v,false);
 
     const comparison = element('div','troop-controls');
-    comparison.append(rangeInput,syncControl('scrub-mid','并排',()=>updateSplit(50,true),'troop-center'));
+    comparison.append(rangeInput,lessonControl('scrub-mid','并排',()=>updateSplit(50,true),'troop-center'));
     rangeInput.addEventListener('input',()=>updateSplit(Number(rangeInput.value),true));
 
     let curtainDrag                                                             ;
@@ -11601,7 +11087,7 @@ function openScene(position        , variant             = 'lesson', returnToRev
       updateSplit(((clientX - rect.left) / rect.width) * 100, true);
     };
     media.addEventListener('pointerdown', e => {
-      if (projectionMode || !e.isPrimary || e.button !== 0 ||
+      if (!e.isPrimary || e.button !== 0 ||
         (e.target instanceof Element && e.target.closest('button,input,.troop-hud'))) return;
       const active = e.target instanceof Node && handle.contains(e.target);
       curtainDrag = {id:e.pointerId,x:e.clientX,y:e.clientY,active};
@@ -11645,7 +11131,6 @@ function openScene(position        , variant             = 'lesson', returnToRev
     marker.setAttribute('aria-label','行军标记');
     marker.setAttribute('aria-valuemin','-100');
     marker.setAttribute('aria-valuemax','100');
-    if (projectionMode) marker.tabIndex = -1;
 
     const originNode = element('span','paper-node origin','黎平');
     const eastNode = element('span','paper-node east');
@@ -11677,7 +11162,7 @@ function openScene(position        , variant             = 'lesson', returnToRev
     lesson.addCue('directions-both', {text: '原计划北上会合，黎平会议决定改向贵州北部。'});
     const directionNote = (key        ) => lesson.explain(
       revealed.has('direction-west') && revealed.has('direction-east') ? 'directions-both' : key);
-    const btnEast = syncControl('direction-east','推演原计划 · 湘西北',()=>{
+    const btnEast = lessonControl('direction-east','推演原计划 · 湘西北',()=>{
       revealed.add('direction-east');
       updateMarch(100);
       paintRoutes();
@@ -11687,7 +11172,7 @@ function openScene(position        , variant             = 'lesson', returnToRev
       appear(eastNode,350,240);
       directionNote('direction-east');
     },'deck-btn','compass');
-    const btnWest = syncControl('direction-west','推演新方向 · 贵州北部',()=>{
+    const btnWest = lessonControl('direction-west','推演新方向 · 贵州北部',()=>{
       revealed.add('direction-west');
       updateMarch(-100);
       paintRoutes();
@@ -11716,12 +11201,10 @@ function openScene(position        , variant             = 'lesson', returnToRev
       marker.style.left = step.x + '%';
       marker.style.top = step.y + '%';
       marker.dataset.side = routeOffset === 0 ? 'origin' : east ? 'east' : 'west';
-      if (broadcast && !projectionMode) sendProjection({type:'route-offset', position, value:routeOffset});
     }
-    applyRouteOffset = updateMarch;
     updateMarch(routeOffset);
 
-    if (!projectionMode) {
+    {
       let pointer                                                                ;
       marker.addEventListener('pointerdown',event=>{
         if (!event.isPrimary || event.button!==0) return;
@@ -11777,15 +11260,14 @@ function openScene(position        , variant             = 'lesson', returnToRev
   }
 
   const navigation = element('div','scene-navigation');
-  const previous = syncControl('previous','上一页',()=>turn(-1),'','arrowLeft');
+  const previous = lessonControl('previous','上一页',()=>turn(-1),'','arrowLeft');
   setIconButton(previous,'上一页','arrowLeft');
   const finalPage = position === chapterPages.length-1;
   const lastInChapter = chapterPages[position+1]?.chapter !== chapter;
   previous.disabled = variant !== 'lesson' && position === chapterStarts[chapter];
-  const nextLabel = variant === 'trial' && finalPage ? '结束试讲'
-    : variant === 'revisit' && lastInChapter ? '返回回顾'
+  const nextLabel = variant === 'revisit' && lastInChapter ? '返回回顾'
     : finalPage ? '课堂回顾' : '下一页';
-  const next = syncControl('next',nextLabel,()=>turn(1),'primary','arrowRight',true);
+  const next = lessonControl('next',nextLabel,()=>turn(1),'primary','arrowRight',true);
   if (nextLabel === '下一页') setIconButton(next,nextLabel,'arrowRight');
   navigation.append(previous);
   navigation.append(next);
@@ -11800,8 +11282,8 @@ function openScene(position        , variant             = 'lesson', returnToRev
   const footer = element('footer','lesson-footer');
   const caption = liveDesk && currentDesk ? currentDesk.transport : captionText;
   bottom.append(caption);
-  if (page.practice && variant !== 'trial') {
-    currentPractice = mountPractice(page.practice,position,scene,caption,()=>practiceFocus,showPracticeReference);
+  if (page.practice) {
+    currentPractice = mountPractice(page.practice,scene,caption,()=>practiceFocus,showPracticeReference);
     bottom.append(currentPractice.panel);
     navigation.insertBefore(currentPractice.entry,next);
   }
@@ -11816,7 +11298,7 @@ function openScene(position        , variant             = 'lesson', returnToRev
     const openDesk = page.exploration === 'zunyi-hall' && chapterPages[position+1]?.page.activity === 'materials'
       ? () => openScene(position+1,variant,returnToReview)
       : undefined;
-    mountExplorationPage({id: page.exploration, position, scene, stage, tools, bottom:footer,
+    mountExplorationPage({id: page.exploration, scene, stage, tools, bottom:footer,
       pauseMedia: pauseVideo, backdrop, openDesk});
   }
   displayView({kind:'scene',position,variant});
@@ -11833,9 +11315,9 @@ function openScene(position        , variant             = 'lesson', returnToRev
     sizeMedia();
   }
   pageButtons = {previous,next};
-  if (!projectionMode) title.focus({preventScroll:true});
+  title.focus({preventScroll:true});
   if (riverHandoff) playRiverExit(scene,riverHandoff);
-  else if (!spatial && !reconnectingJourney && !matchedFrame && !liveDesk && priorImage?.complete && priorImage.naturalWidth && priorImage.getAttribute('src') !== picture.getAttribute('src') && !reducedMotion.matches) {
+  else if (!spatial && !matchedFrame && !liveDesk && priorImage?.complete && priorImage.naturalWidth && priorImage.getAttribute('src') !== picture.getAttribute('src') && !reducedMotion.matches) {
     const old = element('img','outgoing-image');
     old.src = priorImage.src;
     old.alt = '';
@@ -11845,7 +11327,7 @@ function openScene(position        , variant             = 'lesson', returnToRev
     const remove = ()=>old.remove();
     if (fade) fade.finished.then(remove,remove);
     else remove();
-  } else if (!spatial && !reconnectingJourney && !matchedFrame && !liveDesk && priorImage?.getAttribute('src') !== picture.getAttribute('src')) {
+  } else if (!spatial && !matchedFrame && !liveDesk && priorImage?.getAttribute('src') !== picture.getAttribute('src')) {
     animatePart(picture,[{opacity:.62},{opacity:1}],340);
   }
   if (!liveDesk) {
@@ -11860,12 +11342,10 @@ function openScene(position        , variant             = 'lesson', returnToRev
     const finished = journey && playSpatialJourney(scene, journey, lesson.signal);
     startPageEntry(scene, [[identity,'left'],[tools,'right'],[footer,'bottom']],entranceImage,
       {after: finished, onLayoutReady: lesson.start});
-  }, spatial && !projectionMode && !reducedMotion.matches ? { id: spatial, startedAt: sceneNow() } : undefined,
-  Boolean(spatial) || reconnectingJourney);
+  }, spatial && !reducedMotion.matches ? { id: spatial, startedAt: sceneNow() } : undefined);
 
   function addHotspot(label        , key        , [x,y]       , cue                               , className = 'hotspot') {
     const spot = explorationStage.markScenePoint(control('',()=>lesson.explain(key),className),label);
-    if (projectionMode) spot.tabIndex = -1;
     lesson.addCue(key,{
       text: cue.text,
       enter(animate) {
@@ -11893,16 +11373,8 @@ function openScene(position        , variant             = 'lesson', returnToRev
     if (direction < 0 && previous.disabled) return;
     pauseVideo();
     if (position+direction < 0 || (direction > 0 && variant === 'revisit' && lastInChapter)) leave();
-    else if (direction > 0 && finalPage) {
-      if (variant === 'trial') leave();
-      else openReview();
-    } else {
-      const trialMaterials = chapterStarts[chapter]+1;
-      const target = variant === 'trial' && direction > 0 && position === trialMaterials
-        ? chapterPages.length-1
-        : variant === 'trial' && direction < 0 && finalPage ? trialMaterials : position+direction;
-      openScene(target,variant,returnToReview,frame);
-    }
+    else if (direction > 0 && finalPage) openReview();
+    else openScene(position+direction,variant,returnToReview,frame);
   }
 }
 
@@ -11913,7 +11385,7 @@ function attachVideo(clip            , image        , media             , tools 
   video.src = mediaAssets[clip.key+'-video'];
   video.poster = mediaAssets[image];
   video.preload = 'auto';
-  video.muted = projectionMode || clip.mode !== 'opening';
+  video.muted = clip.mode !== 'opening';
   video.playsInline = true;
   video.loop = background;
   video.hidden = true;
@@ -11921,7 +11393,6 @@ function attachVideo(clip            , image        , media             , tools 
   let generation = 0;
   let intent             = {mode:'static',time:0};
   let posterFade                       ;
-  let syncDeadline = 0;
   const startLabel = clip.mode === 'transition' ? '播放备桥短片' : '播放短片';
   const cutLabel = clip.mode === 'transition' ? element('span','scene-shot-label',clip.caption.text) : undefined;
   if (cutLabel && clip.mode === 'transition') {
@@ -11953,47 +11424,16 @@ function attachVideo(clip            , image        , media             , tools 
       video.addEventListener('error', done, { once: true });
     });
   }
-  if (projectionMode) {
-    video.addEventListener('timeupdate', () => {
-      if (!syncDeadline || intent.mode !== 'playing' || typeof intent.at !== 'number' || video.paused || video.ended) {
-        if (video.playbackRate !== 1) video.playbackRate = 1;
-        return;
-      }
-      if (sceneNow() > syncDeadline) {
-        syncDeadline = 0;
-        if (video.playbackRate !== 1) video.playbackRate = 1;
-        return;
-      }
-      const target = targetTimeOf(intent);
-      let drift = target - video.currentTime;
-      if (background && Number.isFinite(video.duration) && video.duration > 0) {
-        const half = video.duration / 2;
-        if (drift > half) drift -= video.duration;
-        else if (drift < -half) drift += video.duration;
-      }
-      if (Math.abs(drift) > 1.2) {
-        video.currentTime = target;
-        video.playbackRate = 1;
-      } else if (Math.abs(drift) > 0.25) {
-        video.playbackRate = drift > 0 ? 1.08 : 0.92;
-      } else if (Math.abs(drift) <= 0.1) {
-        video.playbackRate = 1;
-        syncDeadline = 0;
-      }
-    });
-  }
   const play = background ? undefined : control('',()=>{
     const playing = !(intent.mode === 'playing' && !video.ended);
     const time = intent.mode === 'static' || video.hidden || video.ended ? 0 : video.currentTime;
     const state             = playing ? {mode:'playing',time,at:sceneNow()} : {mode:'paused',time};
     void setVideo(state);
-    sendProjection({type:'video',state});
   });
   async function setVideo(state            ) {
     if (background && reducedMotion.matches) state = {mode:'static',time:0};
     const request = ++generation;
     intent = state;
-    syncDeadline = 0;
     video.playbackRate = 1;
     if (state.mode === 'static') { showPoster(clip.key === 'xiang'); return; }
     if (posterFade) {
@@ -12012,7 +11452,7 @@ function attachVideo(clip            , image        , media             , tools 
         setIconButton(play,state.mode === 'paused' ? '继续播放' : '暂停短片',state.mode === 'paused' ? 'play' : 'pause');
       }
     }
-    if (clip.mode === 'opening' && !projectionMode) soundscape.setVideoDuck(state.mode === 'playing');
+    if (clip.mode === 'opening') soundscape.setVideoDuck(state.mode === 'playing');
     if (entering && clip.mode === 'transition') {
       align?.();
       getComputedStyle(media).transform;
@@ -12058,7 +11498,6 @@ function attachVideo(clip            , image        , media             , tools 
       await video.play();
       if (request === generation && video.isConnected && !video.hidden && !video.paused) {
         video.classList.add('is-visible');
-        if (projectionMode && typeof state.at === 'number') syncDeadline = sceneNow() + 4000;
       }
       if (!video.isConnected) video.pause();
     } catch {
@@ -12068,7 +11507,6 @@ function attachVideo(clip            , image        , media             , tools 
   const still = clip.mode === 'transition' ? control('',()=>{
     const state            = {mode:'static',time:0};
     void setVideo(state);
-    sendProjection({type:'video',state});
   }) : undefined;
   function resumeBackground() {
     if (!background || reducedMotion.matches || !video.isConnected || intent.mode === 'playing' ||
@@ -12093,13 +11531,12 @@ function attachVideo(clip            , image        , media             , tools 
   currentVideo = player;
   video.addEventListener('ended',()=>{
     if (!video.isConnected || !video.ended || intent.mode!=='playing') return;
-    if (clip.mode==='transition' && !projectionMode) advance?.();
+    if (clip.mode==='transition') advance?.();
     if (clip.mode==='opening') {
       intent = {mode:'paused',time:video.currentTime};
       if (play) setIconButton(play,'重播','reset');
-      if (!projectionMode) {
+      {
         soundscape.setVideoDuck(false);
-        sendProjection({type:'video',state:intent});
       }
     }
   });
@@ -12121,10 +11558,9 @@ function attachVideo(clip            , image        , media             , tools 
   function showPoster(fade = false) {
     const request = ++generation;
     intent = {mode:'static',time:0};
-    syncDeadline = 0;
     video.playbackRate = 1;
     video.pause();
-    if (clip.mode === 'opening' && !projectionMode) soundscape.setVideoDuck(false);
+    if (clip.mode === 'opening') soundscape.setVideoDuck(false);
     if (cutLabel) cutLabel.hidden = true;
     if (still) {
       if (document.activeElement === still) play?.focus({preventScroll:true});
@@ -12203,7 +11639,7 @@ function playSpatialJourney(scene             , journey                , signal 
   const leg = spatialJourneys.find(route => route.id === journey.id);
   const traceEnd = 1460, pullbackStart = 1680, overviewStart = 2500, fadeStart = 3410, end = 3670;
   if (!leg || reducedMotion.matches || sceneNow() - journey.startedAt >= end || signal.aborted) return;
-  if (!projectionMode) soundscape.playSfx('route');
+  soundscape.playSfx('route');
   const layer = element('div','journey-layer spatial-journey');
   layer.setAttribute('aria-hidden','true');
   const before = photo(leg.from);
@@ -12499,10 +11935,10 @@ function mountWujiangView(stage             , tools             ) {
     }
     draw();
   }
-  const open = syncControl('wujiang-open','看地形',() => select('top'),'journey-control','compass');
-  const top = syncControl('wujiang-top','俯视',() => select('top'),'journey-control');
-  const slope = syncControl('wujiang-slope','斜视',() => select('slope'),'journey-control');
-  const shore = syncControl('wujiang-shore','江岸',() => select('shore'),'journey-control');
+  const open = lessonControl('wujiang-open','看地形',() => select('top'),'journey-control','compass');
+  const top = lessonControl('wujiang-top','俯视',() => select('top'),'journey-control');
+  const slope = lessonControl('wujiang-slope','斜视',() => select('slope'),'journey-control');
+  const shore = lessonControl('wujiang-shore','江岸',() => select('shore'),'journey-control');
   top.hidden = slope.hidden = shore.hidden = true;
   tools.append(open,top,slope,shore);
 }
@@ -12511,129 +11947,20 @@ function mountWujiangView(stage             , tools             ) {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-const projectionToken = /^#projection=([a-f0-9]{32})$/.exec(location.hash)?.[1];
-const projectionMode = Boolean(projectionToken);
-const teacherPanel = document.querySelector             ('#presenter') ;
-let projectionWindow                = null;
-let sessionToken = '';
-let projectionReady = false;
-let presenterTimer                    ;
 let currentView             = {kind:'map'};
-let reviewBack = false;
 let activeSceneCue                    ;
-let cameraPosition                 = [1,0,0,...mapHomeAngle];
-let applyCamera                                                 ;
 let currentVideo                                            ;
 let scrubValue = 50;
-let applyScrub                                    ;
 let routeOffset = 0;
-let applyRouteOffset                                    ;
 let onStageDismiss                        ;
 
-
-let deskAddress                        ;
-let deskVisit = 0;
-let deskRevision = 0;
-let receivedDeskVisit = 0;
-let receivedDeskRevision = 0;
-
-function syncControl(id       ,label       ,act         ,className = '',icon          ,iconAfter = false) {
-  const button = control(label,()=>{
-    if (!projectionMode) sendAction(id);
-    act();
-  },className,icon,iconAfter);
+function lessonControl(id       ,label       ,act         ,className = '',icon          ,iconAfter = false) {
+  const button = control(label,act,className,icon,iconAfter);
   button.dataset.lessonAction = id;
-  if (projectionMode) button.tabIndex = -1;
   return button;
 }
 
-function sendProjection(message                   ) {
-  if (projectionReady && projectionWindow && !projectionWindow.closed) {
-    projectionWindow.postMessage({...message,token:sessionToken},'*');
-  }
-}
-
-function sendAction(id       ) {
-  sendProjection({type:'action',id});
-}
-
-function beginDeskVisit(position       ) {
-  if (projectionMode) return;
-  deskAddress = {position,visit:++deskVisit};
-  sendProjection({type:'desk-visit',address:deskAddress});
-}
-
-function readDeskFrame(view = currentDesk?.read())                       {
-  if (!projectionMode && view && deskAddress) return {...deskAddress,revision:++deskRevision,view};
-}
-
-function publishDesk(view         ) {
-  const frame=readDeskFrame(view);
-  if (frame) sendProjection({type:'desk',frame});
-}
-
-function acceptDeskVisit(address                        ) {
-  if (!address || !currentDesk || currentView.kind!=='scene' || currentView.position!==address.position ||
-    !Number.isSafeInteger(address.visit) || address.visit<=receivedDeskVisit) return;
-  deskAddress={position:address.position,visit:address.visit};
-  receivedDeskVisit=address.visit;
-}
-
-function applyDeskFrame(frame                      , reconnect = false) {
-  if (!frame || !currentDesk || currentView.kind!=='scene' || frame.position!==currentView.position ||
-    !Number.isSafeInteger(frame.revision) || frame.revision<=receivedDeskRevision || !isDeskView(frame.view)) return;
-  if (reconnect) acceptDeskVisit(frame);
-  if (deskAddress?.position!==frame.position || deskAddress.visit!==frame.visit) return;
-  receivedDeskRevision=frame.revision;
-  currentDesk.restore(frame.view);
-}
-
-function sendCamera(position               ,animate        ) {
-  sendProjection({type:'camera',position,animate});
-}
-
-function sendScrub(value       ) {
-  scrubValue = value;
-  sendProjection({type:'scrub',value});
-}
-
 function closeMaterial() {
-  if (dialog.open && dialog.classList.contains('comparison')) sendAction('close-material');
   dialog.close();
 }
 
@@ -12643,206 +11970,11 @@ function displayView(view           ) {
     releaseMapCard = undefined;
   }
   currentView = view;
-  if (view.kind==='opening' && !projectionMode) resetDeskHistory();
-  if (view.kind === 'review') reviewBack = view.conclusionPage;
-  if (!teacherPanel.hidden) updatePresenterNotes();
+  if (view.kind==='opening') resetDeskHistory();
 }
 
-function updatePresenterNotes() {
-  const schedule = lessonSchedule(teachingPace);
-  let heading = '地图导入';
-  let timing = schedule.map;
-  let time                    ;
-  let practice                        ;
-  if (currentView.kind === 'scene') {
-    const {page} = chapterPages[currentView.position];
-    heading = page.title;
-    timing = schedule.scenes[currentView.position];
-    practice = page.practice;
-    if (currentView.variant === 'trial') {
-      const last = currentView.position === chapterPages.length-1;
-      const first = currentView.position === chapterStarts[events.length-1];
-      time = first ? '0:00–0:45' : last ? '2:15–3:00' : '0:45–2:15';
-    } else if (currentView.variant === 'revisit') {
-      time = '回看';
-    }
-  } else if (currentView.kind === 'review') {
-    heading = currentView.conclusionPage ? '全课结论' : '课堂回顾';
-    timing = schedule.review[currentView.conclusionPage ? 1 : 0];
-  } else if (currentView.kind === 'opening') {
-    heading = '开场导览';
-  }
-  const area = teacherPanel.querySelector('.presenter-notes') ;
-  const {beat} = timing;
-  area.replaceChildren(element('h2','',heading),element('p','presenter-time',time ?? teachingRange(timing)),
-    ...beatCopy(beat,practice).map(line => element('p','',line)));
-  if (beat.question) area.append(element('h3','','可选提问'),element('p','presenter-question',beat.question));
-  teacherPanel.scrollTop = 0;
-}
-
-function updateProjectionStatus() {
-  const status = teacherPanel.querySelector('.presenter-status');
-  const reopen = teacherPanel.querySelector                   ('.presenter-reopen');
-  if (!status || !reopen) return;
-  const closed = !projectionWindow || projectionWindow.closed;
-  if (closed) projectionReady = false;
-  status.textContent = closed ? '投影窗口已关闭' : projectionReady ? '投影已连接' : '正在连接投影窗口…';
-  reopen.hidden = !closed;
-}
-
-function openProjection() {
-  if (projectionWindow && !projectionWindow.closed) {
-    projectionWindow.focus();
-    return;
-  }
-  const token = Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,'0')).join('');
-  const url = new URL(location.href);
-  url.hash = 'projection='+token;
-  const child = window.open(url.href,'projection-'+token,'popup,width=1120,height=720');
-  if (!child) {
-    modal('无法打开投影窗口',element('p','','请在 Edge 中允许弹出窗口，再点击「开始双屏授课」。'));
-    return;
-  }
-  projectionWindow = child;
-  sessionToken = token;
-  projectionReady = false;
-  if (teacherPanel.hidden) {
-    const heading = element('div','presenter-head');
-    heading.append(element('strong','','教师视图'),element('p','presenter-status'));
-    heading.lastElementChild .setAttribute('role','status');
-    const actions = element('div','presenter-actions');
-    actions.append(control('重新打开投影',openProjection,'presenter-reopen'),control('结束双屏',stopProjection));
-    const clock = lessonClock();
-    teacherPanel.replaceChildren(heading,
-      element('p','presenter-setup','Win + P 选择「扩展」，将投影窗口拖到大屏后按 F11。'),
-      pacePicker('live-pace',updatePresenterNotes),clock.row,
-      element('section','presenter-notes'),actions);
-    teacherPanel.hidden = false;
-    document.body.classList.add('presenter-mode');
-    updatePresenterNotes();
-    presenterTimer = window.setInterval(()=>{updateProjectionStatus();clock.update();},1000);
-  }
-  updateProjectionStatus();
-}
-
-function stopProjection() {
-  projectionWindow?.close();
-  projectionWindow = null;
-  projectionReady = false;
-  window.clearInterval(presenterTimer);
-  teacherPanel.hidden = true;
-  document.body.classList.remove('presenter-mode');
-}
-
-function snapshot()                 {
-  return {
-    view:currentView, selected, revealed:[...revealed], lastViewed:[...lastViewed],
-    reviewSteps:[...reviewSteps], reviewAnswer, reviewBack, camera:cameraPosition,
-    comparisonOpen:dialog.open && dialog.classList.contains('comparison'), sceneLesson:currentSceneLesson?.read(),
-    wujiangCue:activeSceneCue?.startsWith('wujiang-') ? activeSceneCue : undefined,
-    video:currentVideo?.read(), desk:readDeskFrame(),
-    scrub:scrubValue, routeOffset, hallClues:retainedHallClues.slice(),
-    reviewFocus:recapFocusIndex, completedPractices:[...completedPractices],
-    visitedExplorations:[...visitedExplorations],
-    practice:currentPractice?.read(), exploration:readExplorationUpdate(),
-  };
-}
-
-function openTrial() {
-  trialItemsSeen.clear();
-  openChapter(events.findIndex(event=>event.id==='zunyi'),'trial');
-}
-
-function applySnapshot(state               ) {
-  if (dialog.open) closeMaterial();
-  selected = state.selected;
-  revealed.clear();
-  state.revealed.forEach(key=>revealed.add(key));
-  lastViewed.clear();
-  state.lastViewed.forEach(([index,position])=>lastViewed.set(index,position));
-  reviewSteps.clear();
-  state.reviewSteps.forEach(index=>reviewSteps.add(index));
-  reviewAnswer = state.reviewAnswer;
-  reviewBack = state.reviewBack;
-  recapFocusIndex = state.reviewFocus ?? null;
-  completedPractices.clear();
-  (state.completedPractices ?? []).forEach(id=>completedPractices.add(id));
-  visitedExplorations.clear();
-  (state.visitedExplorations ?? []).forEach(id=>visitedExplorations.add(id));
-  if (typeof state.scrub === 'number') scrubValue = state.scrub;
-  routeOffset = typeof state.routeOffset === 'number' && Number.isFinite(state.routeOffset) ? state.routeOffset : 0;
-  retainedHallClues = Array.isArray(state.hallClues) ? state.hallClues.slice() : [];
-  if (state.view.kind === 'scene') {
-    const back = state.reviewBack;
-    openScene(state.view.position,state.view.variant,state.view.variant === 'revisit' ? ()=>openReview(back) : undefined,
-      undefined, !!state.sceneLesson?.journey);
-    if (typeof state.scrub === 'number') applyScrub?.(state.scrub);
-    applySceneLesson(state.sceneLesson,true);
-    if (state.wujiangCue) applyAction(state.wujiangCue);
-  } else if (state.view.kind === 'opening') {
-    renderOpening(false);
-  } else if (state.view.kind === 'review') {
-    openReview(state.view.conclusionPage);
-  } else {
-    renderMap();
-    applyCamera(state.camera,false);
-  }
-  if (state.video) currentVideo?.set(state.video);
-  applyDeskFrame(state.desk,true);
-  currentPractice?.restore(state.practice ?? null);
-  if (state.comparisonOpen) showZunyiMaterials();
-  applyExplorationUpdate(state.exploration,true);
-  stopMotion();
-}
-
-function applyAction(id       ) {
-  if (id === 'close-material') { closeMaterial(); return; }
-  if (id === 'trial') { openTrial(); return; }
-  if (id === 'stage-dismiss') { onStageDismiss?.(); return; }
-  const buttons = (dialog.open ? dialog : app).querySelectorAll                   ('[data-lesson-action]');
-  Array.from(buttons).find(button=>button.dataset.lessonAction === id)?.click();
-}
-
-window.addEventListener('message',event=>{
-  const message = event.data                                               ;
-  if (!message || typeof message !== 'object') return;
-  // Local file windows have opaque origins. Only the paired window and its random session token are accepted.
-  if (projectionMode) {
-    if (!window.opener || event.source !== window.opener || message.token !== projectionToken) return;
-    if (message.type === 'snapshot') applySnapshot(message.state);
-    else if (message.type === 'action' && typeof message.id === 'string') applyAction(message.id);
-    else if (message.type === 'scene-lesson') applySceneLesson(message.frame,message.entered);
-    else if (message.type === 'video') currentVideo?.set(message.state);
-    else if (message.type === 'desk-visit') acceptDeskVisit(message.address);
-    else if (message.type === 'desk') applyDeskFrame(message.frame);
-    else if (message.type === 'exploration') applyExplorationUpdate(message.update);
-    else if (message.type === 'practice' && currentView.kind === 'scene' && message.position === currentView.position) {
-      currentPractice?.restore(message.state);
-    }
-    else if (message.type === 'camera' && currentView.kind === 'map') applyCamera(message.position,message.animate);
-    else if (message.type === 'scrub') applyScrub?.(message.value);
-    else if (message.type === 'route-offset' && currentView.kind === 'scene' &&
-      currentView.position === message.position && Number.isFinite(message.value)) applyRouteOffset?.(message.value);
-    else if (message.type === 'hall-clues') {
-      retainedHallClues = Array.isArray(message.clues) ? message.clues.slice() : [];
-      currentDesk?.setClues(retainedHallClues);
-    }
-  } else if (projectionWindow && event.source === projectionWindow && message.token === sessionToken && message.type === 'ready') {
-    projectionReady = true;
-    sendProjection({type:'snapshot',state:snapshot()});
-    updateProjectionStatus();
-  }
-});
-
-if (projectionMode) {
-  document.body.classList.add('projection-mode');
-  document.title = '从于都到遵义 · 投影';
-  window.opener?.postMessage({type:'ready',token:projectionToken},'*');
-} else {
-  window.addEventListener('pagehide',()=>projectionWindow?.close());
-  if (location.hash==='#desk') openDeskPage();
-  else renderMap();
-}
+if (location.hash==='#desk') openDeskPage();
+else renderMap();
 </script>
 </body>
 </html>

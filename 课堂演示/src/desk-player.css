@@ -316,18 +316,6 @@
 .desk-map-key.is-revised i { border-color: #9b3129 }
 .desk-map-fact { margin: 5px 0 0; line-height: 1.4; color: #493321; font-size: clamp(15px,1.46vw,27px) }
 
-.presenter-mode .desk-live-page { height: calc(100dvh - 24px); min-height: min(460px, 96dvh) }
-.presenter-mode .desk-live-page .desk-project { display: none }
-.projection-mode .desk-live-page { grid-template-rows: 1fr; height: 100dvh; min-height: 0 }
-.projection-mode .desk-live-page .scene-stage { grid-row: 1; background: #080a08 }
-.projection-mode .desk-live-page :is(.scene-head,.lesson-footer) { display: none }
-.projection-mode .desk-reader { pointer-events: none }
-.projection-mode .desk-reader .desk-reader-surface { width: min(90%, 1300px) }
-.projection-mode .desk-reader[data-reading="map"] .desk-reader-surface { width: min(92%, 1520px) }
-.projection-mode .desk-map-plots:not([data-mode="parallel"]) .desk-map-plot {
-  max-width: min(100%, clamp(270px,calc((100cqh - 220px) * 2.08),1180px));
-}
-.projection-mode .desk-reader :is(.desk-reader-article,.desk-reader-leaf) { font-size: clamp(23px,2vw,38px) }
 @media (prefers-reduced-motion: reduce) {
   .desk-reader[data-phase] .desk-reader-backdrop { animation: none; transition: none }
 }

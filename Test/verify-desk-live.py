@@ -25,19 +25,20 @@ def color_counts(plots):
 def enter_desk(page, url, chapter):
     page.goto(url)
     if not chapter:
-        button(page, '遵义实景').click()
+        page.locator('.timeline button').filter(has_text='遵义会议').click()
+        button(page, '进入「遵义会议」场景').click()
     else:
         button(page, '开始授课').click()
         button(page, '进入课堂').click()
         page.locator('.chapter-nav').get_by_role('button', name='遵义会议', exact=True).click()
-        expect(page.locator('.scene-head h1')).to_have_text('遵义会议室')
-        button(page, '下一页').click()
+    expect(page.locator('.scene-head h1')).to_have_text('遵义会议室')
+    button(page, '下一页').click()
     expect(page.locator('.scene-head h1')).to_have_text('会议桌上的两份材料')
     expect(page.locator(DESK)).to_have_attribute('data-space', 'ready', timeout=20000)
 
 
 def verify_interruptions(room):
-    page = room.teacher
+    page = room.page
     frame = page.locator(DESK)
     reader = page.locator('.desk-reader')
     before = frame.locator('canvas').screenshot()
@@ -108,10 +109,6 @@ def verify_interruptions(room):
     button(page,'对照两份材料').click()
     expect(reader.locator('.desk-reader-pair article:visible')).to_have_count(2)
     room.shot('13-两份会议材料')
-    room.close_projection()
-    projection=room.project()
-    expect(projection.locator('.desk-reader-pair article:visible')).to_have_count(2)
-    expect(projection.locator('.desk-reader-actions button:visible')).to_have_count(0)
     button(page,'返回桌面').click()
     expect(reader).to_be_hidden()
     expect(frame).to_have_attribute('data-focus', '0.000')
@@ -141,7 +138,6 @@ def verify_interruptions(room):
     button(page,'改向黔北').click()
     button(page,'并排').click()
     expect(plots).to_have_attribute('data-drawing','false')
-    expect(projection.locator('.desk-map-plots')).to_have_attribute('data-mode','parallel')
     (left_blue,left_red),(right_blue,right_red)=color_counts(plots)
     assert left_blue>200 and left_red==right_blue==0 and right_red>200
     page.keyboard.press('Escape')
@@ -158,20 +154,13 @@ def exercise(html, viewport, output, video, chapter):
         context.on('request',lambda request: requests.append(request.url)
             if request.url.startswith(('http://','https://')) else None)
         teacher=context.new_page()
-        room=Classroom(teacher,output,{'width':1920,'height':1080})
+        room=Classroom(teacher,output)
         try:
             enter_desk(teacher,url,chapter)
             frame=teacher.locator(DESK)
             expect(frame.locator('video')).to_have_count(0)
             expect(frame.locator('button.scene-point')).to_have_count(3)
-            student=room.project()
-            saved=exercise_desk(teacher,student,right_first=not chapter,shot=room.shot)
-            room.close_projection()
-            student=room.project()
-            for attribute,value in saved.items():
-                expect(student.locator(DESK)).to_have_attribute(attribute,value)
-            expect(student.locator('.desk-live-transport')).to_be_hidden()
-            expect(student.locator('.desk-orbit-tools')).to_be_hidden()
+            exercise_desk(teacher,right_first=not chapter,shot=room.shot)
             measured=verify_interruptions(room)
             assert not requests, requests
             return {'edge':edge,'viewport':viewport,'chapter_entry':chapter,'observations':measured,
@@ -180,8 +169,6 @@ def exercise(html, viewport, output, video, chapter):
             room.shot('失败现场')
             raise
         finally:
-            if room.screen and not room.screen.is_closed():
-                room.screen.close()
             recording=teacher.video
             if recording:
                 teacher.close()
@@ -233,7 +220,7 @@ if __name__ == '__main__':
             folder=output/str(viewport['width'])
             folder.mkdir(exist_ok=True)
             reports.append(exercise(args.html,viewport,folder,args.record,chapter=index==0))
-            print(f'桌景通过 Edge 断网双屏验收，主控 {viewport["width"]}x{viewport["height"]}。',flush=True)
+            print(f'桌景通过 Edge 单屏离线验收，窗口 {viewport["width"]}x{viewport["height"]}。',flush=True)
         exercise_narrow(args.html,output)
         with args.html.open('rb') as source_file:
             checksum=file_digest(source_file,'sha256').hexdigest()

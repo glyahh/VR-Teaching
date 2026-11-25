@@ -129,10 +129,10 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
   const cardVisual = element('div', 'recap-card-visual');
   const cardTag = element('p', 'story-detail review-step recap-card-tag');
   const cardActions = element('div', 'recap-card-actions');
-  const cardRevisit = syncControl('recap-revisit', '回看现场', () => {
+  const cardRevisit = lessonControl('recap-revisit', '回看现场', () => {
     if (recapFocusIndex !== null) onOpenRevisit(recapFocusIndex);
   }, 'recap-revisit-btn', 'arrowRight', true);
-  const cardClose = syncControl('recap-card-close', '', () => selectStation(null), 'recap-close-btn');
+  const cardClose = lessonControl('recap-card-close', '', () => selectStation(null), 'recap-close-btn');
   cardClose.setAttribute('aria-label', '收起站点卡片');
   cardClose.textContent = '×';
   cardMeta.append(cardTime, cardTitle, cardMetric);
@@ -159,7 +159,7 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
   // 四站交互圆镜节点（兼顾 .review-choice 与无障碍定位）
   const nodeElements = stations.map(st => {
     const ev = events[st.index];
-    const btn = syncControl('review-step-' + st.index, '', () => {
+    const btn = lessonControl('review-step-' + st.index, '', () => {
       const next = recapFocusIndex === st.index ? null : st.index;
       selectStation(next);
     }, 'recap-node review-choice');
@@ -185,11 +185,11 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
 
   // 底部极简图形导航与操作栏
   const footer = element('div', 'review-tools recap-footer');
-  const previous = syncControl('previous', '上一页', () => conclusionPage ? openReview() : openScene(chapterPages.length - 1), '', 'arrowLeft');
-  const next = conclusionPage ? undefined : syncControl('next', '全景总结', () => openReview(true), 'primary', 'arrowRight', true);
-  const reveal = conclusionPage ? syncControl('reveal-review', '揭示结论', () => startFinaleAnimation(), 'primary', 'play') : undefined;
+  const previous = lessonControl('previous', '上一页', () => conclusionPage ? openReview() : openScene(chapterPages.length - 1), '', 'arrowLeft');
+  const next = conclusionPage ? undefined : lessonControl('next', '全景总结', () => openReview(true), 'primary', 'arrowRight', true);
+  const reveal = conclusionPage ? lessonControl('reveal-review', '揭示结论', () => startFinaleAnimation(), 'primary', 'play') : undefined;
   if (reveal) reveal.hidden = reviewAnswer;
-  const replay = conclusionPage ? syncControl('replay-finale', '重播串联', () => startFinaleAnimation(true), '', 'reset') : undefined;
+  const replay = conclusionPage ? lessonControl('replay-finale', '重播串联', () => startFinaleAnimation(true), '', 'reset') : undefined;
   if (replay) replay.hidden = !reviewAnswer;
   footer.append(previous);
   if (next) footer.append(next);
@@ -281,7 +281,7 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
     if (replay) replay.hidden = false;
     finalePanel.hidden = false;
     conclusion.hidden = false;
-    if (!projectionMode) soundscape.playFinale();
+    soundscape.playFinale();
     if (reducedMotion.matches) {
       finaleProgress = 1;
       finaleRunning = false;
@@ -373,9 +373,7 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
 
   // 点击空白背景收起当前展开的站点卡片
   stage.addEventListener('click', event => {
-    if (projectionMode) return;
     if (recapFocusIndex !== null && !(event.target as Element).closest('.recap-node,.recap-card,.review-tools')) {
-      sendAction('recap-card-close');
       selectStation(null);
     }
   });

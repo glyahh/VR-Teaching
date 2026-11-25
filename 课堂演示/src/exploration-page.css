@@ -54,11 +54,6 @@
   border-radius: 10px;
   background: #202422e9;
 }
-.projection-mode .lesson-exploration { --dock-bottom: clamp(38px, 8vh, 88px); pointer-events: none; }
-.projection-mode .lesson-exploration #view { cursor: default; }
-.projection-mode .lesson-exploration :is(.dock-actions, #river-recall) { display: none; }
-.projection-mode .scene[data-exploration] .lesson-footer { display: none; }
-.projection-mode .lesson-exploration .river-label { font-size: clamp(18px, 1.36vw, 26px); }
 
 .desk-live-frame .scene-note, .lesson-exploration .scene-note {
   position: absolute;
@@ -78,7 +73,6 @@
 }
 .lesson-exploration .scene-note { position: fixed; }
 .lesson-exploration #reading h2 { font-family: var(--font-serif); }
-.projection-mode .lesson-exploration :is(#instruction,#river-instruction,#xiang-instruction) { font-size: clamp(22px,1.7vw,33px); }
 .lesson-exploration :is(#inspect,#river-tools,#xiang-tools) {
   inset-inline: 0;
   margin-inline: auto;
@@ -90,9 +84,7 @@
 .lesson-exploration #river-tools:has(#river-action:not([hidden])) { bottom: var(--river-action-bottom,var(--dock-bottom)); }
 .lesson-exploration #river-tools:has(#river-actions[hidden]) { bottom: var(--dock-bottom); }
 .lesson-exploration #inspect[data-tool=explore],
-.projection-mode .lesson-exploration #inspect { padding: 0; border: 0; background: transparent; }
 .lesson-exploration #inspect[data-tool=explore]::before,
-.projection-mode .lesson-exploration #inspect::before { content: none; }
 .lesson-exploration #river-actions { position: relative; justify-content: center; }
 .lesson-exploration .river-options { position: absolute; bottom: 0; right: calc(100% + 12px); width: max-content; }
 .lesson-exploration #river-comparison :is(label,output) { text-shadow: 0 1px 3px #19120c, 0 2px 6px #19120c; }

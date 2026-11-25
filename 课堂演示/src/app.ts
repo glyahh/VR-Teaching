@@ -1,4 +1,4 @@
-type LessonMode = 'lesson' | 'trial' | 'revisit';
+type LessonMode = 'lesson' | 'revisit';
 type Point = [number, number];
 type IconName = 'plus'|'minus'|'reset'|'play'|'pause'|'image'|'check'|'info'|'arrowLeft'|'arrowRight'|'expand'|'compress'|'compass'|'layers'|'sliders'|'moveHorizontal'|'map'|'screens'|'soundOn'|'soundOff';
 
@@ -83,7 +83,7 @@ function setIconButton(button: HTMLButtonElement, label: string, icon: IconName)
   setButtonContent(button,'',icon);
 }
 function syncScenePoint(id: string, name: string, action: () => void, className: string) {
-  return explorationStage.markScenePoint(syncControl(id, '', action, className), name);
+  return explorationStage.markScenePoint(lessonControl(id, '', action, className), name);
 }
 function photo(key: string, alt = '') {
   const node = element('img');
@@ -158,11 +158,11 @@ function modal(title: string, ...nodes: HTMLElement[]) {
 }
 closeDialog.onclick = () => closeMaterial();
 dialog.addEventListener('click', e => {
-  if (!projectionMode && e.target === dialog) closeMaterial();
+  if (e.target === dialog) closeMaterial();
 });
 dialog.addEventListener('cancel',event=>{
   event.preventDefault();
-  if (!projectionMode) closeMaterial();
+  closeMaterial();
 });
 dialog.addEventListener('close', () => {
   if (dialog.open) return;
@@ -219,7 +219,7 @@ function position([lon,lat]: Point): Point {
 }
 let pageButtons: {previous?: HTMLButtonElement; next?: HTMLButtonElement} = {};
 document.addEventListener('keydown', event => {
-  if (projectionMode || event.defaultPrevented || dialog.open || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+  if (event.defaultPrevented || dialog.open || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
   if (event.key === 'Escape' && currentPractice?.close()) {
     event.preventDefault();
     return;
@@ -230,7 +230,6 @@ document.addEventListener('keydown', event => {
   }
   if (event.key === 'Escape' && onStageDismiss) {
     event.preventDefault();
-    if (!currentDesk) sendAction('stage-dismiss');
     onStageDismiss();
     return;
   }
@@ -250,7 +249,7 @@ function chapterNav(current: number, jump: (index: number) => void) {
   const nav = element('nav','chapter-nav chapter-rail');
   nav.setAttribute('aria-label','章节导航');
   events.forEach((event, index) => {
-    const button = syncControl('chapter-'+index,event.name, () => jump(index),'chapter-link');
+    const button = lessonControl('chapter-'+index,event.name, () => jump(index),'chapter-link');
     if (index === current) button.setAttribute('aria-current','step');
     nav.append(button);
   });
@@ -263,7 +262,6 @@ function mountStoryRail(label: string, steps: readonly StepItem[], onSelect: (st
   const rows = steps.map(step => {
     const row = element('li','story-stop');
     const button = control('',()=>onSelect(step),'story-step');
-    if (projectionMode) button.tabIndex = -1;
     if (step.date) button.append(element('time','',step.date));
     button.append(element('strong','',step.title));
     row.append(button);
@@ -291,8 +289,6 @@ function openReview(conclusionPage = false) {
   currentPractice = undefined;
   activeSceneCue = undefined;
   currentVideo = undefined;
-  applyScrub = undefined;
-  applyRouteOffset = undefined;
   onStageDismiss = undefined;
   stopMotion();
   stopCinemagraphs();
@@ -302,8 +298,8 @@ function openReview(conclusionPage = false) {
   const shell = element('section','shell review recap-shell');
   const header = element('header','top recap-top');
   const actions = element('div','top-actions');
-  if (!projectionMode) actions.append(soundButton());
-  actions.append(fullscreenButton(),syncControl('map','地图',()=>renderMap(true),'','arrowLeft'));
+  actions.append(soundButton());
+  actions.append(fullscreenButton(),lessonControl('map','地图',()=>renderMap(true),'','arrowLeft'));
   const title = element('h1','course-title',conclusionPage ? '全课结论' : '课堂回顾');
   title.tabIndex = -1;
   header.append(title,actions);
@@ -318,55 +314,10 @@ function openReview(conclusionPage = false) {
   app.replaceChildren(shell);
   displayView({kind:'review',conclusionPage});
   pageButtons = {previous,next};
-  if (!projectionMode) title.focus({preventScroll:true});
+  title.focus({preventScroll:true});
   startPageEntry(shell, [[title,'left'],[actions,'right'],[footer,'bottom']]);
 }
 
-function openTeacher() {
-  if (projectionMode) return;
-  const outline = element('ol','teacher-outline');
-  function renderOutline() {
-    const schedule = lessonSchedule(teachingPace);
-    const sections = [
-      {name:'地图导入',pages:[{name:'开场',timing:schedule.map}]},
-      ...events.map((event,index)=>({name:event.name,pages:event.pages.map((page,i)=>({
-        name:page.title, timing:schedule.chapters[index][i], practice:page.practice,
-      }))})),
-      {name:'课堂回顾',pages:schedule.review.map((timing,index)=>({name:index ? '全课结论' : '回顾四站',timing}))},
-    ];
-    outline.replaceChildren(...sections.map(({name,pages})=>{
-      const item = element('li');
-      const details = element('details');
-      details.append(element('summary','',teachingRange(pages[0].timing,pages[pages.length-1].timing)+'  '+name));
-      const notes = element('ul');
-      pages.forEach(page=>{
-        const {timing} = page;
-        const turn = element('li');
-        turn.append(element('strong','',teachingRange(timing)+'  '+page.name),
-          ...beatCopy(timing.beat,'practice' in page ? page.practice : undefined).map(line=>element('p','',line)));
-        if (timing.beat.question) turn.append(element('p','presenter-question',timing.beat.question));
-        notes.append(turn);
-      });
-      details.append(notes);
-      item.append(details);
-      return item;
-    }));
-  }
-  renderOutline();
-  const picker = pacePicker('prep-pace',()=>{
-    renderOutline();
-    if (!teacherPanel.hidden) updatePresenterNotes();
-  });
-  const refs = element('div','dialog-split');
-  refs.append(...['于都渡河', '湘江战役', '中国共产党一百年大事记', '黎平会议', '猴场会议', '遵义会议',
-    '长征专题', '地形晕渲 · Mapzen / USGS / NOAA'].map(title => element('span', '', title)));
-  modal('教师备课', picker, outline, control('开始遵义 3 分钟试讲', () => {
-    sendAction('trial');
-    dialogOpener = null;
-    dialog.close();
-    openTrial();
-  }, 'primary', 'arrowRight', true), refs);
-}
 let updateMapSelection: (focus?: 'pin'|'timeline') => void;
 function select(index: number, focus?: 'pin'|'timeline') {
   selected = index;
@@ -384,8 +335,6 @@ function renderMap(restoreFocus = false) {
   currentPractice = undefined;
   activeSceneCue = undefined;
   currentVideo = undefined;
-  applyScrub = undefined;
-  applyRouteOffset = undefined;
   onStageDismiss = undefined;
   stopMotion();
   stopCinemagraphs();
@@ -395,14 +344,8 @@ function renderMap(restoreFocus = false) {
   const shell = element('section','shell');
   const header = element('header','top');
   const actions = element('div','top-actions');
-  actions.append(syncControl('review','课堂回顾',()=>openReview()));
-  actions.append(syncControl('open-desk','遵义实景',openDeskPage,'','layers'));
-  if (!projectionMode) {
-    const project = control('',openProjection);
-    setIconButton(project,'开始双屏授课','screens');
-    actions.append(control('教师备课',openTeacher),project,soundButton());
-  }
-  actions.append(fullscreenButton());
+  actions.append(lessonControl('review','课堂回顾',()=>openReview()));
+  actions.append(soundButton(),fullscreenButton());
   header.append(element('h1','course-title','从于都到遵义'),actions);
   const map = element('section','map');
   map.setAttribute('aria-label','长征阶段地图');
@@ -457,8 +400,8 @@ function renderMap(restoreFocus = false) {
   const copy = element('div','event-copy');
   const date = element('time');
   const title = element('h2');
-  const enterScene = syncControl('enter-scene','进入场景',()=>openChapter(selected),'','arrowRight',true);
-  const start = syncControl('start','开始授课',()=>{
+  const enterScene = lessonControl('enter-scene','进入场景',()=>openChapter(selected),'','arrowRight',true);
+  const start = lessonControl('start','开始授课',()=>{
     explorationActivity?.reset();
     revealed.clear();
     lessonItemsSeen.clear();
@@ -503,7 +446,7 @@ function renderMap(restoreFocus = false) {
   const timeline = element('nav','timeline chapter-rail');
   timeline.setAttribute('aria-label','时间轴');
   const times = events.map((e,i) => {
-    const node = syncControl('time-'+i,'',()=>select(i,'timeline'),'time-button chapter-link');
+    const node = lessonControl('time-'+i,'',()=>select(i,'timeline'),'time-button chapter-link');
     node.append(element('time','',e.timeline),element('strong','',e.name));
     timeline.append(node);
     return node;
@@ -514,7 +457,7 @@ function renderMap(restoreFocus = false) {
   shell.append(header,map);
   app.replaceChildren(shell);
   displayView({kind:'map'});
-  if (!projectionMode) releaseMapCard = mountMapCard(map,card,mapFooter);
+  releaseMapCard = mountMapCard(map,card,mapFooter);
   let width = 0;
   let height = 0;
   let origin: Point = [0,0];
@@ -553,8 +496,6 @@ function renderMap(restoreFocus = false) {
     zoomOut.disabled = zoom <= .85;
     zoomIn.disabled = zoom >= 2.5;
     zoomReadout.textContent = Math.round(zoom * 100) + '%';
-    cameraPosition = [zoom,pan[0]/Math.max(1,width),pan[1]/Math.max(1,height),...mapAngle];
-    if (broadcast) sendCamera(cameraPosition,animate);
   }
   function changeZoom(next: number, anchor: Point = [map.clientWidth*.65,map.clientHeight*.48], animate = false) {
     const newZoom = Math.max(.85,Math.min(2.5,next));
@@ -568,13 +509,13 @@ function renderMap(restoreFocus = false) {
   mapResize.observe(mapFooter);
   let drag: {id:number;x:number;y:number;start:Point; orbit:boolean} | undefined;
   map.addEventListener('wheel', e => {
-    if (projectionMode || (e.target as Element).closest('.event-card,.map-tools,.timeline')) return;
+    if ((e.target as Element).closest('.event-card,.map-tools,.timeline')) return;
     e.preventDefault();
     const rect = map.getBoundingClientRect();
     changeZoom(zoom*Math.exp(-Math.sign(e.deltaY)*.12),[e.clientX-rect.left,e.clientY-rect.top],false);
   }, {passive:false});
   map.addEventListener('pointerdown', e => {
-    if (projectionMode || !e.isPrimary || e.button!==0 || (e.target as Element).closest('button,.event-card,.map-tools,.timeline')) return;
+    if (!e.isPrimary || e.button!==0 || (e.target as Element).closest('button,.event-card,.map-tools,.timeline')) return;
     const orbit = terrain.ready && !e.shiftKey;
     drag={id:e.pointerId,x:e.clientX,y:e.clientY,start:orbit ? mapAngle : pan,orbit};
     map.setPointerCapture(e.pointerId);
@@ -598,7 +539,7 @@ function renderMap(restoreFocus = false) {
     });
   }
   shell.addEventListener('keydown', ev => {
-    if (projectionMode || dialog.open || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+    if (dialog.open || ev.altKey || ev.ctrlKey || ev.metaKey) return;
     if (ev.key === '+' || ev.key === '=') {
       ev.preventDefault();
       changeZoom(zoom * 1.25, undefined, true);
@@ -640,42 +581,18 @@ function renderMap(restoreFocus = false) {
       pan = [(targetX-origin[0]-width*zoom*x/100)*focusAmount,
         (targetY-origin[1]-height*zoom*y/100)*focusAmount];
       moveCamera(!reducedMotion.matches);
-      if (!projectionMode) (focus==='pin'?pins:times)[selected].focus({preventScroll:true});
+      (focus==='pin'?pins:times)[selected].focus({preventScroll:true});
     }
   };
   updateMapSelection();
   layout();
-  applyCamera = ([nextZoom,x,y,azimuth,tilt],animate)=>{
-    zoom = nextZoom;
-    pan = [x*width,y*height];
-    mapAngle = [azimuth,tilt];
-    moveCamera(animate);
-  };
   pageButtons = {next: start};
-  if (restoreFocus && !projectionMode) times[selected].focus({preventScroll:true});
+  if (restoreFocus) times[selected].focus({preventScroll:true});
   startPageEntry(shell, [[header,'top'],[card,'left'],[mapFooter,'bottom']],thumb);
 }
-function showZunyiMaterials() {
-  const columns = element('div','materials');
-  for (const item of zunyiMaterials) {
-    const card = element('article','material');
-    card.append(element('h3','',item.title));
-    item.lines.forEach(line=>card.append(element('p','',line)));
-    columns.append(card);
-  }
-  dialog.classList.add('comparison');
-  modal('两份材料对照',columns);
-  if (!revealed.has('materials-compared')) {
-    Array.from(columns.children).forEach((card,index)=>{
-      animatePart(card,[{opacity:0,translate:index ? '18px 0' : '-18px 0'},{opacity:1,translate:'0 0'}],360,140+index*180);
-    });
-    revealed.add('materials-compared');
-  }
-}
-
 function openChapter(index: number, variant: LessonMode = 'lesson', returnToReview?: () => void) {
   const first = chapterStarts[index];
-  openScene(variant === 'trial' ? first : (lastViewed.get(index) ?? first), variant, returnToReview);
+  openScene(lastViewed.get(index) ?? first, variant, returnToReview);
 }
 
 function openDeskPage() {
@@ -718,8 +635,6 @@ function renderOpening(autoplay = true) {
   currentPractice = undefined;
   activeSceneCue = undefined;
   currentVideo = undefined;
-  applyScrub = undefined;
-  applyRouteOffset = undefined;
   onStageDismiss = undefined;
   stopMotion();
   stopCinemagraphs();
@@ -742,14 +657,14 @@ function renderOpening(autoplay = true) {
   const player = attachVideo({mode:'opening',key:'opening'},'terrain',camera,controls);
   const openingVideo = camera.querySelector<HTMLVideoElement>('video');
   if (openingVideo) mountOpeningOverlay(scene, openingVideo);
-  const backToMap = syncControl('map','',()=>{
+  const backToMap = lessonControl('map','',()=>{
     player.pause();
     renderMap(true);
   });
   setIconButton(backToMap,'地图','map');
   actions.append(controls,fullscreenButton(),backToMap);
   heading.append(title,actions);
-  const next = syncControl('opening-next','进入课堂',()=>{
+  const next = lessonControl('opening-next','进入课堂',()=>{
     player.pause();
     openScene(0,'lesson',undefined,landing.complete && landing.naturalWidth ? landing : undefined);
   },'primary','arrowRight',true);
@@ -770,19 +685,18 @@ function renderOpening(autoplay = true) {
   sizeMedia();
   pageButtons = {next};
   displayView({kind:'opening'});
-  if (!projectionMode) {
+  {
     title.focus({preventScroll:true});
     if (autoplay) {
       const state: VideoState = {mode:'playing',time:0,at:sceneNow()};
       void player.set(state);
-      sendProjection({type:'video',state});
     }
   }
   startPageEntry(scene, [[title,'left'],[actions,'right']],openingPicture);
 }
 
 function openScene(position: number, variant: LessonMode = 'lesson', returnToReview?: () => void,
-  matchedFrame?: HTMLImageElement, reconnectingJourney = false) {
+  matchedFrame?: HTMLImageElement) {
   const departingPage = currentView.kind === 'scene' ? chapterPages[currentView.position]?.page : null;
   const arriving = chapterPages[position].page;
   const spatial = departingPage ? findSpatialJourney(departingPage.title, arriving.title) : undefined;
@@ -797,8 +711,6 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   currentPractice = undefined;
   activeSceneCue = undefined;
   currentVideo = undefined;
-  applyScrub = undefined;
-  applyRouteOffset = undefined;
   onStageDismiss = undefined;
   stopMotion();
   stopCinemagraphs();
@@ -807,7 +719,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   mapResize?.disconnect();
   const { event, chapter, page } = chapterPages[position];
   selected = chapter;
-  if (variant !== 'trial') lastViewed.set(chapter,position);
+  lastViewed.set(chapter,position);
   soundscape.setVideoDuck(false);
   soundscape.setScene(sceneSoundOf(event.id, page), 0.85);
 
@@ -825,7 +737,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   const shade = element('div','scene-shade');
   const picture = matchedFrame ?? (liveDesk ? element('img') : photo(page.image,page.title));
   const captionText = element('div','caption-copy');
-  const lesson = currentSceneLesson = mountSceneLesson({position,variant},scene,captionText,page);
+  const lesson = currentSceneLesson = mountSceneLesson(scene,captionText,page);
   if (!liveDesk) {
     camera.append(picture,spotlight);
     if (page.video?.mode !== 'loop') attachCinemagraph(page.image, picture);
@@ -842,14 +754,13 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   };
   let pauseVideo = () => {};
   const tools = element('div','scene-actions');
-  if (liveDesk && !projectionMode) tools.append(control('双屏授课',openProjection,'desk-project','expand'));
   if (page.video) {
     let movieAdvance: HTMLButtonElement | undefined;
     if (page.video.mode === 'transition') {
       const destination = chapterPages[position+1].page;
       const landing = photo(destination.image,destination.title);
       const decoded = landing.decode().then(()=>landing,()=>undefined);
-      movieAdvance = syncControl('clip-next','',async()=>{
+      movieAdvance = lessonControl('clip-next','',async()=>{
         const frame = await decoded;
         if (movieAdvance?.isConnected && currentVideo?.read().mode === 'playing') turn(1,frame);
       });
@@ -859,7 +770,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     pauseVideo = attachVideo(page.video,page.image,camera,tools,()=>lesson.dismissPoint(),()=>movieAdvance?.click()).pause;
   }
   if (page.video?.key==='zunyi') {
-    camera.append(syncControl('visit-meeting-desk','进入会议桌实景',()=>{
+    camera.append(lessonControl('visit-meeting-desk','进入会议桌实景',()=>{
       pauseVideo();
       openScene(position+1,variant,returnToReview);
     },'desk-scene-link','layers'));
@@ -881,9 +792,9 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   const location = page.title === '猴场会议' ? '贵州瓮安 · 1935 年 1 月 1 日'
     : page.image === 'wujiang' ? '贵州乌江 · 1935 年 1 月初' : event.place+' · '+event.date;
   identity.append(title,element('p','scene-date',location));
-  const back = syncControl('map',returnToReview ? '返回回顾' : '地图',leave,'','arrowLeft');
+  const back = lessonControl('map',returnToReview ? '返回回顾' : '地图',leave,'','arrowLeft');
   if (!returnToReview) setIconButton(back,'地图','map');
-  if (!projectionMode) tools.append(soundButton());
+  tools.append(soundButton());
   tools.append(fullscreenButton(),back);
   heading.append(identity,tools);
 
@@ -986,7 +897,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     const hud = element('aside','troop-hud classroom-sheet');
     hud.setAttribute('aria-label','湘江前后兵力');
     const troopRow = (term: 'before'|'after', date: string, label: string, amount: string, snap: number) => {
-      const row = syncControl('scrub-'+term,'',()=>updateSplit(snap,true),'troop-hud-row');
+      const row = lessonControl('scrub-'+term,'',()=>updateSplit(snap,true),'troop-hud-row');
       row.dataset.term = term;
       row.setAttribute('aria-label',label+' '+amount);
       const top = element('span','troop-row-top');
@@ -1021,12 +932,10 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
       barAfter.dataset.focus = String(clamped <= 55);
       barBefore.setAttribute('aria-pressed',barBefore.dataset.focus);
       barAfter.setAttribute('aria-pressed',barAfter.dataset.focus);
-      if (broadcast && !projectionMode) sendScrub(clamped);
     }
-    applyScrub = (v)=>updateSplit(v,false);
 
     const comparison = element('div','troop-controls');
-    comparison.append(rangeInput,syncControl('scrub-mid','并排',()=>updateSplit(50,true),'troop-center'));
+    comparison.append(rangeInput,lessonControl('scrub-mid','并排',()=>updateSplit(50,true),'troop-center'));
     rangeInput.addEventListener('input',()=>updateSplit(Number(rangeInput.value),true));
 
     let curtainDrag: {id:number; x:number; y:number; active:boolean} | undefined;
@@ -1036,7 +945,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
       updateSplit(((clientX - rect.left) / rect.width) * 100, true);
     };
     media.addEventListener('pointerdown', e => {
-      if (projectionMode || !e.isPrimary || e.button !== 0 ||
+      if (!e.isPrimary || e.button !== 0 ||
         (e.target instanceof Element && e.target.closest('button,input,.troop-hud'))) return;
       const active = e.target instanceof Node && handle.contains(e.target);
       curtainDrag = {id:e.pointerId,x:e.clientX,y:e.clientY,active};
@@ -1080,7 +989,6 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     marker.setAttribute('aria-label','行军标记');
     marker.setAttribute('aria-valuemin','-100');
     marker.setAttribute('aria-valuemax','100');
-    if (projectionMode) marker.tabIndex = -1;
 
     const originNode = element('span','paper-node origin','黎平');
     const eastNode = element('span','paper-node east');
@@ -1112,7 +1020,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     lesson.addCue('directions-both', {text: '原计划北上会合，黎平会议决定改向贵州北部。'});
     const directionNote = (key: string) => lesson.explain(
       revealed.has('direction-west') && revealed.has('direction-east') ? 'directions-both' : key);
-    const btnEast = syncControl('direction-east','推演原计划 · 湘西北',()=>{
+    const btnEast = lessonControl('direction-east','推演原计划 · 湘西北',()=>{
       revealed.add('direction-east');
       updateMarch(100);
       paintRoutes();
@@ -1122,7 +1030,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
       appear(eastNode,350,240);
       directionNote('direction-east');
     },'deck-btn','compass');
-    const btnWest = syncControl('direction-west','推演新方向 · 贵州北部',()=>{
+    const btnWest = lessonControl('direction-west','推演新方向 · 贵州北部',()=>{
       revealed.add('direction-west');
       updateMarch(-100);
       paintRoutes();
@@ -1151,12 +1059,10 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
       marker.style.left = step.x + '%';
       marker.style.top = step.y + '%';
       marker.dataset.side = routeOffset === 0 ? 'origin' : east ? 'east' : 'west';
-      if (broadcast && !projectionMode) sendProjection({type:'route-offset', position, value:routeOffset});
     }
-    applyRouteOffset = updateMarch;
     updateMarch(routeOffset);
 
-    if (!projectionMode) {
+    {
       let pointer: {id:number, x:number, initial:number, span:number} | undefined;
       marker.addEventListener('pointerdown',event=>{
         if (!event.isPrimary || event.button!==0) return;
@@ -1212,15 +1118,14 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   }
 
   const navigation = element('div','scene-navigation');
-  const previous = syncControl('previous','上一页',()=>turn(-1),'','arrowLeft');
+  const previous = lessonControl('previous','上一页',()=>turn(-1),'','arrowLeft');
   setIconButton(previous,'上一页','arrowLeft');
   const finalPage = position === chapterPages.length-1;
   const lastInChapter = chapterPages[position+1]?.chapter !== chapter;
   previous.disabled = variant !== 'lesson' && position === chapterStarts[chapter];
-  const nextLabel = variant === 'trial' && finalPage ? '结束试讲'
-    : variant === 'revisit' && lastInChapter ? '返回回顾'
+  const nextLabel = variant === 'revisit' && lastInChapter ? '返回回顾'
     : finalPage ? '课堂回顾' : '下一页';
-  const next = syncControl('next',nextLabel,()=>turn(1),'primary','arrowRight',true);
+  const next = lessonControl('next',nextLabel,()=>turn(1),'primary','arrowRight',true);
   if (nextLabel === '下一页') setIconButton(next,nextLabel,'arrowRight');
   navigation.append(previous);
   navigation.append(next);
@@ -1235,8 +1140,8 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   const footer = element('footer','lesson-footer');
   const caption = liveDesk && currentDesk ? currentDesk.transport : captionText;
   bottom.append(caption);
-  if (page.practice && variant !== 'trial') {
-    currentPractice = mountPractice(page.practice,position,scene,caption,()=>practiceFocus,showPracticeReference);
+  if (page.practice) {
+    currentPractice = mountPractice(page.practice,scene,caption,()=>practiceFocus,showPracticeReference);
     bottom.append(currentPractice.panel);
     navigation.insertBefore(currentPractice.entry,next);
   }
@@ -1251,7 +1156,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     const openDesk = page.exploration === 'zunyi-hall' && chapterPages[position+1]?.page.activity === 'materials'
       ? () => openScene(position+1,variant,returnToReview)
       : undefined;
-    mountExplorationPage({id: page.exploration, position, scene, stage, tools, bottom:footer,
+    mountExplorationPage({id: page.exploration, scene, stage, tools, bottom:footer,
       pauseMedia: pauseVideo, backdrop, openDesk});
   }
   displayView({kind:'scene',position,variant});
@@ -1268,9 +1173,9 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     sizeMedia();
   }
   pageButtons = {previous,next};
-  if (!projectionMode) title.focus({preventScroll:true});
+  title.focus({preventScroll:true});
   if (riverHandoff) playRiverExit(scene,riverHandoff);
-  else if (!spatial && !reconnectingJourney && !matchedFrame && !liveDesk && priorImage?.complete && priorImage.naturalWidth && priorImage.getAttribute('src') !== picture.getAttribute('src') && !reducedMotion.matches) {
+  else if (!spatial && !matchedFrame && !liveDesk && priorImage?.complete && priorImage.naturalWidth && priorImage.getAttribute('src') !== picture.getAttribute('src') && !reducedMotion.matches) {
     const old = element('img','outgoing-image');
     old.src = priorImage.src;
     old.alt = '';
@@ -1280,7 +1185,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     const remove = ()=>old.remove();
     if (fade) fade.finished.then(remove,remove);
     else remove();
-  } else if (!spatial && !reconnectingJourney && !matchedFrame && !liveDesk && priorImage?.getAttribute('src') !== picture.getAttribute('src')) {
+  } else if (!spatial && !matchedFrame && !liveDesk && priorImage?.getAttribute('src') !== picture.getAttribute('src')) {
     animatePart(picture,[{opacity:.62},{opacity:1}],340);
   }
   if (!liveDesk) {
@@ -1295,12 +1200,10 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     const finished = journey && playSpatialJourney(scene, journey, lesson.signal);
     startPageEntry(scene, [[identity,'left'],[tools,'right'],[footer,'bottom']],entranceImage,
       {after: finished, onLayoutReady: lesson.start});
-  }, spatial && !projectionMode && !reducedMotion.matches ? { id: spatial, startedAt: sceneNow() } : undefined,
-  Boolean(spatial) || reconnectingJourney);
+  }, spatial && !reducedMotion.matches ? { id: spatial, startedAt: sceneNow() } : undefined);
 
   function addHotspot(label: string, key: string, [x,y]: Point, cue: Pick<SceneCue,'text'|'enter'>, className = 'hotspot') {
     const spot = explorationStage.markScenePoint(control('',()=>lesson.explain(key),className),label);
-    if (projectionMode) spot.tabIndex = -1;
     lesson.addCue(key,{
       text: cue.text,
       enter(animate) {
@@ -1328,16 +1231,8 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     if (direction < 0 && previous.disabled) return;
     pauseVideo();
     if (position+direction < 0 || (direction > 0 && variant === 'revisit' && lastInChapter)) leave();
-    else if (direction > 0 && finalPage) {
-      if (variant === 'trial') leave();
-      else openReview();
-    } else {
-      const trialMaterials = chapterStarts[chapter]+1;
-      const target = variant === 'trial' && direction > 0 && position === trialMaterials
-        ? chapterPages.length-1
-        : variant === 'trial' && direction < 0 && finalPage ? trialMaterials : position+direction;
-      openScene(target,variant,returnToReview,frame);
-    }
+    else if (direction > 0 && finalPage) openReview();
+    else openScene(position+direction,variant,returnToReview,frame);
   }
 }
 
@@ -1348,7 +1243,7 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
   video.src = mediaAssets[clip.key+'-video'];
   video.poster = mediaAssets[image];
   video.preload = 'auto';
-  video.muted = projectionMode || clip.mode !== 'opening';
+  video.muted = clip.mode !== 'opening';
   video.playsInline = true;
   video.loop = background;
   video.hidden = true;
@@ -1356,7 +1251,6 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
   let generation = 0;
   let intent: VideoState = {mode:'static',time:0};
   let posterFade: Animation | undefined;
-  let syncDeadline = 0;
   const startLabel = clip.mode === 'transition' ? '播放备桥短片' : '播放短片';
   const cutLabel = clip.mode === 'transition' ? element('span','scene-shot-label',clip.caption.text) : undefined;
   if (cutLabel && clip.mode === 'transition') {
@@ -1388,47 +1282,16 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
       video.addEventListener('error', done, { once: true });
     });
   }
-  if (projectionMode) {
-    video.addEventListener('timeupdate', () => {
-      if (!syncDeadline || intent.mode !== 'playing' || typeof intent.at !== 'number' || video.paused || video.ended) {
-        if (video.playbackRate !== 1) video.playbackRate = 1;
-        return;
-      }
-      if (sceneNow() > syncDeadline) {
-        syncDeadline = 0;
-        if (video.playbackRate !== 1) video.playbackRate = 1;
-        return;
-      }
-      const target = targetTimeOf(intent);
-      let drift = target - video.currentTime;
-      if (background && Number.isFinite(video.duration) && video.duration > 0) {
-        const half = video.duration / 2;
-        if (drift > half) drift -= video.duration;
-        else if (drift < -half) drift += video.duration;
-      }
-      if (Math.abs(drift) > 1.2) {
-        video.currentTime = target;
-        video.playbackRate = 1;
-      } else if (Math.abs(drift) > 0.25) {
-        video.playbackRate = drift > 0 ? 1.08 : 0.92;
-      } else if (Math.abs(drift) <= 0.1) {
-        video.playbackRate = 1;
-        syncDeadline = 0;
-      }
-    });
-  }
   const play = background ? undefined : control('',()=>{
     const playing = !(intent.mode === 'playing' && !video.ended);
     const time = intent.mode === 'static' || video.hidden || video.ended ? 0 : video.currentTime;
     const state: VideoState = playing ? {mode:'playing',time,at:sceneNow()} : {mode:'paused',time};
     void setVideo(state);
-    sendProjection({type:'video',state});
   });
   async function setVideo(state: VideoState) {
     if (background && reducedMotion.matches) state = {mode:'static',time:0};
     const request = ++generation;
     intent = state;
-    syncDeadline = 0;
     video.playbackRate = 1;
     if (state.mode === 'static') { showPoster(clip.key === 'xiang'); return; }
     if (posterFade) {
@@ -1447,7 +1310,7 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
         setIconButton(play,state.mode === 'paused' ? '继续播放' : '暂停短片',state.mode === 'paused' ? 'play' : 'pause');
       }
     }
-    if (clip.mode === 'opening' && !projectionMode) soundscape.setVideoDuck(state.mode === 'playing');
+    if (clip.mode === 'opening') soundscape.setVideoDuck(state.mode === 'playing');
     if (entering && clip.mode === 'transition') {
       align?.();
       getComputedStyle(media).transform;
@@ -1493,7 +1356,6 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
       await video.play();
       if (request === generation && video.isConnected && !video.hidden && !video.paused) {
         video.classList.add('is-visible');
-        if (projectionMode && typeof state.at === 'number') syncDeadline = sceneNow() + 4000;
       }
       if (!video.isConnected) video.pause();
     } catch {
@@ -1503,7 +1365,6 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
   const still = clip.mode === 'transition' ? control('',()=>{
     const state:VideoState = {mode:'static',time:0};
     void setVideo(state);
-    sendProjection({type:'video',state});
   }) : undefined;
   function resumeBackground() {
     if (!background || reducedMotion.matches || !video.isConnected || intent.mode === 'playing' ||
@@ -1528,13 +1389,12 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
   currentVideo = player;
   video.addEventListener('ended',()=>{
     if (!video.isConnected || !video.ended || intent.mode!=='playing') return;
-    if (clip.mode==='transition' && !projectionMode) advance?.();
+    if (clip.mode==='transition') advance?.();
     if (clip.mode==='opening') {
       intent = {mode:'paused',time:video.currentTime};
       if (play) setIconButton(play,'重播','reset');
-      if (!projectionMode) {
+      {
         soundscape.setVideoDuck(false);
-        sendProjection({type:'video',state:intent});
       }
     }
   });
@@ -1556,10 +1416,9 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
   function showPoster(fade = false) {
     const request = ++generation;
     intent = {mode:'static',time:0};
-    syncDeadline = 0;
     video.playbackRate = 1;
     video.pause();
-    if (clip.mode === 'opening' && !projectionMode) soundscape.setVideoDuck(false);
+    if (clip.mode === 'opening') soundscape.setVideoDuck(false);
     if (cutLabel) cutLabel.hidden = true;
     if (still) {
       if (document.activeElement === still) play?.focus({preventScroll:true});

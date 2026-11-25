@@ -32,37 +32,16 @@ def button(page, name):
 
 
 class Classroom:
-    def __init__(self, teacher, output, projector, reduced=False):
-        self.teacher = teacher
-        self.screen = None
+    def __init__(self, page, output, reduced=False):
+        self.page = page
         self.output = output
-        self.projector = projector
         self.reduced = reduced
         self.steps = []
-
-    def project(self):
-        label = '重新打开投影' if self.screen is not None else None
-        if label is None:
-            label = '双屏授课' if button(self.teacher, '双屏授课').is_visible() else '开始双屏授课'
-        with self.teacher.expect_popup() as opening:
-            button(self.teacher, label).click()
-        self.screen = opening.value
-        self.screen.set_viewport_size(self.projector)
-        expect(self.teacher.locator('.presenter-status')).to_have_text('投影已连接', timeout=18000)
-        self.steps.append(label)
-        return self.screen
-
-    def close_projection(self):
-        if self.screen is None:
-            raise ValueError('此时没有打开的投影')
-        self.screen.close()
-        expect(self.teacher.locator('.presenter-status')).to_have_text('投影窗口已关闭')
-        self.steps.append('关闭投影')
 
     def shot(self, name, page=None):
         if not name or Path(name).name != name or any(char in name for char in '/\\:'):
             raise ValueError('截图名须使用单个文件名')
-        page = page or self.teacher
+        page = page or self.page
         target = self.output / (name + '.png')
         page.screenshot(path=target)
         self.steps.append(f'截图 {target.name}')
@@ -84,25 +63,11 @@ def launch(html, viewport, reduced='no-preference', video_dir=None):
                     raise AssertionError('课件运行出错\n' + '\n'.join(errors))
 
 
-def select_page(classroom, target):
-    if target == 'teacher':
-        return classroom.teacher
-    if target == 'projection' and classroom.screen and not classroom.screen.is_closed():
-        return classroom.screen
-    raise ValueError(f'找不到窗口 {target}')
-
-
 def play(classroom, steps):
-    page = classroom.teacher
+    page = classroom.page
     for step in steps:
         action = step['do']
-        if action == 'project':
-            classroom.project()
-        elif action == 'close-projection':
-            classroom.close_projection()
-        elif action == 'window':
-            page = select_page(classroom, step['target'])
-        elif action == 'shot':
+        if action == 'shot':
             classroom.shot(step['name'], page)
         elif action == 'click':
             item = button(page, step['button']) if 'button' in step else page.locator(step['selector'])
@@ -138,7 +103,7 @@ def play(classroom, steps):
                 target.to_be_visible()
         else:
             raise ValueError(f'未知操作 {action}')
-        if action not in ('project', 'close-projection', 'shot'):
+        if action != 'shot':
             classroom.steps.append(step)
 
 
@@ -147,7 +112,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--html', type=Path, default=COURSE, help='课件文件，默认正式构建产物')
     parser.add_argument('--viewport', type=size, default=size('1366x768'))
-    parser.add_argument('--projector', type=size, default=size('1920x1080'))
     parser.add_argument('--output', type=Path, help='本次证据目录')
     parser.add_argument('--reduced-motion', action='store_true')
     sub = parser.add_subparsers(dest='mode', required=True)
@@ -165,12 +129,12 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     with html.open('rb') as source:
         checksum = file_digest(source, 'sha256').hexdigest()
-    report = {'file': str(html), 'sha256': checksum, 'window': args.viewport, 'projection': args.projector}
+    report = {'file': str(html), 'sha256': checksum, 'window': args.viewport}
     try:
         with launch(html, args.viewport, 'reduce' if args.reduced_motion else 'no-preference') as (context, url, edge, errors):
             report['edge'] = edge
             teacher = context.new_page()
-            room = Classroom(teacher, output, args.projector,args.reduced_motion)
+            room = Classroom(teacher, output,args.reduced_motion)
             report['steps'] = room.steps
             report['browserErrors'] = errors
             try:

@@ -20,7 +20,7 @@ type DeskPointer = {
 };
 
 function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:DeskSaved,
-  onChange:(view:DeskView,publish:boolean)=>void) {
+  onChange:(view:DeskView)=>void) {
   let saved=starting;
   let preview:DeskGesture|undefined;
   let reading:DeskReading|undefined;
@@ -37,22 +37,19 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
   let ambientStart=performance.now();
   let hovered:DeskTarget|null=null;
   let completeObject:(()=>void)|undefined;
-  let lastSent=-Infinity;
   let disposed=false;
 
   const read=():DeskView=>({saved,preview,reading,camera:pose,focus});
-  function redraw(send=false, final=true) {
+  function redraw() {
     if (disposed) return;
     cancelAnimationFrame(paintFrame);
     paintFrame=0;
     const now=performance.now();
     world?.draw(read(),reducedMotion.matches ? 0 : (now-ambientStart)*.001);
-    const publish=send && !projectionMode && (final || now-lastSent>=38);
-    if (publish) lastSent=now;
-    onChange(read(),publish);
+    onChange(read());
   }
   function queueDraw() {
-    if (!paintFrame) paintFrame=requestAnimationFrame(()=>redraw(true,false));
+    if (!paintFrame) paintFrame=requestAnimationFrame(()=>redraw());
   }
   function startAmbientLoop() {
     if (ambientFrame || disposed || reducedMotion.matches) return;
@@ -76,7 +73,6 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
     completeObject=undefined;
   }
   function playPaper(gesture:DeskLeaf | DeskPhysicalGesture) {
-    if (projectionMode) return;
     if (gesture.kind==='page' || gesture.kind==='cover') soundscape.playSfx('paper-turn');
     else if (gesture.kind==='cord') soundscape.playSfx('rope-untie');
     else soundscape.playSfx('paper-slide');
@@ -94,7 +90,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
       saved={...next,camera:saved.camera,seen:saved.seen};
       preview=undefined;
     };
-    if (reducedMotion.matches || !world) {finish();redraw(true);options.then?.();return;}
+    if (reducedMotion.matches || !world) {finish();redraw();options.then?.();return;}
     completeObject=finish;
     const started=performance.now();
     const goal=gesture.kind==='sheet' ? 0 : Number(next!==saved);
@@ -109,7 +105,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
       } else preview={...gesture,progress:current};
       if (progress===1) {
         clearObjectAnimation(true);
-        redraw(true);
+        redraw();
         options.then?.();
       } else {
         objectFrame=requestAnimationFrame(tick);
@@ -118,7 +114,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
     };
     preview=gesture.kind==='sheet' ? {...gesture,lift:from} : {...gesture,progress:from};
     objectFrame=requestAnimationFrame(tick);
-    redraw(true,false);
+    redraw();
   }
 
   const leafStep=(direction:DeskLeafDirection)=>direction==='forward' ? 1 : -1;
@@ -138,7 +134,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
       preview=undefined;
       objectFrame=0;
       steerLeaf();
-      redraw(true);
+      redraw();
     }
     if (reducedMotion.matches || !world) {finish();return;}
     preview=leaf;
@@ -150,10 +146,10 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
       else {objectFrame=requestAnimationFrame(tick);queueDraw();}
     };
     objectFrame=requestAnimationFrame(tick);
-    redraw(true,false);
+    redraw();
   }
   function turn(direction:DeskLeafDirection) {
-    if (projectionMode || disposed) return;
+    if (disposed) return;
     clearPointer();
     if (preview?.kind!=='page') {
       clearObjectAnimation(true);
@@ -166,7 +162,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
     steerLeaf();
   }
   function beginLeaf(direction:DeskLeafDirection):DeskLeafDrag|undefined {
-    if (disposed || projectionMode) return;
+    if (disposed) return;
     const current=preview?.kind==='page' ? preview : undefined;
     if (!current && direction==='back' && reading?.kind==='journal' && saved.spread<=1) return;
     if (!current && deskClamp(saved.spread+leafStep(direction),0,deskSpreads)===saved.spread) return;
@@ -203,7 +199,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
     if (!world || reducedMotion.matches || (start===target && !startFocus?.amount && !endFocus?.amount)) {
       pose=target;
       focus=nextFocus;
-      redraw(true);
+      redraw();
       return;
     }
     const began=performance.now();
@@ -221,7 +217,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
         amount:blend(startFocus.amount,endFocus.amount,eased),
       };
       cameraFrame=fraction===1 ? 0 : requestAnimationFrame(tick);
-      if (fraction===1) redraw(true);
+      if (fraction===1) redraw();
       else queueDraw();
     };
     cameraFrame=requestAnimationFrame(tick);
@@ -246,7 +242,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
     return value.kind;
   }
   function openReading(next:DeskReading) {
-    if (projectionMode || disposed) return;
+    if (disposed) return;
     clearPointer();
     const previous=reading;
     if (!previous && cameraFrame) saved={...saved,camera:pose};
@@ -270,14 +266,14 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
     if ((next.kind==='map' || next.kind==='clue' && next.source==='map') && saved.map==='stored' && world) {
       settleObject({kind:'map',progress:1},true,0);
     }
-    redraw(true);
+    redraw();
   }
   function chooseMap(mode:DeskRouteMode, replay=false) {
-    if (projectionMode || disposed || reading?.kind!=='map' || (reading.mode===mode && !replay)) return;
+    if (disposed || reading?.kind!=='map' || (reading.mode===mode && !replay)) return;
     clearObjectAnimation(true);
     saved={...saved,map:mode==='parallel' ? 'both' : mode,routeReading:mode};
     reading={kind:'map',mode,drawAt:Date.now()};
-    redraw(true);
+    redraw();
   }
   function openMap() {
     const mode=saved.routeReading ?? (saved.map==='stored' ? 'original' : saved.map);
@@ -285,7 +281,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
   }
 
   function dismiss() {
-    if (projectionMode || disposed) return;
+    if (disposed) return;
     const active=pointer;
     clearPointer();
     if (active) cancelPointerMotion(active);
@@ -294,10 +290,10 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
       reading=undefined;
       travelCamera(saved.camera,undefined,315);
     }
-    redraw(true);
+    redraw();
   }
   function switchCamera(target:DeskPose,duration:number) {
-    if (projectionMode || disposed || !world) return;
+    if (disposed || !world) return;
     if (pointer?.moved) {
       if (preview?.kind==='page') cancelLeaf();
       else preview=undefined;
@@ -306,7 +302,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
     reading=undefined;
     saved={...saved,camera:deskCamera(target)};
     travelCamera(saved.camera,undefined,duration);
-    redraw(true);
+    redraw();
   }
   function zoom(factor:number) {
     switchCamera({...saved.camera,zoom:saved.camera.zoom*factor},155);
@@ -318,7 +314,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
   };
   function targetAt(uv:Point) {return world?.pick(...uv,read()) ?? undefined;}
   function start(event:PointerEvent) {
-    if (projectionMode || !world || reading || !event.isPrimary || event.button!==0 ||
+    if (!world || reading || !event.isPrimary || event.button!==0 ||
       (event.target instanceof Element && event.target.closest('button'))) return;
     const uv=pointerAt(event), target=targetAt(uv);
     let original:DeskPhysicalGesture|undefined;
@@ -338,7 +334,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
     frame.setPointerCapture(event.pointerId);
   }
   function move(event:PointerEvent) {
-    if (!world || projectionMode || reading) return;
+    if (!world || reading) return;
     if (!pointer || pointer.id!==event.pointerId) {
       const target=event.target instanceof Element && event.target.closest('button') ? null : targetAt(pointerAt(event)) ?? null;
       canvas.style.cursor=target ? 'pointer' : 'grab';
@@ -396,7 +392,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
         settleObject(preview,preview.kind==='sheet' || preview.progress>=.43,preview.kind==='sheet' ? preview.lift : preview.progress);
       } else {
         saved={...saved,camera:pose};
-        redraw(true);
+        redraw();
       }
       return;
     }
@@ -440,13 +436,13 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
   frame.addEventListener('lostpointercapture',cancel);
   frame.addEventListener('pointerleave',()=>{if (!pointer) setHover(null);});
   frame.addEventListener('wheel',event=>{
-    if (projectionMode || !world || reading) return;
+    if (!world || reading) return;
     event.preventDefault();
     const delta=event.deltaY*(event.deltaMode===1 ? 16 : event.deltaMode===2 ? 360 : 1);
     zoom(Math.exp(-deskClamp(delta,-200,200)*.0016));
   },{passive:false});
   frame.addEventListener('keydown',event=>{
-    if (projectionMode || reading || event.target!==frame) return;
+    if (reading || event.target!==frame) return;
     const target={...saved.camera};
     switch (event.key) {
       case 'ArrowLeft': target.yaw-=4;break;
@@ -471,7 +467,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
     connect(next:DeskWorld) {
       world=next;
       ambientStart=performance.now();
-      if (reading && !projectionMode) {
+      if (reading) {
         const point=world.focusPoint(selectedKind(reading),read());
         travelCamera(saved.camera,{...point,amount:reading.kind==='compare' ? .45 : 1},375);
       }
@@ -479,12 +475,6 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
       startAmbientLoop();
     },
     resize(width:number,height:number) {world?.resize(width,height);redraw();},
-    restore(view:DeskView) {
-      if (!projectionMode || disposed) return;
-      ({saved,preview,reading,focus}=view);
-      pose=view.camera ?? (preview?.kind==='camera' ? preview.pose : saved.camera);
-      redraw();
-    },
     home() {
       switchCamera(deskHome(),330);
       frame.focus({preventScroll:true});
