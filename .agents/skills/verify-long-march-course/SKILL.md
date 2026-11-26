@@ -6,7 +6,7 @@ description: >-
 
 # 验收《从于都到遵义》
 
-从仓库根目录读 `AGENTS.md`、`两门课视觉与动效规范.md`，以及 `新一轮访谈信息/长征沉浸式VR党课落地方案.md` 的冻结版最高执行标准。记录本轮要解决的问题、实际入口、对照版本和涉及的画面。用 `git status --short` 识别原有工作，用 `Test/verify-lesson-scope.mjs` 检查当前声明的范围。
+从仓库根目录读 `AGENTS.md`、`项目文档/规范/长征课视觉与动效规范.md`，以及 `项目文档/长征课/长征沉浸式VR党课落地方案.md` 的冻结版最高执行标准。记录本轮要解决的问题、实际入口、对照版本和涉及的画面。用 `git status --short` 识别原有工作，用 `Test/verify-lesson-scope.mjs` 检查当前声明的范围。
 
 ## 启动和诊断
 
@@ -28,8 +28,10 @@ CLI 为每次运行复制一份 HTML 到空目录，用新的断网 Edge 上下�
 
 - **实际操作 CLI。** `python -B "Test/course_cli.py" run opening`、`run entry`、`run desk` 对应[功能地图](features/README.md)。`play <操作文件>` 从真实入口按序点选、按键、拖放及截屏，可用 `--desk` 进入独立桌景。操作由 Playwright 发给页面，回归检查读取实际界面、状态变化与截图。
 - **正式单屏课页。** 用 `Test/course_cli.py run single_screen` 检查首页和遵义章节入口，再跑开场、讲述、条目、路线和桌景。重剪短片时用 `Test/verify-course-media.py` 的 `--check-join <资源键> <入图键> <出图键>` 核对首尾帧，随后观看实际课页切换。
+- **于都河岸。** 用 `python -B "Test/verify-yudu-shorts.py" <课件> --output <证据目录>` 核对岸边备桥按钮、河岸视频自动连播、暂停续播、片尾定格及点击后挂载的三维。用 `Test/verify-route-interactions.py` 回归渡河计划、夜渡与收桥后同机位回看、线路和材料交接。
+- **片头人物。** 从正式课件截图配回源帧，冻结拟改镜头和当前 95 秒基准。`Test/verify-performer-samples.py <片源1> <片源2> --labels <左标> <右标> --output <对比目录> --evidence <证据目录>` 输出同机位原速与四分之一速、每一帧图集及断网播放记录。用实际变形后的掌根、拇指、袖面和鞋底复核受力阶段，另外看自由手腕和落地换步。总片用 `Test/verify-opening-film.py <原片> <成片> --shots 于都架桥 于都夜渡 湘江涉水 --output <目录>` 查真实剪入、保留段、显示时码及 AAC 数据包，再从真实课堂入口播放。
 - **遵义桌景。** `python -B "Test/verify-desk-live.py"` 检查从地图选章或从正常授课进入桌景，核对绕桌、查证、并排阅读和离场回看。`python -B "Test/verify-shot-routes.py" --output-dir ".march-build/镜头验收"` 复跑已有三种镜头实验。
-- **全课画面与局部交互。** `node "Test/verify-presentation-policy.mjs"` 检查界面文案规则。于都分流、黎平拖图、乌江机位和遵义携带线索用 `python -B "Test/verify-route-interactions.py"` 复跑，结合实际画面检查。
+- **全课画面与局部交互。** `node "Test/verify-presentation-policy.mjs"` 检查界面规则。`run disclosures` 检查军事和组织卷宗、转折回看、片尾暂停和回到地图。湘江回望和兵力口径、黎平拖图、猴场路线、乌江机位和遵义携带线索用 `python -B "Test/verify-route-interactions.py"` 复跑。
 
 ## 证据和清理
 

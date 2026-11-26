@@ -109,7 +109,7 @@ function mountSceneLesson(scene: HTMLElement, host: HTMLElement, page: LessonPag
 
   function canAdvance(target: EventTarget | null) {
     return target instanceof Element && scene.contains(target) && !!target.closest('.scene-stage') &&
-      !target.closest('button,input,a,select,textarea,[contenteditable],.story-panel,.troop-hud,.curtain-handle,.tabletop-deck,.folio-card') &&
+      !target.closest('button,input,a,select,textarea,[contenteditable],.story-panel,.houchang-map,.tabletop-deck,.folio-card') &&
       !dialog.open && !scene.matches('[data-exploration],[data-practicing=true],[data-journey]') &&
       scene.dataset.entryPhase === 'ready';
   }
@@ -140,7 +140,7 @@ function mountSceneLesson(scene: HTMLElement, host: HTMLElement, page: LessonPag
     }, { signal });
   }
 
-  function mountItems(stage: HTMLElement, story: InlineStoryPage) {
+  function mountItems(stage: HTMLElement, story: InlineStoryPage, show: (step?: StepItem) => void) {
     const panel = element('aside', 'story-panel inline-disclosure ' +
       (story.activity === 'organization' ? 'story-panel--left' : 'story-panel--right'));
     const list = element('ol', 'story-rail');
@@ -149,11 +149,7 @@ function mountSceneLesson(scene: HTMLElement, host: HTMLElement, page: LessonPag
       const row = element('li', 'story-stop');
       const detail = element('p', 'story-detail', step.detail);
       detail.id = 'detail-' + step.id;
-      const button = control('', () => {
-        openItem = openItem === step.id ? null : step.id;
-        if (openItem) lessonItemsSeen.add(openItem);
-        drawItems?.();
-      }, 'story-step');
+      const button = control('', () => selectItem(step.id), 'story-step');
       button.tabIndex = 0;
       button.setAttribute('aria-controls', detail.id);
       button.append(element('strong', '', step.title));
@@ -165,6 +161,13 @@ function mountSceneLesson(scene: HTMLElement, host: HTMLElement, page: LessonPag
     panel.append(list);
     if (summary) panel.append(summary);
     stage.append(panel);
+
+    function selectItem(id: string) {
+      openItem = openItem === id ? null : id;
+      if (openItem) lessonItemsSeen.add(openItem);
+      soundscape.playSfx('point');
+      drawItems?.();
+    }
 
     function fitSummary() {
       if (!summary || summary.hidden) return;
@@ -183,6 +186,7 @@ function mountSceneLesson(scene: HTMLElement, host: HTMLElement, page: LessonPag
         stage.style.setProperty('--dawn-brightness', String(.84 + count * .09 + (summary.hidden ? 0 : .08)));
         fitSummary();
       }
+      show(story.steps.find(step=>step.id===openItem));
       syncReadingState();
     };
     if (summary) {
@@ -191,6 +195,7 @@ function mountSceneLesson(scene: HTMLElement, host: HTMLElement, page: LessonPag
       signal.addEventListener('abort', () => resized.disconnect(), { once: true });
     }
     drawItems();
+    return selectItem;
   }
 
   return {

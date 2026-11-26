@@ -63,35 +63,49 @@ export const riverStops = {
 };
 
 export async function createRiverWorld(assets) {
+  const meadowDetail = Boolean(assets['river-meadow']);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xa2ada6);
-  scene.fog = new THREE.Fog(0xa2ada6, 78, 168);
+  scene.fog = new THREE.Fog(0xa2ada6, meadowDetail ? 37 : 78, meadowDetail ? 146 : 168);
   const loader = new THREE.TextureLoader();
-  const [groundMap, groundNormal, woodMap, woodNormal, woodRough, waves, soil] = await Promise.all(
-    ['river-ground', 'river-ground-normal', 'river-timber', 'river-timber-normal', 'river-timber-rough',
-      'water-normal', 'river-soil'].map(async name => {
+  const [groundMap, groundNormal, woodMap, woodNormal, woodRough, waves, soil, meadowMap, reflectionMap] = await Promise.all(
+    ['river-ground', meadowDetail ? 'river-meadow-normal' : 'river-ground-normal',
+      'river-timber', 'river-timber-normal', 'river-timber-rough',
+      meadowDetail ? 'river-calm-normal' : 'water-normal', 'river-soil',
+      ...(meadowDetail ? ['river-meadow', 'river-reflections'] : [])].map(async name => {
       const texture = await loader.loadAsync(assets[name]);
-      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      texture.wrapS = THREE.RepeatWrapping;
+      if (name !== 'river-reflections') texture.wrapT = THREE.RepeatWrapping;
       texture.colorSpace = name.endsWith('normal') || name.endsWith('rough') ? THREE.NoColorSpace : THREE.SRGBColorSpace;
       texture.anisotropy = 8;
       return texture;
     }),
   );
   const landscape = new THREE.MeshStandardMaterial({
-    map: groundMap, normalMap: groundNormal, normalScale: new THREE.Vector2(0.37, 0.37),
+    map: groundMap, normalMap: groundNormal,
+    normalScale: new THREE.Vector2(meadowDetail ? 0.52 : 0.37, meadowDetail ? 0.52 : 0.37),
     vertexColors: true, roughness: 0.99,
   });
+  if (meadowDetail) groundNormal.repeat.set(4.8, 4.8);
+  if (meadowMap) landscape.addEventListener('dispose', () => meadowMap.dispose());
   landscape.onBeforeCompile = shader => {
     shader.uniforms.soil = { value: soil };
+    shader.uniforms.meadowMap = { value: meadowMap ?? groundMap };
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nattribute float soilWeight; varying float vSoilWeight;')
       .replace('#include <uv_vertex>', '#include <uv_vertex>\nvSoilWeight = soilWeight;');
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform sampler2D soil; varying float vSoilWeight;')
+      .replace('#include <common>', '#include <common>\nuniform sampler2D soil, meadowMap; varying float vSoilWeight;')
       .replace('#include <map_fragment>', `
         #include <map_fragment>
         vec3 earth = texture2D(soil, vMapUv * 3.1).rgb;
         diffuseColor.rgb = mix(diffuseColor.rgb, earth, vSoilWeight);
+        ${meadowDetail ? `
+          vec3 shore = texture2D(meadowMap, vMapUv * 4.8).rgb;
+          float patches = .55 + .18 * sin(vMapUv.x * 24. + vMapUv.y * 9.) *
+            sin(vMapUv.y * 21. - vMapUv.x * 5.);
+          diffuseColor.rgb = mix(diffuseColor.rgb, shore, vSoilWeight * patches);
+        ` : ''}
       `);
   };
   const wood = new THREE.MeshStandardMaterial({
@@ -111,18 +125,26 @@ export async function createRiverWorld(assets) {
       hulls: { value: waterCuts },
       ripples: { value: waves },
       riverbed: { value: soil },
-      deeper: { value: new THREE.Color(0x455d54) },
+      reflectionMap: { value: reflectionMap ?? soil },
+      deeper: { value: new THREE.Color(meadowDetail ? 0x394e58 : 0x455d54) },
       shallower: { value: new THREE.Color(0x7d7964) },
       reflectedSky: { value: new THREE.Color(0x9cb1b4) },
     },
     vertexShader: `
       #include <fog_pars_vertex>
+      uniform float elapsed;
       varying vec2 along;
       varying vec3 positionOnRiver;
       void main() {
         along = uv;
-        positionOnRiver = (modelMatrix * vec4(position, 1.)).xyz;
-        vec4 mvPosition = modelViewMatrix * vec4(position, 1.);
+        vec3 surface = position;
+        ${meadowDetail ? `
+          float taper = 1. - smoothstep(.36, .50, abs(along.y - .5));
+          surface.y += taper * (.021 * sin(position.x * 1.1 + position.z * 1.95 - elapsed * 1.9)
+            + .010 * sin(position.z * 4.6 - position.x * .44 + elapsed * 1.42));
+        ` : ''}
+        positionOnRiver = (modelMatrix * vec4(surface, 1.)).xyz;
+        vec4 mvPosition = modelViewMatrix * vec4(surface, 1.);
         gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
       }
@@ -131,7 +153,7 @@ export async function createRiverWorld(assets) {
       #include <fog_pars_fragment>
       uniform float elapsed, brightness;
       uniform vec4 hulls[${waterCuts.length}];
-      uniform sampler2D ripples, riverbed;
+      uniform sampler2D ripples, riverbed, reflectionMap;
       uniform vec3 deeper, shallower, reflectedSky;
       varying vec2 along;
       varying vec3 positionOnRiver;
@@ -155,12 +177,23 @@ export async function createRiverWorld(assets) {
           float beam = .82 * pow(max(.012, sin(3.14159265 * t)), t < .55 ? .68 : .83) * (1. - .10 * (t - .5));
           if (abs(z) < cut * beam) discard;
         }
-        vec2 a = texture2D(ripples, p * vec2(.064,.157) + vec2(-elapsed*.064,elapsed*.009)).rg * 2. - 1.;
-        vec2 q = vec2(p.y + .44*p.x, -.34*p.y+p.x);
-        vec2 b = texture2D(ripples, q * vec2(.092,.169) + vec2(elapsed*.051,-elapsed*.027)).rg * 2. - 1.;
-        vec2 fine = texture2D(ripples, p * vec2(.23,.68) + vec2(-elapsed*.14,elapsed*.031)).rg * 2. - 1.;
+        ${meadowDetail ? `
+          vec2 drift = texture2D(ripples, p * vec2(.023,.041) + vec2(elapsed*.008,0.)).rg * 2. - 1.;
+          vec2 rippleUV = p * vec2(.040,.177) - vec2(elapsed*.025,elapsed*.040);
+          vec2 a = texture2D(ripples, rippleUV + drift.yx * vec2(.13,.31)).rg * 2. - 1.;
+          a *= .69 + .42 * smoothstep(-.20,.23,drift.y);
+          vec2 q = vec2(p.x + .33*p.y, p.y - .26*p.x);
+          vec2 b = texture2D(ripples, q * vec2(.084,.219) + vec2(elapsed*.023,-elapsed*.033)).rg * 2. - 1.;
+          vec2 fine = texture2D(ripples, p * vec2(.19,.54) - vec2(elapsed*.075,elapsed*.055)).rg * 2. - 1.;
+        ` : `
+          vec2 a = texture2D(ripples, p * vec2(.064,.157) + vec2(-elapsed*.064,elapsed*.009)).rg * 2. - 1.;
+          vec2 q = vec2(p.y + .44*p.x, -.34*p.y+p.x);
+          vec2 b = texture2D(ripples, q * vec2(.092,.169) + vec2(elapsed*.051,-elapsed*.027)).rg * 2. - 1.;
+          vec2 fine = texture2D(ripples, p * vec2(.23,.68) + vec2(-elapsed*.14,elapsed*.031)).rg * 2. - 1.;
+        `}
         vec2 slope = a * .49 + b * .34 + fine * .25;
-        vec3 n = normalize(vec3(slope.x * .73, 1., slope.y * .67));
+        vec3 n = normalize(vec3(slope.x * ${meadowDetail ? '.18' : '.73'}, 1.,
+          slope.y * ${meadowDetail ? '.23' : '.67'}));
         vec3 viewRay = normalize(cameraPosition - positionOnRiver);
         float incidence = max(0., dot(viewRay, n));
         float fresnel = .06 + .71 * pow(1. - incidence, 3.);
@@ -170,8 +203,19 @@ export async function createRiverWorld(assets) {
         float glint = pow(sunAngle, 31.) * .065 + pow(sunAngle, 98.) * .07;
         float bank = smoothstep(.34, .49, abs(along.y - .5));
         vec3 bed = texture2D(riverbed, p / 2.64 + slope * .032).rgb;
-        vec3 color = mix(deeper, mix(shallower, bed, .46), bank * .76) * (1. + slope.y * .16);
-        color = mix(color, reflectedSky, fresnel) + glint * vec3(1., .90, .77);
+        vec3 color = mix(deeper, mix(shallower, bed, .46), bank * .76) *
+          (1. + slope.y * ${meadowDetail ? '.05' : '.16'});
+        vec3 reflections = reflectedSky;
+        ${meadowDetail ? `
+          vec3 ray = reflect(-viewRay, n);
+          vec2 skyUV = vec2(atan(ray.z, ray.x) / 6.2831853 + .83,
+            .5 + asin(clamp(ray.y, -.09, .95)) / 3.14159265);
+          reflections = mix(reflectedSky * .61, texture2D(reflectionMap, skyUV, 2.2).rgb, .33);
+          float rippleLight = smoothstep(.035, .17, slope.y - slope.x * .21);
+          reflections += reflectedSky * rippleLight * (.023 + fresnel * .052);
+          color *= 1. - bank * .12;
+        ` : ''}
+        color = mix(color, reflections, fresnel) + glint * vec3(1., .90, .77);
         gl_FragColor = vec4(color * brightness, 1.);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -221,13 +265,19 @@ export async function createRiverWorld(assets) {
   const uvs = [];
   const index = [];
   const segments = 340;
+  const across = meadowDetail ? 30 : 1;
+  const stride = across + 1;
   for (let i = 0; i <= segments; i++) {
     const x = riverBounds.left + i / segments * width;
-    for (const side of [-1, 1]) {
+    for (let j = 0; j <= across; j++) {
+      const side = j * 2 / across - 1;
       positions.push(x, waterLevel, center(x) + side * (halfWidth(x) + 1.25));
-      uvs.push(i / segments, (side + 1) / 2);
+      uvs.push(i / segments, j / across);
+      if (i && j) {
+        const edge = i * stride + j;
+        index.push(edge - stride - 1, edge - stride, edge - 1, edge - stride, edge, edge - 1);
+      }
     }
-    if (i) index.push(2 * i - 2, 2 * i - 1, 2 * i, 2 * i - 1, 2 * i + 1, 2 * i);
   }
   const river = new THREE.BufferGeometry();
   river.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));

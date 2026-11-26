@@ -11,8 +11,7 @@ from tempfile import TemporaryDirectory
 
 from playwright.sync_api import expect, sync_playwright
 
-from course_checks import DESK, drag_desk, visible_motion
-from course_cli import button
+from support.course_checks import DESK, drag_desk, visible_motion
 
 
 VIEWPORT = {'width': 1366, 'height': 768}
@@ -35,10 +34,11 @@ def poses(context, url, folder, changed):
     errors, requests = [], []
     page, frame = scene(context, url, errors, requests)
     frame.screenshot(path=folder/'01-正面.png')
-    button(page,'俯看桌面').click()
-    expect(frame).to_have_attribute('data-pitch','15.000')
+    for _ in range(8):
+        frame.press('ArrowUp')
+    expect(frame).to_have_attribute('data-pitch','16.000')
     frame.screenshot(path=folder/'02-俯看.png')
-    button(page,'回到正面机位').click()
+    frame.press('Home')
     for _ in range(4):
         frame.press('ArrowRight')
     expect(frame).to_have_attribute('data-yaw','16.000')
@@ -46,7 +46,7 @@ def poses(context, url, folder, changed):
     expect(frame).to_have_attribute('data-zoom','1.1300')
     frame.screenshot(path=folder/'03-斜侧近看.png')
 
-    button(page,'回到正面机位').click()
+    frame.press('Home')
     drag_desk(page,'page-forward',-.071,hold=True)
     expect(frame).to_have_attribute('data-gesture','page')
     frame.screenshot(path=folder/'04-页片弯曲中.png')

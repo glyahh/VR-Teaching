@@ -1,6 +1,6 @@
 type EntryEdge = 'left' | 'right' | 'bottom' | 'top';
 
-const shortNarration = '#instruction, #river-instruction, .desk-inquiry-cue, [data-short-narration]';
+const shortNarration = '#instruction, #river-instruction, [data-short-narration]';
 
 let currentPageEntry: { settle: () => void; dispose: () => void } | undefined;
 
@@ -151,7 +151,7 @@ function startPageEntry(root: HTMLElement, edges: readonly (readonly [HTMLElemen
 
     const handoffs = root.getAnimations({ subtree: true }).filter(move => {
       const target = (move.effect as KeyframeEffect | null)?.target;
-      return target && (target === picture || !!target.closest('.journey-layer, .outgoing-image, .desk-handoff'));
+      return target && (target === picture || !!target.closest('.journey-layer, .outgoing-image'));
     });
     const decode = picture && (!picture.complete || !picture.naturalWidth)
       ? picture.decode().catch(() => {})

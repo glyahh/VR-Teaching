@@ -3,9 +3,8 @@ type Exploration = ReturnType<typeof explorationStage.createExploration>;
 type ExplorationView = NonNullable<ReturnType<Exploration['read']>>;
 type ExplorationId = ExplorationView['id'];
 type HallClue = NonNullable<ReturnType<typeof explorationStage.hallClue>>;
-type HallHandoff = { frame: HTMLCanvasElement; anchor?: number[]; closeup?: HTMLCanvasElement };
 const explorationLabels = {
-  'yudu-river': { enter: '于都河岸', leave: '返回浮桥', name: '于都河岸', reset: '回全景' },
+  'yudu-river': { enter: '进入河岸', leave: '返回浮桥', name: '于都河岸', reset: '回全景' },
   'xiang-crossing': { enter: '湘江渡口现场', leave: '返回渡口', name: '湘江渡口', reset: '回全景' },
   'zunyi-hall': { enter: '进入材料厅', leave: '返回会场', name: '遵义材料厅', reset: '重新开始' },
 } satisfies Record<ExplorationId, { enter: string; leave: string; name: string; reset: string }>;
@@ -21,14 +20,144 @@ function captureExplorationView(id: ExplorationId) {
   if (explorationActivity.capture(frame)) return frame;
 }
 
-function captureHallHandoff(): HallHandoff | undefined {
-  const frame = captureExplorationView('zunyi-hall');
-  if (frame) return {frame, ...explorationActivity?.captureDeskShot(document.createElement('canvas'))};
+function captureDeskDeparture(): HTMLCanvasElement | HTMLImageElement | undefined {
+  if (reducedMotion.matches) return;
+  const hall = captureExplorationView('zunyi-hall');
+  if (hall) return hall;
+  const film = app.querySelector<HTMLVideoElement>('.scene-camera video.is-visible');
+  if (film && film.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && film.videoWidth) {
+    const still = element('canvas');
+    still.width = Math.min(720,film.videoWidth);
+    still.height = Math.round(still.width * film.videoHeight / film.videoWidth);
+    const ctx = still.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(film,0,0,still.width,still.height);
+      return still;
+    }
+  }
+  const still = app.querySelector<HTMLImageElement>('.scene-camera img');
+  if (still?.naturalWidth) return photo('zunyi');
 }
 
 function releaseExplorationPage() {
   releaseCurrentExploration?.();
   releaseCurrentExploration = undefined;
+}
+
+function mountRiverTour({ scene, stage, tools, signal }: {
+  scene: HTMLElement; stage: HTMLElement; tools: HTMLElement; signal: AbortSignal;
+}) {
+  type TourState = 'ready' | 'playing' | 'paused' | 'finished' | 'unavailable';
+  const cues: { until: number; text: string }[] = JSON.parse(mediaAssets['river-tour-cues']);
+  const film = element('div', 'river-tour');
+  const video = element('video');
+  video.src = mediaAssets['river-tour-video'];
+  video.poster = mediaAssets['river-tour-poster'];
+  video.preload = 'auto';
+  video.playsInline = true;
+  video.muted = soundscape.isMuted();
+  const caption = element('p', 'film-subtitle river-tour-caption');
+  film.append(video);
+  stage.append(film);
+  let state: TourState = 'ready';
+  let playback = 0;
+  const controlButton = control('', () => {
+    if (state === 'playing') pause();
+    else void play();
+  });
+  controlButton.dataset.riverTourControl = '';
+  const stillButton = control('', () => {
+    render('ready');
+    controlButton.focus({preventScroll:true});
+  });
+  setIconButton(stillButton, '查看浮桥图', 'image');
+  stillButton.dataset.riverTourControl = '';
+  tools.append(controlButton, stillButton);
+  render('ready');
+
+  function render(next: TourState) {
+    if (next === 'playing' || next === 'finished') {
+      const still = next === 'finished' ? mediaAssets['river-tour-end-poster'] : video.poster;
+      film.style.setProperty('--river-tour-still', `url("${still}")`);
+    }
+    state = next;
+    scene.dataset.riverTour = next;
+    film.hidden = next === 'ready' || next === 'unavailable';
+    tools.classList.toggle('film-controls', !film.hidden);
+    caption.hidden = film.hidden;
+    controlButton.classList.toggle('primary', next === 'ready');
+    stillButton.hidden = next !== 'finished';
+    if (next === 'ready') {
+      controlButton.classList.remove('icon-button');
+      controlButton.removeAttribute('aria-label');
+      controlButton.removeAttribute('title');
+      setButtonContent(controlButton, '于都河岸', 'play');
+    } else {
+      const label = next === 'playing' ? '暂停河岸短片' : next === 'paused' ? '继续播放河岸短片'
+        : next === 'finished' ? '重播河岸短片' : '重试河岸短片';
+      setIconButton(controlButton, label, next === 'playing' ? 'pause' : next === 'finished' ? 'reset' : 'play');
+    }
+    soundscape.setVideoDuck(next === 'playing' && !video.muted && !video.paused);
+  }
+
+  function updateCaption(time: number) {
+    const text = cues.find(cue => time < cue.until)?.text ?? cues.at(-1)?.text ?? '';
+    if (caption.textContent !== text) caption.textContent = text;
+  }
+
+  async function play() {
+    if (signal.aborted) return;
+    const attempt = ++playback;
+    if (video.error) video.load();
+    if (state !== 'paused') video.currentTime = 0;
+    render('playing');
+    updateCaption(video.currentTime);
+    try {
+      try {
+        await video.play();
+      } catch (error) {
+        if (signal.aborted || attempt !== playback) return;
+        if (!(error instanceof DOMException) || error.name !== 'NotAllowedError' || video.muted) throw error;
+        soundscape.setMuted(true);
+        await video.play();
+      }
+      if (attempt === playback && !signal.aborted) render('playing');
+    } catch {
+      if (attempt === playback && !signal.aborted) render('unavailable');
+    }
+  }
+
+  function pause() {
+    if (state !== 'playing') return;
+    ++playback;
+    video.pause();
+    render('paused');
+  }
+
+  if (typeof video.requestVideoFrameCallback === 'function') {
+    const onFrame: VideoFrameRequestCallback = (_, {mediaTime}) => {
+      updateCaption(mediaTime);
+      frame = video.requestVideoFrameCallback(onFrame);
+    };
+    let frame = video.requestVideoFrameCallback(onFrame);
+    signal.addEventListener('abort', () => video.cancelVideoFrameCallback(frame), { once: true });
+  } else {
+    video.addEventListener('timeupdate', () => updateCaption(video.currentTime), { signal });
+  }
+  video.addEventListener('ended', () => render('finished'), { signal });
+  video.addEventListener('error', () => {
+    if (state !== 'ready') render('unavailable');
+  }, { signal });
+  const stopListening = soundscape.onMuteChange(muted => {
+    video.muted = muted;
+    soundscape.setVideoDuck(state === 'playing' && !video.paused && !muted);
+  });
+  signal.addEventListener('abort', () => {
+    video.pause();
+    stopListening();
+    soundscape.setVideoDuck(false);
+  }, { once: true });
+  return { pause, caption };
 }
 
 function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, backdrop, openDesk }: {
@@ -39,14 +168,14 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
 }) {
   const labels = explorationLabels[id];
   const activity = () => explorationActivity ??= explorationStage.createExploration({
-    assets: mediaAssets, narration: soundscape,
+    assets: mediaAssets, riverExplorationOnly: true,
   });
   let surface: 'static' | 'loading' | 'exploration' = 'static';
   let request = 0;
   const status = element('p', 'exploration-load-status');
   status.setAttribute('role', 'status');
   status.hidden = true;
-  scene.append(status);
+  (id === 'yudu-river' ? bottom : scene).append(status);
 
   const header = scene.querySelector<HTMLElement>('.scene-head');
   const identity = header?.querySelector<HTMLElement>('.scene-identity');
@@ -96,7 +225,8 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
       close();
       toggle?.focus({preventScroll: true});
     }
-  }, '', 'compass');
+  }, id === 'yudu-river' ? 'primary' : '', 'compass');
+  if (id === 'yudu-river') toggle.dataset.riverEntry = '';
   const reset = control(labels.reset, () => {
     if (id === 'yudu-river' || id === 'xiang-crossing') explorationActivity?.home();
     else explorationActivity?.restart();
@@ -110,7 +240,9 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
   }
   if (toggle && reset) {
     reset.hidden = true;
-    tools.prepend(toggle, reset);
+    const playback = id === 'yudu-river' ? tools.querySelector('[data-river-tour-control]') : null;
+    if (playback) playback.after(toggle, reset);
+    else tools.prepend(toggle, reset);
   }
 
   function syncButtons() {
@@ -123,6 +255,10 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
       toggle.removeAttribute('title');
       setButtonContent(toggle,labels.enter,'compass');
     } else setIconButton(toggle,labels.leave,'arrowLeft');
+    if (id === 'yudu-river') {
+      toggle.disabled = surface === 'loading';
+      toggle.classList.toggle('primary', surface === 'static');
+    }
     setIconButton(reset,labels.reset,'reset');
     toggle.setAttribute('aria-expanded', String(open));
     reset.hidden = !open;
@@ -137,6 +273,7 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
     try {
       const opened = await opening;
       if (loading !== request || !opened) return;
+      if (id === 'yudu-river') pauseMedia();
       stopCinemagraphs();
       surface = 'exploration';
       visitedExplorations.add(id);

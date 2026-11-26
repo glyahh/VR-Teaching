@@ -33,31 +33,6 @@
   border-color: rgb(var(--silver) / 0.20);
 }
 
-/* Video never blends with the live scene. The matte also covers portrait aspect ratios. */
-.exploration-stage .river-short,
-.exploration-stage .river-short-backdrop {
-  position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%;
-  pointer-events: none;
-}
-.exploration-stage .river-short { object-fit: contain; opacity: 0; }
-.exploration-stage .river-short-backdrop { display: none; background: #0c131b center / contain no-repeat; }
-.exploration-stage[data-river-short-visible] .river-short-backdrop { display: block; }
-.lesson-exploration[data-river-short-visible] #river-instruction {
-  inset: auto 0 calc(max(var(--river-action-bottom, 28px), 24px) + 58px);
-  margin-inline: auto;
-  width: max-content;
-  max-width: min(92%, 1000px);
-  box-sizing: border-box;
-  padding: .28em .68em;
-  border-radius: 5px;
-  text-align: center;
-  color: #fff;
-  font-size: clamp(18px, 1.68vw, 31px);
-  font-weight: 600;
-  background: rgb(12 14 18 / 0.66);
-}
-.exploration-stage[data-river-short-visible] #markers { visibility: hidden; }
-
 #markers { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .exploration-stage .marker {
   position: absolute; transform: translate(-50%, -100%); pointer-events: auto;
@@ -198,6 +173,31 @@ button.scene-point:hover:not(:disabled) { background: transparent; }
 #close:focus-visible { outline-color: #8c6234; }
 #reading p { font-size: clamp(16px, 1.42vw, 23px); line-height: 1.65; margin: 10px 0; }
 #comparison { padding-top: 10px; border-top: 1px solid rgb(102 77 41 / 0.32); }
+#reading:has(#river-plan:not([hidden])) { width: clamp(330px, 40vw, 640px); }
+.river-plan-stats {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+  margin: 12px 0;
+}
+.river-plan-stats > div {
+  display: flex; flex-direction: column-reverse; justify-content: start; gap: 4px;
+  padding: 7px clamp(6px, 1vw, 14px); border-top: 2px solid #ad8252;
+  background: rgb(163 120 69 / 0.09); border-radius: 0 0 5px 5px;
+}
+.river-plan-stats dt { font-size: clamp(13px, 1.1vw, 17px); }
+.river-plan-stats dd {
+  margin: 0; color: #653b22; font-size: clamp(16px, 1.9vw, 31px);
+  font-weight: 700; line-height: 1.2; white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.river-plan-timeline {
+  margin: 0 0 0 5px; padding: 0 0 0 17px; border-left: 1px solid #b39064;
+  list-style: none; font-size: clamp(15px, 1.28vw, 21px); line-height: 1.5;
+}
+.river-plan-timeline li { position: relative; margin-bottom: 6px; }
+.river-plan-timeline li::before {
+  content: ''; position: absolute; width: 7px; height: 7px; left: -21px; top: .55em;
+  border-radius: 50%; background: #8f5d34;
+}
+.river-plan-timeline strong { color: #623b22; margin-inline-end: .46em; }
 .exploration-stage .recall { display: flex; gap: 8px; margin: 12px 0; }
 .exploration-stage .recall button { min-height: 44px; padding: 6px 12px; border: 1px solid #b3a78f; border-radius: 9px; background: #eee1cb; color: #30281c; }
 .exploration-stage .recall button[aria-pressed="true"] { background: #4b3e30; color: #fff5df; border-color: #4b3e30; }
@@ -267,40 +267,5 @@ button.scene-point:hover:not(:disabled) { background: transparent; }
   border-color: #f6dca6;
   color: #202418;
   font-weight: 700;
-}
-.xiang-force-meter {
-  position: fixed;
-  top: calc(var(--scene-note-top, 78px) + 52px);
-  right: var(--scene-inset, 24px);
-  z-index: 5;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgb(22 28 26 / 0.64);
-  border: 1px solid rgb(232 196 133 / 0.34);
-  backdrop-filter: blur(10px);
-  pointer-events: none;
-}
-.xiang-force-track {
-  width: 96px;
-  height: 6px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.16);
-  overflow: hidden;
-}
-.xiang-force-fill {
-  display: block;
-  height: 100%;
-  width: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #c9523e, #e8c485);
-  transition: width 180ms linear;
-}
-.xiang-force-count {
-  font-size: 14px;
-  color: #f6dca6;
-  font-variant-numeric: tabular-nums;
 }
 .projection-mode .xiang-bar { display: none; }

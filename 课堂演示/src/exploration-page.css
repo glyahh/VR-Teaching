@@ -41,6 +41,61 @@
 .scene[data-exploration="yudu-river"] .scene-navigation button,
 .scene[data-exploration="xiang-crossing"] .scene-navigation button { pointer-events: auto; }
 .scene[data-exploration] :is(.caption-copy, .practice, .practice-entry) { display: none; }
+.river-tour {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.river-tour video { position: relative; display: block; width: 100%; height: 100%; object-fit: cover; }
+.river-tour::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--film-top-shade), linear-gradient(0deg,#11130fc9,transparent 23%);
+}
+.river-tour-caption {
+  text-wrap: pretty;
+}
+.scene:is([data-river-tour="playing"],[data-river-tour="paused"],[data-river-tour="finished"]):not([data-exploration],[data-practicing="true"]) {
+  height: 100dvh;
+  & > .scene-stage > .scene-media { visibility: hidden; }
+  & :is(.scene-date,.chapter-nav,.caption-copy,.slide-caption) { display: none; }
+  & > .lesson-footer {
+    bottom: var(--film-subtitle-inset);
+    display: flex;
+    justify-content: center;
+  }
+  &[data-river-tour="finished"] .slide-caption {
+    display: block;
+    position: absolute;
+    inset-inline-end: 0;
+    bottom: 0;
+  }
+  @media (max-width: 1100px) {
+    &[data-river-tour="finished"] .slide-caption { bottom: calc(100% + 8px); }
+  }
+}
+@media (max-aspect-ratio: 4/3) {
+  .river-tour::before {
+    content: '';
+    position: absolute;
+    inset: -24px;
+    background: var(--river-tour-still) center / cover;
+    filter: blur(18px) brightness(.50);
+  }
+  .river-tour video { object-fit: contain; }
+}
+.scene[data-river-tour] [data-river-entry] { white-space: nowrap; }
+.scene:is([data-exploration],[data-practicing="true"]) .river-tour,
+.scene:is([data-exploration],[data-practicing="true"]) .river-tour-caption,
+.scene[data-exploration] [data-river-tour-control],
+.scene[data-river-tour="ready"] [data-river-entry],
+.scene:is([data-river-tour="playing"],[data-river-tour="paused"]) .practice-entry,
+.scene:is([data-river-tour="playing"],[data-river-tour="paused"],[data-river-tour="finished"]):not([data-practicing="true"]) .scene-media .scene-point {
+  display: none;
+}
 .exploration-load-status {
   position: absolute;
   z-index: var(--z-card);
@@ -52,7 +107,11 @@
   padding: 10px 16px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: #202422e9;
+  background: var(--glass-caption);
+  backdrop-filter: var(--glass-filter);
+}
+.scene[data-river-tour] .exploration-load-status {
+  bottom: calc(100% + 8px);
 }
 
 .desk-live-frame .scene-note, .lesson-exploration .scene-note {
@@ -72,6 +131,7 @@
   pointer-events: none;
 }
 .lesson-exploration .scene-note { position: fixed; }
+.lesson-exploration:has(#reading:not([hidden])) #river-instruction { visibility: hidden; }
 .lesson-exploration #reading h2 { font-family: var(--font-serif); }
 .lesson-exploration :is(#inspect,#river-tools,#xiang-tools) {
   inset-inline: 0;
@@ -87,12 +147,52 @@
 .lesson-exploration #inspect[data-tool=explore]::before,
 .lesson-exploration #river-actions { position: relative; justify-content: center; }
 .lesson-exploration .river-options { position: absolute; bottom: 0; right: calc(100% + 12px); width: max-content; }
+.lesson-exploration :is(.soft-button,.action-button,.river-playback) {
+  color: var(--ink);
+  background: var(--glass-button);
+  border-color: var(--glass-edge);
+  backdrop-filter: var(--glass-filter);
+}
+.lesson-exploration :is(.soft-button,.action-button,.river-playback):hover:not(:disabled) {
+  background: var(--glass-button-hover);
+  border-color: var(--glass-edge-hover);
+}
+.lesson-exploration :is(.soft-button,.action-button)[aria-pressed="true"] {
+  color: #241f14;
+  background: var(--glass-action);
+  border-color: var(--glass-action-edge);
+}
+.lesson-exploration #river-tools[data-observe]:has(#river-actions:not([hidden])) { bottom: var(--dock-bottom); }
+.lesson-exploration #river-tools[data-observe] .river-options { position: static; translate: none; }
 .lesson-exploration #river-comparison :is(label,output) { text-shadow: 0 1px 3px #19120c, 0 2px 6px #19120c; }
 @container (max-width: 760px) {
   .lesson-exploration .river-options { bottom: calc(100% + 8px); right: auto; left: 50%; translate: -50%; }
 }
 
 .lesson-exploration[data-scene="zunyi-hall"] { --silver: 242 229 204; }
+.lesson-exploration[data-scene="zunyi-hall"] #inspect {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.lesson-exploration[data-scene="zunyi-hall"] #inspect::before { content: none; }
+.lesson-exploration[data-scene="zunyi-hall"] :is(.dock-actions, .paired-controls) {
+  justify-content: center;
+  gap: 8px;
+}
+.lesson-exploration[data-scene="zunyi-hall"] .dock-select {
+  color: var(--ink);
+  background: var(--glass-button);
+  border-color: var(--glass-edge);
+  backdrop-filter: var(--glass-filter);
+}
+.lesson-exploration[data-scene="zunyi-hall"] .dock-select:hover {
+  background: var(--glass-button-hover);
+  border-color: var(--glass-edge-hover);
+}
+.lesson-exploration[data-scene="zunyi-hall"] .dock-select option { background: var(--panel); }
 .scene[data-exploration="zunyi-hall"] > :is(.scene-head, .lesson-footer) {
   transition: opacity 240ms ease-out;
 }

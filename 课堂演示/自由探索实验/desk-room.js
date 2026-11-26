@@ -207,8 +207,8 @@ export function createDeskCamera(manifest) {
 
   function resize(aspect) {
     camera.projectionMatrix.fromArray(manifest.projection);
-    camera.projectionMatrix.elements[0] *= Math.max(1, baseAspect / aspect);
-    camera.projectionMatrix.elements[5] *= Math.max(1, aspect / baseAspect);
+    camera.projectionMatrix.elements[0] *= Math.min(1, baseAspect / aspect);
+    camera.projectionMatrix.elements[5] *= Math.min(1, aspect / baseAspect);
     camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
   }
   resize(baseAspect);

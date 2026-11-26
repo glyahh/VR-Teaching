@@ -8,7 +8,7 @@ from urllib.parse import urldefrag
 
 from PIL import Image, ImageChops, ImageStat
 from playwright.sync_api import expect, sync_playwright
-from exploration_input import drag, elapsed_frames, walk
+from support.exploration_input import drag, elapsed_frames, walk
 
 
 ROOT = Path(__file__).resolve().parents[1]

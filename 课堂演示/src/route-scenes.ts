@@ -300,16 +300,18 @@ function playRiverExit(scene: HTMLElement, departing: HTMLCanvasElement) {
 
 type WujiangView = 'shore' | 'top' | 'slope';
 
-function mountWujiangView(stage: HTMLElement, tools: HTMLElement) {
+function mountWujiangView(stage: HTMLElement, tools: HTMLElement, lookNear: (near: boolean) => void) {
   const lens = element('div','wujiang-lens journey-atlas');
   const world = element('div','journey-world');
   const svg = routeCanvas();
   const line = diagramPath('','route past');
   svg.append(line);
+  const landmarks = routeStops.slice(7).map(({name})=>element('span','wujiang-landmark',name));
   lens.append(world);
   lens.hidden = true;
   stage.append(lens);
   let mode: WujiangView = 'shore';
+  let near = false;
   let terrain: TerrainSurface | undefined;
   const nearby = wujiangApproach.map(position);
   const focus = nearby[1];
@@ -319,13 +321,19 @@ function mountWujiangView(stage: HTMLElement, tools: HTMLElement) {
     slope.disabled = !terrain.ready;
     terrain.orient(mode === 'top' ? [0,0] : [-16,43]);
     centerRouteWorld(world,terrain.project(focus),3.4);
-    line.setAttribute('d',routePath(nearby.map(terrain.project)));
+    const anchors = nearby.map(terrain.project);
+    line.setAttribute('d',routePath(anchors));
+    anchors.forEach(([x,y],index)=>{
+      landmarks[index].style.left = x+'%';
+      landmarks[index].style.top = y+'%';
+    });
   }
 
   function select(next: WujiangView) {
     mode = next;
     lens.hidden = next === 'shore';
     top.hidden = slope.hidden = shore.hidden = next === 'shore';
+    nearBank.hidden = next !== 'shore';
     open.hidden = next !== 'shore';
     top.setAttribute('aria-pressed',String(next === 'top'));
     slope.setAttribute('aria-pressed',String(next === 'slope'));
@@ -336,7 +344,7 @@ function mountWujiangView(stage: HTMLElement, tools: HTMLElement) {
     activeSceneCue = 'wujiang-' + next;
     if (!terrain) {
       terrain = createTerrainSurface(draw);
-      world.append(terrain.element,svg);
+      world.append(terrain.element,svg,...landmarks);
     }
     draw();
   }
@@ -344,6 +352,14 @@ function mountWujiangView(stage: HTMLElement, tools: HTMLElement) {
   const top = lessonControl('wujiang-top','俯视',() => select('top'),'journey-control');
   const slope = lessonControl('wujiang-slope','斜视',() => select('slope'),'journey-control');
   const shore = lessonControl('wujiang-shore','江岸',() => select('shore'),'journey-control');
+  const nearBank = lessonControl('wujiang-water','走近江岸',()=>{
+    near = !near;
+    lookNear(near);
+    stage.dataset.shoreView = near ? 'near' : 'wide';
+    setButtonContent(nearBank,near ? '退回岸上' : '走近江岸');
+    nearBank.setAttribute('aria-pressed',String(near));
+  },'journey-control');
+  nearBank.setAttribute('aria-pressed','false');
   top.hidden = slope.hidden = shore.hidden = true;
-  tools.append(open,top,slope,shore);
+  tools.append(nearBank,open,top,slope,shore);
 }

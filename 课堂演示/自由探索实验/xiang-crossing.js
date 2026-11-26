@@ -26,19 +26,19 @@ const hotSpots = {
     detail: '即使拼死打开了渡口，前方的湘西北原定路线仍重兵云集，继续按老办法硬打代价难以承受。',
   },
   aftermath: {
-    label: '过江后的兵力变化',
+    label: '渡江之后',
     anchor: [-18.5, 2.5, 2.2],
     view: 'overview',
     title: '结果与代价同时成立',
-    finding: '中央红军从出发时的 8.6 万余人，渡过湘江后减至 3 万余人。',
-    detail: '突破封锁线的代价让全军深刻反思：原定北上湘西北与红二、红六军团会合的方向必须重新抉择。',
+    finding: '红军突破了第四道封锁线。掩护大部队过江的许多战士牺牲在湘江两岸。',
+    detail: '队伍还要继续走。湘西北原定方向上仍有重兵，过江的代价促使红军重新审视前路。',
   },
 };
 
 const stages = [
   { at: 0.15, date: '11.27', note: '先头部队抢占界首、脚山铺一带渡口，敞开过江通道。' },
   { at: 0.56, date: '11.29', note: '南北两翼敌军合拢，大部队顶着寒水与炮火昼夜强渡。' },
-  { at: 0.96, date: '12.01', note: '突破第四道封锁线，兵力由出发时 8.6 万余人锐减至 3 万余人。' },
+  { at: 0.96, date: '12.01', note: '红军突破第四道封锁线。渡江的惨重损失促使部队反思此前的作战指挥。' },
 ];
 
 /**
@@ -78,8 +78,6 @@ export async function startXiang(ui, assets) {
   const note = ui.stage.querySelector('#xiang-instruction');
   const playBtn = ui.stage.querySelector('#xiang-play');
   const scrubber = ui.stage.querySelector('#xiang-scrubber');
-  const forceBar = ui.stage.querySelector('#xiang-force-fill');
-  const forceCount = ui.stage.querySelector('#xiang-force-count');
   const camButtons = [...ui.stage.querySelectorAll('#xiang-cams button[data-preset]')];
 
   let progress = 0.16;
@@ -155,10 +153,6 @@ export async function startXiang(ui, assets) {
       playBtn.dataset.icon = playing ? 'pause' : progress >= 0.98 ? 'repeat' : 'play';
       playBtn.setAttribute('aria-label', playing ? '暂停态势推演' : progress >= 0.98 ? '重播态势推演' : '播放态势推演');
     }
-    const force = THREE.MathUtils.lerp(8.6, 3.0, THREE.MathUtils.smoothstep(progress, 0.2, 0.95));
-    const ratio = (force / 8.6) * 100;
-    if (forceBar) forceBar.style.width = ratio.toFixed(1) + '%';
-    if (forceCount) forceCount.textContent = force.toFixed(1) + ' 万';
     camButtons.forEach(btn => btn.setAttribute('aria-pressed', String(btn.dataset.preset === activePreset)));
     markers.forEach(({ id, button }) => {
       button.setAttribute('aria-pressed', String(activeSpot === id));

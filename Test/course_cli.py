@@ -108,7 +108,7 @@ def play(classroom, steps):
 
 
 def main():
-    from course_checks import FEATURES
+    from support.course_checks import FEATURES
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--html', type=Path, default=COURSE, help='课件文件，默认正式构建产物')
     parser.add_argument('--viewport', type=size, default=size('1366x768'))

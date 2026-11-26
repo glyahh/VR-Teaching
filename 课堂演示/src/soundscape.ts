@@ -32,11 +32,11 @@ const soundscape = (() => {
   let windFilter: BiquadFilterNode | null = null;
   let rainGain: GainNode | null = null;
   let hearthGain: GainNode | null = null;
-  let celloGain: GainNode | null = null;
-  let celloSource: AudioBufferSourceNode | null = null;
+  let finaleAudio: { source: AudioBufferSourceNode; gain: GainNode } | undefined;
+  let finaleRequest = 0;
   let noiseBuffer: AudioBuffer | null = null;
   let riverBuffer: AudioBuffer | null = null;
-  let celloBuffer: AudioBuffer | null = null;
+  let celloBuffer: Promise<AudioBuffer | undefined> | undefined;
   let riverStarted = false;
   let crackleTimer: number | undefined;
   let currentScene: SoundScene = 'silent';
@@ -175,10 +175,6 @@ const soundscape = (() => {
     hearthSrc.connect(hearthLow).connect(hearthGain).connect(envMaster);
     hearthSrc.start(0, 2.4);
 
-    celloGain = ctx.createGain();
-    celloGain.gain.value = 0;
-    celloGain.connect(envMaster);
-
     if (mediaAssets['ambient-river']) {
       void ctx.decodeAudioData(dataUriToArrayBuffer(mediaAssets['ambient-river'])).then(buf => {
         riverBuffer = buf;
@@ -186,9 +182,7 @@ const soundscape = (() => {
       }).catch(() => {});
     }
     if (mediaAssets['recap-cello']) {
-      void ctx.decodeAudioData(dataUriToArrayBuffer(mediaAssets['recap-cello'])).then(buf => {
-        celloBuffer = buf;
-      }).catch(() => {});
+      celloBuffer = ctx.decodeAudioData(dataUriToArrayBuffer(mediaAssets['recap-cello'])).catch(() => undefined);
     }
 
     scheduleCrackle();
@@ -257,31 +251,47 @@ const soundscape = (() => {
   }
 
   function stopFinale() {
-    if (celloSource && ctx && celloGain) {
-      const now = ctx.currentTime;
-      celloGain.gain.setTargetAtTime(0, now, 0.25);
-      const old = celloSource;
-      celloSource = null;
-      window.setTimeout(() => { try { old.stop(); } catch {} }, 900);
-    }
+    finaleRequest++;
+    if (!finaleAudio || !ctx) return;
+    const now = ctx.currentTime;
+    const { source, gain } = finaleAudio;
+    finaleAudio = undefined;
+    gain.gain.cancelAndHoldAtTime(now);
+    gain.gain.linearRampToValueAtTime(0, now + 0.12);
+    source.stop(now + 0.12);
   }
 
-  function playFinale() {
-    if (isProjectionWindow() || muted) return;
+  function playFinale(offset: number, duration: number) {
     const audio = ensureContext();
-    if (!audio || !celloGain || !celloBuffer) return;
-    if (audio.state === 'suspended') void audio.resume().catch(() => {});
+    const destination = envMaster;
+    if (!audio || !destination || !celloBuffer) return;
     stopFinale();
-    const src = audio.createBufferSource();
-    src.buffer = celloBuffer;
-    src.connect(celloGain);
-    const now = audio.currentTime;
-    celloGain.gain.cancelScheduledValues(now);
-    celloGain.gain.setValueAtTime(0.0001, now);
-    celloGain.gain.linearRampToValueAtTime(0.28, now + 1.4);
-    celloSource = src;
-    src.onended = () => { if (celloSource === src) celloSource = null; };
-    src.start(now);
+    const request = finaleRequest;
+    const requestedAt = performance.now();
+    if (audio.state === 'suspended') void audio.resume().catch(() => {});
+    void celloBuffer.then(buffer => {
+      if (!buffer || request !== finaleRequest) return;
+      const position = offset + (performance.now() - requestedAt) / 1000;
+      const remaining = Math.min(buffer.duration, duration) - position;
+      if (remaining < 0.15) return;
+      const source = audio.createBufferSource();
+      const gain = audio.createGain();
+      const now = audio.currentTime;
+      const fadeIn = Math.min(offset === 0 ? 1.4 : 0.15, remaining / 2);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.28, now + fadeIn);
+      gain.gain.setValueAtTime(0.28, now + Math.max(fadeIn, remaining - 1.1));
+      gain.gain.linearRampToValueAtTime(0, now + remaining);
+      source.buffer = buffer;
+      source.connect(gain).connect(destination);
+      finaleAudio = { source, gain };
+      source.onended = () => {
+        source.disconnect();
+        gain.disconnect();
+        if (finaleAudio?.source === source) finaleAudio = undefined;
+      };
+      source.start(now, position, remaining);
+    });
   }
 
   function playSfx(kind: SoundEffect) {

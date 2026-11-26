@@ -54,16 +54,20 @@ export function hallClues(view) {
 }
 
 /** @param {{
- *   assets: Readonly<Record<string, string>>, stage?: HTMLElement, projection?: boolean,
- *   onChange?: (immediate: boolean) => void, onSwitch?: (id: string, previous?: string) => void,
- *   narration?: { isMuted: () => boolean, onMuteChange: (fn: (muted: boolean) => void) => () => void, setVideoDuck: (active: boolean) => void }
+ *   assets: Readonly<Record<string, string>>, stage?: HTMLElement, projection?: boolean, riverExplorationOnly?: boolean,
+ *   onChange?: (immediate: boolean) => void, onSwitch?: (id: string, previous?: string) => void
  * }} options */
-export function createExploration({ assets, stage: sampleStage, onSwitch, projection = false, onChange, narration }) {
+export function createExploration({ assets, stage: sampleStage, onSwitch, projection = false, onChange, riverExplorationOnly = false }) {
   const stage = sampleStage ?? document.createElement('section');
   if (!sampleStage) {
     stage.className = 'lesson-exploration exploration-stage';
     stage.innerHTML = '<canvas id="view" tabindex="0"></canvas><div id="markers"></div>' +
       walkControls + riverControls + xiangControls + reading;
+    if (riverExplorationOnly) {
+      stage.querySelector('#river-compare').remove();
+      stage.querySelector('#river-comparison').remove();
+      stage.querySelector('#river-tools').setAttribute('aria-label', '于都河岸');
+    }
   }
   const canvas = stage.querySelector('#view');
   if (projection) canvas.tabIndex = -1;
@@ -96,7 +100,7 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
     const subscriptions = [];
     const entry = { id, markers, subscriptions, input: null, controller: null };
     const loaded = scenes[id].start({
-      ...overlay, stage, canvas, reduced, viewport, projection, narration,
+      ...overlay, stage, canvas, reduced, viewport, projection, riverExplorationOnly,
       inspect: stage.querySelector('#inspect'),
       instruction: stage.querySelector('#instruction'),
       summary: stage.querySelector('#summary'),
@@ -210,12 +214,6 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
       for (const ready of cache.values()) void ready.then(entry => entry.controller.reset(), () => {});
     },
     capture(snapshot) { return viewport?.capture(snapshot) ?? false; },
-    captureDeskShot(snapshot) {
-      const shot = current?.id === 'zunyi-hall' ? current.controller.deskShot() : undefined;
-      if (shot && (!shot.camera || viewport.capture(snapshot,shot.camera))) {
-        return {anchor:shot.anchor, closeup:shot.camera ? snapshot : undefined};
-      }
-    },
     animate: overlay.animate,
     dispose() {
       close();
@@ -229,5 +227,6 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
   };
 }
 export { createDeskWorld } from './desk-world.js';
+export { deskJournalFaces } from './desk-paper.js';
 export { deskRouteMap } from './evidence.js';
 export { default as deskNotebook } from './notebook.json';

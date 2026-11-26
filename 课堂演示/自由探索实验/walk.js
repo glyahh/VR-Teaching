@@ -123,7 +123,6 @@ export async function startWalk(ui, assets) {
   let lastAreaSound = '';
   /** @type {'route' | 'record' | null} */
   let lastClue = null;
-  const projectedDossier = new THREE.Vector3();
 
   const markers = Object.entries(spots).map(([id, site]) => {
     const button = ui.marker(site.label);
@@ -727,24 +726,6 @@ export async function startWalk(ui, assets) {
 
   return {
     read, restore, reset, dispose,
-    deskShot() {
-      if (!world.dossier) return;
-      const dossier = world.dossier.getWorldPosition(targetPoint);
-      projectedDossier.copy(dossier).project(camera);
-      const x = (1 + projectedDossier.x) / 2, y = (1 - projectedDossier.y) / 2;
-      if (projectedDossier.z > -1 && projectedDossier.z < 1 && x > .24 && x < .76 && y > .24 && y < .76) {
-        direction.subVectors(dossier, camera.position);
-        rayToMarker.far = direction.length() - .05;
-        rayToMarker.set(camera.position, direction.normalize());
-        if (!rayToMarker.intersectObjects(world.occluders, false).length) return { anchor: [x, y] };
-      }
-      const detail = camera.clone();
-      detail.position.copy(dossier).add(new THREE.Vector3(.04, .77, 1.03));
-      detail.lookAt(dossier);
-      detail.zoom = 1.32;
-      detail.updateProjectionMatrix();
-      return { anchor: [.5, .5], camera: detail };
-    },
     activate(view) {
       ui.inspect.hidden = false;
       lastAreaSound = '';

@@ -1,0 +1,66 @@
+.scene-camera .story-shot{opacity:0;pointer-events:none;transition:opacity 420ms var(--ease-out)}
+.scene-camera .story-shot.is-current{opacity:1}
+.scene:is([data-activity="military"],[data-activity="result"]) .scene-camera:has(.story-shot.is-current){transform:none!important}
+.scene[data-activity="troops"] .scene-stage{isolation:isolate}
+.scene[data-activity="troops"] .scene-camera{touch-action:manipulation}
+.houchang-map {
+  position:absolute; z-index:5; left:clamp(18px,7vw,110px); top:clamp(128px,26vh,230px);
+  width:min(56vw,840px); height:clamp(210px,50vh,490px); isolation:isolate; overflow:hidden;
+  border:1px solid #b38d5c; border-radius:5px; background:#c3a676;
+  box-shadow:0 22px 60px #0009, inset 0 0 36px #42331a99;
+}
+.houchang-map img,.houchang-map .journey-route{position:absolute;inset:0;width:100%;height:100%;border-radius:inherit;pointer-events:none}
+.houchang-map img{inset:auto;object-fit:fill;opacity:.48;filter:grayscale(1) sepia(.35);mix-blend-mode:multiply}
+.houchang-map .journey-route{overflow:visible}
+.scene[data-journey] .houchang-map{visibility:hidden;pointer-events:none}
+.houchang-trail,.houchang-ink{fill:none;vector-effect:non-scaling-stroke;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.houchang-trail{stroke:#514332ab;stroke-dasharray:6 8}
+.houchang-ink{stroke:#872f22;stroke-width:4;filter:drop-shadow(0 0 2px #faedb8)}
+.houchang-pin{
+  position:absolute; transform:translate(-50%,-50%); display:grid; gap:3px; justify-items:center;
+  padding:7px 10px; background:#282218eb; border:1px solid #dac08b; text-align:center;
+  white-space:nowrap; box-shadow:0 4px 10px #36270e65;
+}
+.houchang-pin time{font-size:clamp(11px,1.1vw,16px);color:var(--gold-soft)}
+.houchang-pin strong{font-size:clamp(14px,1.5vw,24px)}
+.houchang-pin[data-label-side=below]{transform:translate(-50%,4px)}
+.houchang-pin[data-label-side=above]{transform:translate(-50%,calc(-100% - 4px))}
+.houchang-pin[aria-pressed=true]{background:#56301f;border-color:#ffe5a3;box-shadow:0 0 0 3px #f5deaa60}
+.organization-folder {
+  position:absolute; z-index:5; top:clamp(142px,32vh,310px); right:clamp(20px,12vw,220px);
+  width:min(36vw,520px); height:clamp(150px,32vh,320px); perspective:780px;
+}
+.organization-cover,.organization-leaf{
+  position:absolute; inset:0; border-radius:5px; border:1px solid #ab8757;
+  box-shadow:0 9px 30px #0007; transform-origin:left center;
+}
+.organization-cover{
+  color:#f5e5c9; font-family:var(--font-serif);font-size:clamp(18px,2vw,30px);
+  background:linear-gradient(0deg,transparent 47%,#c0a277 48%,#dec393 49%,transparent 50%),linear-gradient(120deg,#4e3623,#846648);
+  text-shadow:0 2px 4px #21160c;transition:transform 350ms var(--ease-out),opacity 320ms;
+}
+.organization-cover:hover:not(:disabled){background-color:#846648;filter:brightness(1.12)}
+.organization-leaf{
+  display:grid;align-content:center;gap:14px;padding:clamp(16px,3vw,42px);isolation:isolate;
+  background:linear-gradient(140deg,#f4e4bf,#d5b984);color:#342518;pointer-events:none;
+}
+.organization-date{padding-bottom:10px;border-bottom:1px solid #8a624d70;color:#725139;font-size:clamp(12px,1.2vw,19px)}
+.organization-finding{font-family:var(--font-serif);font-size:clamp(20px,2.6vw,38px);line-height:1.2}
+.organization-folder[data-open=false] .organization-leaf{visibility:hidden}
+.organization-folder[data-open=true] .organization-cover{transform:rotateY(-120deg);opacity:0;pointer-events:none}
+.xiang-records{display:grid;gap:10px;padding:12px 0;border-block:1px solid currentColor}
+.xiang-records>div{display:flex;justify-content:space-between;gap:14px}
+.xiang-records dd{font-weight:700;white-space:nowrap}
+.xiang-record-source{font-size:.9em;opacity:.86}
+.wujiang-lens .wujiang-landmark{position:absolute;color:#f9e9bf;white-space:nowrap;transform:translate(-50%,-110%);text-shadow:0 2px 4px #080c0a,0 1px 8px #080c0a;font-size:clamp(14px,1.75vw,26px);font-weight:700;pointer-events:none}
+.wujiang-lens .wujiang-landmark::after{content:'';position:absolute;left:50%;top:100%;width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px #2229}
+@media(max-width:760px){
+  .houchang-map{left:12px;right:12px;top:clamp(114px,23vh,177px);width:auto;height:clamp(178px,40vh,300px)}
+  .houchang-pin{padding:5px 7px}
+  .organization-folder{top:clamp(175px,42vh,340px);width:min(52vw,340px);height:clamp(106px,20vh,190px);right:16px}
+}
+@media (max-height:520px){
+  .houchang-map{top:24vh;height:43vh;min-height:0}
+  .organization-folder{top:29vh;height:36vh;min-height:0}
+}
+@media (prefers-reduced-motion:reduce){.scene-camera .story-shot,.organization-cover{transition:none}}

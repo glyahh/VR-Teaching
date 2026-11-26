@@ -6,6 +6,7 @@ export function createExplorationOverlay({ stage, canvas, docks, header, reduced
   const detail = reading.querySelector('#detail');
   const comparison = reading.querySelector('#comparison');
   const recall = reading.querySelector('#river-recall');
+  const riverPlan = reading.querySelector('#river-plan');
   const animations = new WeakMap();
   let closing = null;
   let opener = null;
@@ -52,11 +53,13 @@ export function createExplorationOverlay({ stage, canvas, docks, header, reduced
     closing = null;
     title.textContent = item.title;
     finding.textContent = explanation;
+    finding.hidden = !explanation;
     detail.textContent = background;
     detail.hidden = !background;
     comparison.textContent = context;
     comparison.hidden = !context;
     recall.hidden = true;
+    riverPlan.hidden = !item.riverPlan;
     reading.scrollTop = 0;
     reading.hidden = reading.inert = false;
     positionReading();

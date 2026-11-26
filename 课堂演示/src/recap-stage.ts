@@ -3,7 +3,7 @@ type RecapStationVisual = {
   id: string;
   shortName: string;
   tag: string;
-  metric: string;
+  metric?: string;
   glyph: string[];
   imageKey: string;
   point: Point;
@@ -12,6 +12,174 @@ type RecapStationVisual = {
 
 let recapFocusIndex: number | null = null;
 let currentRecapDispose: (() => void) | undefined;
+
+const recapMemories = [
+  { image: 'yudu', caption: '乡亲们搭起浮桥，红军从这里出发。', start: 0, end: 2800 },
+  { image: 'xiang-aftermath', caption: '许多人牺牲了。渡过江的队伍还要继续走。', start: 4500, end: 8000 },
+  { image: 'liping-table', caption: '黎平会议决定改向黔北。', start: 9300, end: 11900 },
+  { image: 'zunyi-dawn', caption: '', start: 13700, end: 17600 },
+];
+const recapDuration = 17600;
+
+type RecapPlayback = { kind: 'ready' } | { kind: 'playing'; startedAt: number }
+  | { kind: 'paused'; elapsed: number } | { kind: 'finished' };
+
+function recapEase(elapsed: number, start: number, end: number) {
+  const progress = Math.max(0, Math.min(1, (elapsed - start) / (end - start)));
+  return progress * progress * (3 - 2 * progress);
+}
+
+function mountRecapFinale(stage: HTMLElement, onStart: () => void, paintRoute: (progress: number) => void) {
+  const frames = element('div', 'recap-memory-frames');
+  const memories = recapMemories.map((memory, index) => {
+    const frame = element('figure', 'recap-memory');
+    frame.dataset.station = events[index].id;
+    frame.hidden = true;
+    frame.style.setProperty('--memory-image', `url("${mediaAssets[memory.image]}")`);
+    const image = photo(memory.image);
+    frame.append(image);
+    if (memory.caption) {
+      const caption = element('figcaption', 'recap-memory-caption');
+      caption.append(element('strong', '', events[index].name), element('span', '', memory.caption));
+      frame.append(caption);
+    }
+    frames.append(frame);
+    return { ...memory, frame, routeEnd: events[index].routeEnd };
+  });
+
+  const endCopy = element('section', 'recap-end-copy');
+  const title = element('h2', 'recap-end-title', '从于都到遵义');
+  const conclusion = element('p', 'review-conclusion', lessonConclusion);
+  conclusion.setAttribute('aria-live', 'polite');
+  endCopy.hidden = true;
+  endCopy.append(title, conclusion);
+
+  let playback: RecapPlayback = { kind: 'ready' };
+  let frameRequest = 0;
+  const transport = lessonControl('reveal-review', '播放片尾', togglePlayback, 'primary', 'play');
+
+  function setPlayback(next: RecapPlayback) {
+    playback = next;
+    stage.dataset.playback = next.kind;
+    transport.hidden = next.kind === 'finished' && reducedMotion.matches;
+    switch (next.kind) {
+      case 'ready':
+        setButtonContent(transport, '播放片尾', 'play');
+        break;
+      case 'playing':
+        setButtonContent(transport, '暂停', 'pause');
+        break;
+      case 'paused':
+        setButtonContent(transport, '继续播放', 'play');
+        break;
+      case 'finished':
+        setButtonContent(transport, '重播串联', 'reset');
+        break;
+    }
+  }
+
+  function paint(elapsed: number) {
+    let routeIndex = 0;
+    for (const [index, memory] of memories.entries()) {
+      const previous = memories[index - 1];
+      if (previous) {
+        const leg = recapEase(elapsed, previous.end - 160, memory.start);
+        routeIndex += (memory.routeEnd - previous.routeEnd) * leg;
+      }
+      const entered = recapEase(elapsed, memory.start, memory.start + 600);
+      const left = index === memories.length - 1 ? 0 : recapEase(elapsed, memory.end - 480, memory.end);
+      const opacity = entered * (1 - left);
+      memory.frame.hidden = opacity === 0;
+      memory.frame.style.opacity = String(opacity);
+    }
+
+    const titleOpacity = recapEase(elapsed, 14900, 15800);
+    endCopy.hidden = titleOpacity === 0;
+    endCopy.style.opacity = String(titleOpacity);
+    paintRoute(routeIndex / (route.length - 1));
+  }
+
+  function finish() {
+    cancelAnimationFrame(frameRequest);
+    soundscape.stopFinale();
+    reviewAnswer = true;
+    stage.dataset.finale = 'true';
+    const restoreFocus = reducedMotion.matches && document.activeElement === transport;
+    setPlayback({ kind: 'finished' });
+    paint(recapDuration);
+    if (restoreFocus) {
+      stage.parentElement?.querySelector<HTMLButtonElement>('[data-lesson-action="map"]')?.focus();
+    }
+  }
+
+  function tick(now: number) {
+    if (playback.kind !== 'playing') return;
+    const elapsed = now - playback.startedAt;
+    if (elapsed >= recapDuration) {
+      finish();
+      return;
+    }
+    paint(elapsed);
+    frameRequest = requestAnimationFrame(tick);
+  }
+
+  function pause() {
+    if (playback.kind !== 'playing') return;
+    const elapsed = performance.now() - playback.startedAt;
+    if (elapsed >= recapDuration) {
+      finish();
+      return;
+    }
+    cancelAnimationFrame(frameRequest);
+    soundscape.stopFinale();
+    setPlayback({ kind: 'paused', elapsed });
+    paint(elapsed);
+  }
+
+  function togglePlayback() {
+    if (playback.kind === 'playing') {
+      pause();
+      return;
+    }
+    const elapsed = playback.kind === 'paused' ? playback.elapsed : 0;
+    setPlayback({ kind: 'playing', startedAt: performance.now() - elapsed });
+    if (elapsed === 0) onStart();
+    if (reducedMotion.matches) {
+      finish();
+      return;
+    }
+    soundscape.playFinale(elapsed / 1000, recapDuration / 1000);
+    paint(elapsed);
+    frameRequest = requestAnimationFrame(tick);
+  }
+
+  const lifecycle = new AbortController();
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pause();
+  }, { signal: lifecycle.signal });
+  reducedMotion.addEventListener('change', () => {
+    if (reducedMotion.matches && playback.kind !== 'ready') finish();
+    else setPlayback(playback);
+  }, { signal: lifecycle.signal });
+
+  return {
+    frames, endCopy, transport,
+    restore() {
+      if (reviewAnswer) {
+        setPlayback({ kind: 'finished' });
+        onStart();
+        paint(recapDuration);
+      } else {
+        setPlayback({ kind: 'ready' });
+      }
+    },
+    dispose() {
+      lifecycle.abort();
+      cancelAnimationFrame(frameRequest);
+      soundscape.stopFinale();
+    },
+  };
+}
 
 function releaseRecap() {
   currentRecapDispose?.();
@@ -46,9 +214,9 @@ function buildRecapStations(): RecapStationVisual[] {
       }),
     },
     {
-      index: 1, id: 'xiang', shortName: '湘江', tag: '渡江受挫', metric: '8.6 万 → 3 万',
-      glyph: ['M5 19 V6', 'M9 19 V14', 'M14 10 L19 15 M19 10 L14 15'],
-      imageKey: 'xiang-ford',
+      index: 1, id: 'xiang', shortName: '湘江', tag: '渡江之后',
+      glyph: ['M3 18 Q8 14 13 17 T21 17', 'M3 13 Q8 9 13 12 T21 12', 'M14 8 L18 4 L21 8'],
+      imageKey: 'xiang-aftermath',
       point: position(route[4]),
       badgeCount: () => ({
         lit: Number(revealed.has('crossing')) +
@@ -117,8 +285,8 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
   let projectedLine: Point[] = [];
   let projectedNodes: Point[] = [];
 
-  // 可开合的极简图形化微卡（以实景缩略图、微型视觉图签和点亮徽章为主，极少文字）
   const card = element('aside', 'recap-card');
+  card.id = 'recap-station-card';
   card.hidden = true;
   const cardPhoto = element('img', 'recap-card-photo');
   const cardBody = element('div', 'recap-card-body');
@@ -132,7 +300,11 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
   const cardRevisit = lessonControl('recap-revisit', '回看现场', () => {
     if (recapFocusIndex !== null) onOpenRevisit(recapFocusIndex);
   }, 'recap-revisit-btn', 'arrowRight', true);
-  const cardClose = lessonControl('recap-card-close', '', () => selectStation(null), 'recap-close-btn');
+  const cardClose = lessonControl('recap-card-close', '', () => {
+    const index = recapFocusIndex;
+    selectStation(null);
+    if (index !== null) nodeElements[index].focus({preventScroll:true});
+  }, 'recap-close-btn');
   cardClose.setAttribute('aria-label', '收起站点卡片');
   cardClose.textContent = '×';
   cardMeta.append(cardTime, cardTitle, cardMetric);
@@ -140,30 +312,14 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
   cardBody.append(cardMeta, cardVisual, cardTag, cardActions);
   card.append(cardPhoto, cardBody);
 
-  // 课尾高潮定格：纯图形四阶转折弧 + 一句话核心结论（保持 .review-conclusion 类名以兼容双屏断言）
-  const finalePanel = element('section', 'recap-finale');
-  const arcRow = element('div', 'recap-arc');
-  stations.forEach((st, idx) => {
-    if (idx > 0) arcRow.append(element('span', 'recap-arc-link'));
-    const pill = element('div', 'recap-arc-stop');
-    pill.dataset.index = String(idx);
-    pill.append(createRecapGlyph(st.glyph), element('strong', '', st.shortName), element('span', '', st.tag));
-    arcRow.append(pill);
-  });
-  const conclusion = element('p', 'review-conclusion', lessonConclusion);
-  conclusion.hidden = !reviewAnswer;
-  conclusion.setAttribute('aria-live', 'polite');
-  finalePanel.hidden = !(conclusionPage && reviewAnswer);
-  finalePanel.append(arcRow, conclusion);
-
-  // 四站交互圆镜节点（兼顾 .review-choice 与无障碍定位）
   const nodeElements = stations.map(st => {
     const ev = events[st.index];
     const btn = lessonControl('review-step-' + st.index, '', () => {
       const next = recapFocusIndex === st.index ? null : st.index;
       selectStation(next);
-    }, 'recap-node review-choice');
+    }, 'recap-node');
     btn.setAttribute('aria-label', ev.name + '，查看视觉回顾');
+    btn.setAttribute('aria-controls', card.id);
     btn.dataset.station = st.id;
     const ring = element('span', 'recap-node-ring');
     const thumb = photo(st.imageKey, ev.name);
@@ -183,20 +339,27 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
     return btn;
   });
 
-  // 底部极简图形导航与操作栏
   const footer = element('div', 'review-tools recap-footer');
   const previous = lessonControl('previous', '上一页', () => conclusionPage ? openReview() : openScene(chapterPages.length - 1), '', 'arrowLeft');
   const next = conclusionPage ? undefined : lessonControl('next', '全景总结', () => openReview(true), 'primary', 'arrowRight', true);
-  const reveal = conclusionPage ? lessonControl('reveal-review', '揭示结论', () => startFinaleAnimation(), 'primary', 'play') : undefined;
-  if (reveal) reveal.hidden = reviewAnswer;
-  const replay = conclusionPage ? lessonControl('replay-finale', '重播串联', () => startFinaleAnimation(true), '', 'reset') : undefined;
-  if (replay) replay.hidden = !reviewAnswer;
+  const finale = conclusionPage ? mountRecapFinale(stage, () => {
+    const selectedStation = recapFocusIndex;
+    selectStation(null);
+    recapFocusIndex = selectedStation;
+    nodeLayer.inert = true;
+    tickCamera(performance.now());
+  }, progress => {
+    finaleProgress = progress;
+    paintGlow(progress);
+    placeNodes();
+  }) : undefined;
   footer.append(previous);
   if (next) footer.append(next);
-  if (reveal) footer.append(reveal);
-  if (replay) footer.append(replay);
+  if (finale) footer.append(finale.transport);
 
-  stage.append(world, nodeLayer, card, finalePanel, footer);
+  stage.append(world, nodeLayer, card);
+  if (finale) stage.append(finale.frames, finale.endCopy);
+  stage.append(footer);
   shell.append(stage);
 
   let width = 0, height = 0, worldW = 0, worldH = 0, originX = 0, originY = 0;
@@ -207,29 +370,17 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
   let rafId = 0;
   let disposed = false;
   let finaleProgress = reviewAnswer ? 1 : 0;
-  let finaleRunning = false;
-  let finaleStartedAt = 0;
 
   function renderMiniVisual(st: RecapStationVisual) {
     cardVisual.replaceChildren();
-    if (st.id === 'xiang') {
-      const bars = element('div', 'recap-mini-bars');
-      const b1 = element('div', 'recap-mini-bar is-before');
-      b1.innerHTML = '<span>1934.10</span><i></i><b>8.6万</b>';
-      const b2 = element('div', 'recap-mini-bar is-after');
-      b2.innerHTML = '<span>1934.12</span><i></i><b>3万</b>';
-      bars.append(b1, b2);
-      cardVisual.append(bars);
-    } else {
-      const { lit, total } = st.badgeCount();
-      const row = element('div', 'recap-mini-badges');
-      for (let i = 0; i < total; i++) {
-        const pip = element('span', 'recap-mini-pip');
-        pip.dataset.lit = String(i < lit);
-        row.append(pip);
-      }
-      cardVisual.append(createRecapGlyph(st.glyph), row);
+    const { lit, total } = st.badgeCount();
+    const row = element('div', 'recap-mini-badges');
+    for (let i = 0; i < total; i++) {
+      const pip = element('span', 'recap-mini-pip');
+      pip.dataset.lit = String(i < lit);
+      row.append(pip);
     }
+    cardVisual.append(createRecapGlyph(st.glyph), row);
   }
 
   function selectStation(index: number | null) {
@@ -240,6 +391,7 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
     }
     nodeElements.forEach((btn, i) => {
       btn.setAttribute('aria-pressed', String(i === index));
+      btn.setAttribute('aria-expanded', String(i === index));
       btn.dataset.visited = String(reviewSteps.has(i));
     });
     if (index === null) {
@@ -248,6 +400,7 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
       targetPan = [...restPan];
       targetYaw = -6;
       targetTilt = 35;
+      if (reducedMotion.matches) tickCamera(performance.now());
       return;
     }
     const st = stations[index];
@@ -256,7 +409,8 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
     cardPhoto.alt = ev.name;
     cardTime.textContent = ev.timeline;
     cardTitle.textContent = ev.name;
-    cardMetric.textContent = st.metric;
+    cardMetric.textContent = st.metric ?? '';
+    cardMetric.hidden = !st.metric;
     cardTag.textContent = st.tag;
     renderMiniVisual(st);
     card.hidden = false;
@@ -266,33 +420,7 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
     targetYaw = -10 + index * 5.5;
     targetTilt = 40;
     targetPan = [(50 - pt[0]) * 0.65, (46 - pt[1]) * 0.65];
-  }
-
-  function startFinaleAnimation(isReplay = false) {
-    recapFocusIndex = null;
-    card.hidden = true;
-    targetZoom = 0.96;
-    targetPan = [0, -18];
-    targetYaw = -8;
-    targetTilt = 36;
-    reviewAnswer = true;
-    stage.dataset.finale = 'true';
-    if (reveal) reveal.hidden = true;
-    if (replay) replay.hidden = false;
-    finalePanel.hidden = false;
-    conclusion.hidden = false;
-    soundscape.playFinale();
-    if (reducedMotion.matches) {
-      finaleProgress = 1;
-      finaleRunning = false;
-      paintGlow(1);
-      return;
-    }
-    if (isReplay) soundscape.playSfx('route');
-    finaleRunning = true;
-    finaleProgress = 0;
-    finaleStartedAt = performance.now();
-    appear(conclusion, 1800, 480);
+    if (reducedMotion.matches) tickCamera(performance.now());
   }
 
   function projectAll() {
@@ -307,13 +435,13 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
 
   function paintGlow(progress: number) {
     if (!projectedLine.length) return;
-    if (progress <= 0.005) {
+    if (progress === 0) {
       glowPath.setAttribute('d', '');
       comet.style.opacity = '0';
       dawnHalo.style.opacity = '0';
       return;
     }
-    const count = Math.max(2, Math.round(projectedLine.length * Math.min(1, progress)));
+    const count = Math.max(2, Math.floor((projectedLine.length - 1) * progress) + 1);
     const slice = projectedLine.slice(0, count);
     glowPath.setAttribute('d', routePath(slice));
     comet.style.opacity = progress < 0.995 ? '1' : '0';
@@ -339,11 +467,11 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
       const node = nodeElements[idx];
       node.style.left = Math.max(54, Math.min(width - 54, x)) + 'px';
       node.style.top = Math.max(72, Math.min(height - 110, y)) + 'px';
-      const litByFinale = finaleProgress >= idx / 3.15;
+      const litByFinale = finaleProgress > 0 && finaleProgress >= events[idx].routeEnd / (route.length - 1);
       node.dataset.lit = String(litByFinale || reviewSteps.has(idx));
     });
-    if (finaleProgress > 0.005 && projectedLine.length) {
-      const count = Math.max(2, Math.round(projectedLine.length * Math.min(1, finaleProgress)));
+    if (finaleProgress > 0 && projectedLine.length) {
+      const count = Math.max(2, Math.floor((projectedLine.length - 1) * finaleProgress) + 1);
       const head = projectedLine[count - 1];
       if (head && finaleProgress < 0.995) {
         comet.style.left = (tx + worldW * currentZoom * head[0] / 100) + 'px';
@@ -368,54 +496,59 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
     projectAll();
   }
 
-  const ro = new ResizeObserver(layout);
+  const header = shell.querySelector<HTMLElement>('.recap-top')!;
+  function positionCard() {
+    stage.style.setProperty('--recap-card-top', header.offsetHeight + 12 + 'px');
+    stage.style.setProperty('--recap-footer-height', footer.offsetHeight + 'px');
+  }
+  const ro = new ResizeObserver(() => {
+    layout();
+    positionCard();
+  });
   ro.observe(stage);
+  ro.observe(header);
+  ro.observe(footer);
 
-  // 点击空白背景收起当前展开的站点卡片
   stage.addEventListener('click', event => {
-    if (recapFocusIndex !== null && !(event.target as Element).closest('.recap-node,.recap-card,.review-tools')) {
+    if (!nodeLayer.inert && recapFocusIndex !== null && event.target instanceof Element &&
+        !event.target.closest('.recap-node,.recap-card,.review-tools')) {
       selectStation(null);
     }
   });
 
-  function tick(now: number) {
+  function tickCamera(now: number) {
     if (disposed) return;
-    const breathYaw = recapFocusIndex === null && !reducedMotion.matches ? Math.sin(now * 0.00035) * 4.5 : 0;
+    const cinema = stage.dataset.playback !== undefined && stage.dataset.playback !== 'ready';
+    const immediate = cinema || reducedMotion.matches;
+    const breathYaw = recapFocusIndex === null && !immediate ? Math.sin(now * 0.00035) * 4.5 : 0;
     const goalYaw = targetYaw + breathYaw;
-    const k = reducedMotion.matches ? 1 : 0.09;
+    const k = immediate ? 1 : 0.09;
     const moved = Math.abs(goalYaw - currentYaw) > 0.02 || Math.abs(targetTilt - currentTilt) > 0.02 ||
-      Math.abs(targetZoom - currentZoom) > 0.002 || Math.abs(targetPan[0] - currentPan[0]) > 0.05;
+      Math.abs(targetZoom - currentZoom) > 0.002 || Math.abs(targetPan[0] - currentPan[0]) > 0.05 ||
+      Math.abs(targetPan[1] - currentPan[1]) > 0.05;
     currentYaw += (goalYaw - currentYaw) * k;
     currentTilt += (targetTilt - currentTilt) * k;
     currentZoom += (targetZoom - currentZoom) * k;
     currentPan = [currentPan[0] + (targetPan[0] - currentPan[0]) * k, currentPan[1] + (targetPan[1] - currentPan[1]) * k];
 
-    if (finaleRunning) {
-      finaleProgress = Math.min(1, (now - finaleStartedAt) / 4800);
-      paintGlow(finaleProgress);
-      arcRow.querySelectorAll<HTMLElement>('.recap-arc-stop').forEach((el, i) => {
-        el.dataset.active = String(finaleProgress >= i * 0.28);
-      });
-      if (finaleProgress >= 1) finaleRunning = false;
-      placeNodes();
-    } else if (moved) {
-      projectAll();
-    }
-    if (!reducedMotion.matches) rafId = requestAnimationFrame(tick);
+    if (moved) projectAll();
+  }
+
+  function animateCamera(now: number) {
+    tickCamera(now);
+    if (!disposed && !reducedMotion.matches &&
+        (!stage.dataset.playback || stage.dataset.playback === 'ready')) rafId = requestAnimationFrame(animateCamera);
   }
 
   layout();
-  if (recapFocusIndex !== null) selectStation(recapFocusIndex);
-  else if (conclusionPage && reviewAnswer) {
-    finaleProgress = 1;
-    arcRow.querySelectorAll<HTMLElement>('.recap-arc-stop').forEach(el => { el.dataset.active = 'true'; });
-    projectAll();
-  }
-  if (!reducedMotion.matches) rafId = requestAnimationFrame(tick);
+  finale?.restore();
+  if ((!conclusionPage || !reviewAnswer) && recapFocusIndex !== null) selectStation(recapFocusIndex);
+  animateCamera(performance.now());
 
   currentRecapDispose = () => {
     disposed = true;
     cancelAnimationFrame(rafId);
+    finale?.dispose();
     ro.disconnect();
     if (terrain.onChange === projectAll) terrain.onChange = () => {};
   };

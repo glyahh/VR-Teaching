@@ -1,0 +1,208 @@
+{
+  "frames": 69,
+  "actors": 18,
+  "poses": 2484,
+  "stance_samples": 1596,
+  "stance_in_plane_anchor_drift_m": [
+    0.0,
+    68,
+    [
+      "Crossing file 18 · steady",
+      "r"
+    ]
+  ],
+  "sole_to_surface_m": {
+    "min": [
+      0.0016578435897827148,
+      49,
+      [
+        "Crossing file 17 · heavy",
+        "r"
+      ]
+    ],
+    "max": [
+      0.0022987723350524902,
+      34,
+      [
+        "Crossing file 16 · free",
+        "r"
+      ]
+    ]
+  },
+  "swing_foot_clearance_m": {
+    "min": [
+      0.0018000602722167969,
+      33,
+      [
+        "Crossing file 06 · steady",
+        "r"
+      ]
+    ],
+    "max": [
+      0.08460313081741333,
+      62,
+      [
+        "Crossing file 03 · steady",
+        "l"
+      ]
+    ]
+  },
+  "ankle_target_error_m": {
+    "min": [
+      0.0,
+      0,
+      [
+        "Crossing file 01 · heavy",
+        "r"
+      ]
+    ],
+    "max": [
+      1.5967393247556244e-07,
+      16,
+      [
+        "Crossing file 08 · free",
+        "l"
+      ]
+    ]
+  },
+  "ankle_travel_per_frame_m": [
+    0.18631698473988914,
+    58,
+    [
+      "Crossing file 18 · steady",
+      "r"
+    ]
+  ],
+  "wrist_travel_per_frame_m": [
+    0.06218342042628083,
+    43,
+    [
+      "Crossing file 16 · free",
+      "l"
+    ]
+  ],
+  "closest_wrist_angles_deg": {
+    "min": [
+      9.615785346580425,
+      32,
+      [
+        "Crossing file 02 · free",
+        "r"
+      ]
+    ],
+    "max": [
+      57.302186230523795,
+      9,
+      [
+        "Crossing file 09 · steady",
+        "r"
+      ]
+    ]
+  },
+  "wrist_angles_f22_deg": {
+    "min": [
+      9.787133448514888,
+      22,
+      [
+        "Crossing file 02 · free",
+        "r"
+      ]
+    ],
+    "max": [
+      56.28788606330398,
+      22,
+      [
+        "Crossing file 03 · steady",
+        "r"
+      ]
+    ]
+  },
+  "wrist_roll_deg": {
+    "min": [
+      -17.34652887828216,
+      68,
+      [
+        "Crossing file 06 · steady",
+        "l"
+      ]
+    ],
+    "max": [
+      16.061641657198923,
+      50,
+      [
+        "Crossing file 03 · steady",
+        "r"
+      ]
+    ]
+  },
+  "wrist_target_m": {
+    "min": [
+      0.0,
+      0,
+      [
+        "Crossing file 01 · heavy",
+        "l"
+      ]
+    ],
+    "max": [
+      7.140835345001378e-08,
+      61,
+      [
+        "Crossing file 08 · free",
+        "r"
+      ]
+    ]
+  },
+  "hand_to_strap_m": {
+    "min": [
+      9.5367431640625e-07,
+      16,
+      [
+        "Crossing file 03 · steady",
+        "r"
+      ]
+    ],
+    "max": [
+      0.0007716363179497421,
+      11,
+      [
+        "Crossing file 01 · heavy",
+        "l"
+      ]
+    ]
+  },
+  "handle_to_skin_m": {
+    "min": [
+      0.004214413052472282,
+      51,
+      [
+        "Crossing file 07 · lamp",
+        "r"
+      ]
+    ],
+    "max": [
+      0.004219854077232662,
+      24,
+      [
+        "Crossing file 07 · lamp",
+        "r"
+      ]
+    ]
+  },
+  "near_bank_F23": {
+    "step": 1,
+    "stance": true,
+    "anchor_xy": [
+      4.4703233369859126,
+      -8.82022052774301
+    ],
+    "clearance_m": 0.0019080638885498047,
+    "ankle_error_m": 4.064047218606268e-08,
+    "swing_lift_m": 0.0,
+    "ankle": [
+      4.469571113586426,
+      -8.833717346191406,
+      0.4949922263622284
+    ]
+  }
+}

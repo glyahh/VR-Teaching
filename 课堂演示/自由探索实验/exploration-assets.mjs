@@ -7,7 +7,7 @@ import { assertDemoTemplate, assertPresentationDirectory } from '../page-policy.
 const assetsRoot = new URL('../assets/', import.meta.url);
 const mimeTypes = { glb: 'application/gzip', jpg: 'image/jpeg', png: 'image/png' };
 const riverFiles = [
-  'river-boat.glb', 'river-people.glb', 'river-crowd.glb',
+  'river-boat.glb', 'river-crowd.glb',
   'river-tree.glb', 'river-tree-far.glb', 'river-grass.glb', 'river-rock.glb',
   'river-ground.jpg', 'river-ground-normal.jpg', 'river-timber.jpg', 'river-timber-normal.jpg',
   'river-timber-rough.jpg', 'river-soil.jpg', 'water-normal.png',
@@ -19,8 +19,10 @@ const hallFiles = [
 const notebook = JSON.parse(await readFile(new URL('notebook.json', import.meta.url), 'utf8'));
 for (let page = 2; page <= notebook.length; page++) hallFiles.push('folio-page-' + page + '.jpg');
 
-export async function readExplorationAssets() {
-  const paths = ['terrain.jpg', ...riverFiles.map(file => 'yudu-river/' + file),
+export async function readExplorationAssets({ riverExplorationOnly = false } = {}) {
+  const riverExtras = riverExplorationOnly
+    ? ['river-meadow.jpg', 'river-meadow-normal.jpg', 'river-reflections.jpg', 'river-calm-normal.png'] : ['river-people.glb'];
+  const paths = ['terrain.jpg', ...[...riverFiles, ...riverExtras].map(file => 'yudu-river/' + file),
     ...hallFiles.map(file => 'zunyi-hall/' + file)];
   const entries = await Promise.all(paths.map(async path => {
     const [name, extension] = path.split('/').at(-1).split('.');

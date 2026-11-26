@@ -1,0 +1,114 @@
+.recap-memory-frames {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.recap-memory {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  overflow: clip;
+  background: #111416;
+}
+
+.recap-memory img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recap-memory::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: linear-gradient(180deg, #0a0d14a6, transparent 19%, transparent 52%, #101414e3 100%);
+}
+
+.recap-memory-caption {
+  position: absolute;
+  z-index: 1;
+  left: clamp(22px, 7vw, 118px);
+  right: clamp(22px, 7vw, 118px);
+  bottom: clamp(86px, 14vh, 152px);
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+  color: #fff5e4;
+  font-size: clamp(17px, 1.75vw, 27px);
+  text-shadow: 0 2px 8px #070909, 0 1px 2px #070909;
+}
+
+.recap-memory-caption strong {
+  color: var(--gold-soft);
+  font-family: var(--font-serif);
+  font-size: clamp(22px, 2.6vw, 42px);
+}
+
+.recap-end-copy {
+  position: absolute;
+  z-index: 9;
+  left: clamp(22px, 7vw, 118px);
+  right: clamp(22px, 7vw, 118px);
+  bottom: clamp(82px, 14vh, 152px);
+  display: grid;
+  justify-items: start;
+  gap: clamp(8px, 1.7vh, 18px);
+  pointer-events: none;
+}
+
+.recap-end-title {
+  margin: 0;
+  color: #fff0d2;
+  font-family: var(--font-serif);
+  font-size: clamp(32px, 5.4vw, 86px);
+  line-height: 1.12;
+  text-shadow: 0 2px 20px #080c0ccf, 0 1px 3px #080c0c;
+  letter-spacing: .065em;
+}
+
+.recap-end-copy .review-conclusion {
+  max-width: min(37em, 100%);
+  margin: 0;
+  padding: 9px 16px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 8px;
+  background: #151915ab;
+  color: #fcf1df;
+  font-size: clamp(17px, 1.55vw, 25px);
+  line-height: 1.5;
+  backdrop-filter: blur(6px);
+}
+
+.recap-shell:has(.recap-stage[data-playback]:not([data-playback="ready"])) .recap-top > .course-title {
+  opacity: 0;
+}
+
+.recap-stage[data-playback]:not([data-playback="ready"]) .recap-node :is(.recap-node-ring, .recap-badges, em) {
+  display: none;
+}
+
+.recap-stage[data-playback]:not([data-playback="ready"]) .recap-node[data-lit="true"] .recap-node-label {
+  border-color: #f5d489b8;
+}
+
+.recap-stage[data-playback]:not([data-playback="ready"]) .recap-dawn-halo {
+  transition: none;
+}
+
+@media (max-aspect-ratio: 4/3), (min-aspect-ratio: 2/1) {
+  .recap-memory::before {
+    position: absolute;
+    inset: 0;
+    content: '';
+    background: var(--memory-image) center / cover;
+    filter: blur(18px) brightness(.58);
+  }
+
+  .recap-memory img {
+    position: relative;
+    object-fit: contain;
+  }
+}

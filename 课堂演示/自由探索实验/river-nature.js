@@ -80,6 +80,7 @@ export async function placeRiverNature(scene, assets, { center, halfWidth, groun
   const grasses = grass.children.filter(node => node.isMesh || node.children.length);
   const rocks = rock.children.filter(node => node.isMesh || node.children.length);
   const clearPath = (x, width) => clearings.every(dock => Math.abs(dock - x) > width);
+  const detailedBank = Boolean(assets['river-meadow']);
   const bankGrass = [];
   const bankRocks = [];
   for (let i = 0; i < 112; i++) {
@@ -89,6 +90,27 @@ export async function placeRiverNature(scene, assets, { center, halfWidth, groun
     bankGrass.push(plant(x, side, 0.36 + random() * 5.1, 0.28 + random() * 0.54, 0.01));
     if (i % 4 === 0) bankRocks.push(plant(x + 0.27, side, 0.30 + 1.1 * random(),
       0.19 + 0.36 * random(), 0.13));
+  }
+  if (detailedBank) {
+    for (let i = 0; i < 330; i++) {
+      const x = -47 + 94 * random();
+      const side = i % 2 ? 1 : -1;
+      const setback = 0.58 + random() * 6.4;
+      const clump = Math.sin(x * 0.55 + side * 1.9) * Math.cos(setback * 0.63 - x * 0.21);
+      if (!clearPath(x, 2.6) || random() > 0.46 + 0.39 * clump) continue;
+      const height = setback < 1.55 ? 0.43 + random() * 0.53 : 0.19 + random() * 0.40;
+      bankGrass.push(plant(x, side, setback, height, 0.014));
+      if (i % 5 === 0 && clearPath(x + 0.31, 2.6)) {
+        bankGrass.push(plant(x + 0.31, side, setback + 0.19, height * 0.72, 0.012));
+      }
+    }
+    for (const [x, side, setback] of [[-3.4, 1, .88], [0.3, 1, .59], [1.25, 1, 1.4],
+      [8.5, 1, .61], [10.2, 1, .85], [12.8, 1, 2.2], [2.1, -1, .78], [8.7, -1, 1.05]]) {
+      for (let i = 0; i < 6; i++) {
+        const height = 0.28 + random() * 0.55;
+        bankGrass.push(plant(x + (random() - .5) * 1.40, side, setback + random() * .69, height, .02));
+      }
+    }
   }
   for (const [x, side] of [[-24.7, 1], [-9.1, -1], [0.4, 1], [14.8, -1], [23.1, 1]]) {
     bankRocks.push(plant(x, side, 0.31, 0.58 + random() * 0.25, 0.17));

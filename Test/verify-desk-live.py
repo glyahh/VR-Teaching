@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 
 from playwright.sync_api import expect
 
-from course_checks import DESK, drag_desk, exercise_desk, object_point, visible_motion
+from support.course_checks import DESK, drag_desk, exercise_desk, object_point, visible_motion
 from course_cli import COURSE, Classroom, button, launch, size
 
 
@@ -32,7 +32,7 @@ def enter_desk(page, url, chapter):
         button(page, '进入课堂').click()
         page.locator('.chapter-nav').get_by_role('button', name='遵义会议', exact=True).click()
     expect(page.locator('.scene-head h1')).to_have_text('遵义会议室')
-    button(page, '下一页').click()
+    button(page, '进入会议桌实景' if chapter else '下一页').click()
     expect(page.locator('.scene-head h1')).to_have_text('会议桌上的两份材料')
     expect(page.locator(DESK)).to_have_attribute('data-space', 'ready', timeout=20000)
 
@@ -41,21 +41,23 @@ def verify_interruptions(room):
     page = room.page
     frame = page.locator(DESK)
     reader = page.locator('.desk-reader')
-    before = frame.locator('canvas').screenshot()
-    button(page, '俯看桌面').click()
-    expect(frame).to_have_attribute('data-pitch', '15.000')
-    expect(button(page, '俯看桌面')).to_have_attribute('aria-pressed', 'true')
-    assert visible_motion(frame.locator('canvas').screenshot(), before) > 2
+    before = frame.locator('canvas.desk-live-canvas').screenshot()
+    expect(page.locator('.desk-orbit-tools')).to_have_count(0)
+    assert frame.bounding_box() == page.locator('.scene-stage').bounding_box()
+    for _ in range(8):
+        frame.press('ArrowUp')
+    expect(frame).to_have_attribute('data-pitch', '16.000')
+    assert visible_motion(frame.locator('canvas.desk-live-canvas').screenshot(), before) > 2
     room.shot('11-俯看桌面')
-    button(page, '俯看桌面').click()
+    frame.press('Home')
     expect(frame).to_have_attribute('data-pitch', '0.000')
-    button(page, '拉近桌面').click()
+    frame.press('+')
     expect(frame).to_have_attribute('data-zoom', '1.1300')
-    button(page, '回到正面机位').click()
-    page.keyboard.press('ArrowLeft')
+    frame.press('Home')
+    frame.press('ArrowLeft')
     expect(frame).to_have_attribute('data-yaw', '-4.000')
     expect(frame).to_have_attribute('data-zoom', '1.0000')
-    button(page, '回到正面机位').click()
+    frame.press('Home')
     expect(frame).to_have_attribute('data-yaw', '0.000')
     bounds=frame.bounding_box()
     x,y=bounds['x']+bounds['width']*.73,bounds['y']+bounds['height']*.24
@@ -67,7 +69,7 @@ def verify_interruptions(room):
     assert -9.4<float(frame.get_attribute('data-yaw'))<-8.8
     page.mouse.wheel(0,-150)
     expect(frame).to_have_attribute('data-zoom','1.2712')
-    button(page, '回到正面机位').click()
+    frame.press('Home')
     expect(frame).to_have_attribute('data-yaw', '0.000')
 
     saved_sheet=frame.get_attribute('data-sheet-before')
@@ -89,7 +91,12 @@ def verify_interruptions(room):
     page.mouse.move(x,y)
     page.mouse.down()
     page.mouse.move(x-box['width']*.16,y,steps=7)
-    expect(reader.locator('.desk-reader-turn')).to_be_visible()
+    turn=reader.locator('.desk-reader-turn')
+    expect(turn).to_be_visible()
+    expect(turn.locator('.desk-reader-turn-front')).to_have_attribute('data-page','3')
+    expect(turn.locator('.desk-reader-turn-back')).to_have_attribute('data-page','4')
+    expect(book.locator('.is-right')).to_have_attribute('data-page','4')
+    expect(frame).to_have_attribute('data-spread','3')
     room.shot('12-阅读中翻页跟手')
     page.keyboard.press('Escape')
     page.mouse.up()
@@ -133,8 +140,8 @@ def verify_interruptions(room):
     font=reader.locator('[data-place="黎平"] span').evaluate('node=>getComputedStyle(node).fontSize')
     assert legend['y']+legend['height'] <= region['y']+region['height']+1, (legend,region)
     room.shot('14-叠图和完整图例')
-    button(page,'重画路线').click()
-    expect(plots).to_have_attribute('data-drawing','true')
+    expect(button(page,'重画路线')).to_have_count(0)
+    button(page,'原议湘西').click()
     button(page,'改向黔北').click()
     button(page,'并排').click()
     expect(plots).to_have_attribute('data-drawing','false')
@@ -189,7 +196,7 @@ def exercise_narrow(html, output):
         button(page,'返回桌面').click()
         expect(frame).to_have_attribute('data-focus','0.000')
         # 模拟实际 WebGL 上下文丢失。静态桌景上的地图仍能打开并对照。
-        frame.locator('canvas').evaluate("canvas=>canvas.getContext('webgl2').getExtension('WEBGL_lose_context').loseContext()")
+        frame.locator('canvas.desk-live-canvas').evaluate("canvas=>canvas.getContext('webgl2').getExtension('WEBGL_lose_context').loseContext()")
         expect(frame).to_have_attribute('data-space','fixed')
         button(page,'查看行军路线图').click()
         button(page,'并排').click()

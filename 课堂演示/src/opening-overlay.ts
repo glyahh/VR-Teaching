@@ -84,43 +84,19 @@ function mountOpeningOverlay(scene: HTMLElement, video: HTMLVideoElement) {
   badgeBody.append(badgeTitle, badgeSub);
   badge.append(badgeBar, badgeBody);
 
-  // 3. 湘江渡江前后动态兵力对比卡（响应式贴合视口右侧安全区）
-  const troops = element('aside', 'opening-troops');
-  troops.hidden = true;
-  const tAccent = element('span', 'opening-troops-accent');
-  const tRow1 = element('div', 'opening-troops-row');
-  const tHead1 = element('div', 'opening-troops-head');
-  const tNum1 = element('strong', 'opening-troops-num is-gold', '8.6 万余人');
-  tHead1.append(element('span', 'opening-troops-meta', '1934.10  于都出发'), tNum1);
-  const tTrack1 = element('div', 'opening-troops-track');
-  const tFill1 = element('span', 'opening-troops-fill is-gold');
-  tTrack1.append(tFill1);
-  tRow1.append(tHead1, tTrack1);
-
-  const tDivider = element('span', 'opening-troops-divider');
-
-  const tRow2 = element('div', 'opening-troops-row');
-  const tHead2 = element('div', 'opening-troops-head');
-  const tNum2 = element('strong', 'opening-troops-num is-loss', '3 万余人');
-  tHead2.append(element('span', 'opening-troops-meta', '1934.12  渡过湘江'), tNum2);
-  const tTrack2 = element('div', 'opening-troops-track');
-  const tGhost2 = element('span', 'opening-troops-ghost');
-  const tFill2 = element('span', 'opening-troops-fill is-loss');
-  const tEdge2 = element('span', 'opening-troops-edge');
-  tTrack2.append(tGhost2, tFill2, tEdge2);
-  tRow2.append(tHead2, tTrack2);
-  troops.append(tAccent, tRow1, tDivider, tRow2);
-
-  // 4. 四站时空回望动态时间轴
+  // 四站地图的进度轴与字幕共用底部排版。
   const timeline = element('div', 'opening-timeline');
   timeline.hidden = true;
   const tlTrack = element('div', 'opening-tl-track');
   const tlFill = element('span', 'opening-tl-fill');
   tlTrack.append(tlFill);
   const tlList = element('div', 'opening-tl-stops');
+  tlList.style.setProperty('--opening-stop-count', String(openingTimelineStops.length));
+  tlList.append(tlTrack);
   const tlNodes = openingTimelineStops.map((stop, idx) => {
     const item = element('div', 'opening-tl-stop');
-    item.dataset.major = String(idx === 3);
+    item.dataset.major = String(idx === openingTimelineStops.length - 1);
+    item.style.gridColumn = String(idx + 1);
     item.append(
       element('time', '', stop.date),
       element('i', 'opening-tl-dot'),
@@ -129,13 +105,15 @@ function mountOpeningOverlay(scene: HTMLElement, video: HTMLVideoElement) {
     tlList.append(item);
     return item;
   });
-  timeline.append(tlTrack, tlList);
+  timeline.append(tlList);
 
   // 5. 底部高清响应式单行字幕
-  const caption = element('p', 'opening-sub');
+  const caption = element('p', 'film-subtitle opening-sub');
   caption.hidden = true;
 
-  hud.append(prologue, badge, troops, timeline, caption);
+  const bottom = element('div', 'opening-bottom');
+  bottom.append(timeline, caption);
+  hud.append(prologue, badge, bottom);
   scene.append(hud);
 
   let rafId = 0;
@@ -147,7 +125,6 @@ function mountOpeningOverlay(scene: HTMLElement, video: HTMLVideoElement) {
     if (!active) {
       prologue.hidden = true;
       badge.hidden = true;
-      troops.hidden = true;
       timeline.hidden = true;
       caption.hidden = true;
       lastCaption = '';
@@ -203,36 +180,6 @@ function mountOpeningOverlay(scene: HTMLElement, video: HTMLVideoElement) {
       badge.hidden = true;
     }
 
-    // 4. 湘江兵力动态对照卡（38.18s – 43.10s）
-    if (t >= 38.18 && t <= 43.10) {
-      const inP = easeOutCubic((t - 38.18) / 0.50);
-      const outP = 1 - clamp01((t - 42.65) / 0.45);
-      const a = inP * outP;
-      troops.hidden = a <= 0.01;
-      troops.style.opacity = a.toFixed(3);
-      troops.style.transform = `translate(${((1 - inP) * 20).toFixed(1)}px, -50%)`;
-      tAccent.style.transform = `scaleX(${inP.toFixed(3)})`;
-
-      const p1 = easeOutCubic((t - 38.32) / 0.90);
-      tNum1.textContent = p1 < 0.995 ? `${(8.6 * p1).toFixed(1)} 万余人` : '8.6 万余人';
-      tFill1.style.width = `${Math.max(2, p1 * 100).toFixed(1)}%`;
-      tDivider.style.transform = `scaleX(${p1.toFixed(3)})`;
-
-      const a2 = clamp01((t - 40.00) / 0.35);
-      const dropP = easeInOutCubic((t - 40.25) / 1.15);
-      const ratio2 = 1 - (1 - 3.0 / 8.6) * dropP;
-      const val2 = 8.6 - 5.6 * dropP;
-      tRow2.style.opacity = a2.toFixed(3);
-      tNum2.textContent = dropP < 0.985 ? `${val2.toFixed(1)} 万余人` : '3 万余人';
-      tFill2.style.width = `${(ratio2 * 100).toFixed(1)}%`;
-      tGhost2.style.opacity = (dropP > 0.02 ? (0.45 - 0.18 * dropP) : 0).toFixed(3);
-      tEdge2.style.left = `${(ratio2 * 100).toFixed(1)}%`;
-      tEdge2.style.opacity = dropP > 0.02 && dropP < 0.98 ? '1' : '0';
-    } else {
-      troops.hidden = true;
-    }
-
-    // 5. 四站回望动态细金时间轴（83.35s – 88.45s）
     if (t >= 83.35 && t <= 88.45) {
       const tLocal = t - 83.15;
       const inP = easeOutCubic((tLocal - 0.20) / 0.45);
@@ -240,11 +187,18 @@ function mountOpeningOverlay(scene: HTMLElement, video: HTMLVideoElement) {
       const a = inP * outP;
       timeline.hidden = a <= 0.01;
       timeline.style.opacity = a.toFixed(3);
-      const sweep = easeInOutCubic((tLocal - 0.45) / 3.70);
-      tlFill.style.width = `${(sweep * 100).toFixed(1)}%`;
+      const elapsed = (tLocal - 0.45) / 3.70;
+      const next = openingTimelineStops.findIndex(stop => elapsed < stop.frac);
+      let progress = next < 0 ? 1 : 0;
+      if (next > 0) {
+        const start = openingTimelineStops[next - 1].frac;
+        const end = openingTimelineStops[next].frac;
+        const leg = easeInOutCubic((elapsed - start) / (end - start));
+        progress = (next - 1 + leg) / (openingTimelineStops.length - 1);
+      }
+      tlFill.style.width = `${progress * 100}%`;
       openingTimelineStops.forEach((stop, idx) => {
-        const lit = tLocal >= 0.45 + 3.70 * stop.frac;
-        tlNodes[idx].dataset.lit = String(lit);
+        tlNodes[idx].dataset.lit = String(elapsed >= stop.frac);
       });
     } else {
       timeline.hidden = true;

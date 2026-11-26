@@ -18,11 +18,19 @@ import wave
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+from course_narrator import MIX_LIMITER, MUSIC_DUCK, VOICE_FILTER, VOICE_NAME, VOICE_PITCH, VOICE_RATE, trim_wav_silence
+
 
 HERE = Path(__file__).resolve().parent
 ASSETS = HERE.parent / "assets"
 SOURCE_CACHE = HERE.parents[1] / ".march-build" / "opening-sources"
-RECORDED_3D = SOURCE_CACHE / "recorded-3d"
+FILM_SHOTS = {
+    "yudu-bridge-3d": HERE / "opening-film/yudu/bridge.mp4",
+    "yudu-night-3d": HERE / "opening-film/yudu/night.mp4",
+    "xiang-crossing-3d": HERE / "opening-film/xiang/crossing.mp4",
+    "zunyi-hall-3d": HERE / "opening-film/hall/hall.mp4",
+    "zunyi-desk-3d": HERE / "opening-film/desk/desk.mp4",
+}
 VOICE_CACHE = SOURCE_CACHE / "voice-v2"
 NARRATION_TSV = HERE / "opening-narration.tsv"
 TTS_DEPS = HERE.parents[1] / ".march-build" / "opening-tts-deps"
@@ -33,9 +41,6 @@ WIDTH, HEIGHT = 1280, 720
 TOTAL_SECONDS = 95.0
 TOTAL_FRAMES = round(TOTAL_SECONDS * FPS)  # 2280 帧
 XFADE_FRAMES = 12  # 0.50 秒平滑叠化
-VOICE_NAME = "zh-CN-YunjianNeural"
-VOICE_RATE = "-8%"
-VOICE_PITCH = "-3Hz"
 MUSIC_START_SECONDS = 238.0
 OUTRO_STILL_SECONDS = 1.40
 
@@ -175,9 +180,11 @@ def load_font(name: str, size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(str(FONTS / name), size)
 
 
-def prepare_sources(cache: Path, download: bool) -> dict[str, Path]:
+def prepare_sources(cache: Path, download: bool, *, need_music=True) -> dict[str, Path]:
     paths: dict[str, Path] = {}
     for source in SOURCES:
+        if source.file == "sb-hiraeth.mp3" and not need_music:
+            continue
         path = cache / source.file
         if not path.exists():
             if not download:
@@ -207,29 +214,6 @@ def load_narration_rows() -> list[dict[str, str]]:
     if not rows:
         raise ValueError(f"旁白稿为空：{NARRATION_TSV}")
     return rows
-
-
-def trim_wav_silence(src_mp3: Path, dst_wav: Path) -> float:
-    raw = dst_wav.with_suffix(".raw.wav")
-    try:
-        subprocess.run(
-            FFMPEG + ["-i", str(src_mp3), "-ac", "1", "-ar", str(RATE), "-c:a", "pcm_s16le", str(raw)],
-            check=True,
-        )
-        with wave.open(str(raw), "rb") as wav:
-            samples = np.frombuffer(wav.readframes(wav.getnframes()), dtype="<i2")
-        voiced = np.flatnonzero(np.abs(samples.astype(np.int32)) > 96)
-        if not voiced.size:
-            raise RuntimeError(f"音频无有效人声：{src_mp3}")
-        lead = int(0.03 * RATE)
-        tail = int(0.09 * RATE)
-        cut = samples[max(0, int(voiced[0]) - lead):min(len(samples), int(voiced[-1]) + tail)]
-        with wave.open(str(dst_wav), "wb") as wav:
-            wav.setparams((1, 2, RATE, 0, "NONE", ""))
-            wav.writeframes(cut.tobytes())
-        return len(cut) / RATE
-    finally:
-        raw.unlink(missing_ok=True)
 
 
 def prepare_narration(voice_dir: Path, synthesize: bool) -> dict:
@@ -284,7 +268,7 @@ def prepare_narration(voice_dir: Path, synthesize: bool) -> dict:
             if not wav_path.exists():
                 if not mp3_path.exists():
                     await synth_one(spoken, mp3_path)
-                dur = trim_wav_silence(mp3_path, wav_path)
+                dur = trim_wav_silence(mp3_path, wav_path, RATE)
             else:
                 with wave.open(str(wav_path), "rb") as wav:
                     dur = wav.getnframes() / wav.getframerate()
@@ -1539,6 +1523,20 @@ def compute_shot_specs() -> list[dict]:
     return specs
 
 
+def check_film_shot(source: Path, frames: int) -> None:
+    info = json.loads(subprocess.check_output([
+        "ffprobe", "-v", "error", "-show_entries",
+        "stream=codec_type,width,height,r_frame_rate,nb_frames", "-of", "json", str(source),
+    ]))["streams"]
+    if len(info) != 1 or info[0]["codec_type"] != "video":
+        raise ValueError(f"{source} 需要一条无声画面轨")
+    video = info[0]
+    if (video["width"], video["height"], video["r_frame_rate"], int(video["nb_frames"])) != (
+        WIDTH, HEIGHT, f"{FPS}/1", frames
+    ):
+        raise ValueError(f"{source} 需要 {WIDTH}×{HEIGHT}、{FPS} fps、含叠化余量共 {frames} 帧。实际 {video}")
+
+
 def render_all_shots(work: Path, sources: dict[str, Path]) -> list[tuple[dict, Path]]:
     specs = compute_shot_specs()
     rendered: list[tuple[dict, Path]] = []
@@ -1547,6 +1545,12 @@ def render_all_shots(work: Path, sources: dict[str, Path]) -> list[tuple[dict, P
         name = s["name"]
         frames = s["frames"]
         dst = work / f"shot-{s['index']:02d}-{name}.mkv"
+
+        if name in FILM_SHOTS:
+            source = FILM_SHOTS[name]
+            check_film_shot(source, frames)
+            rendered.append((s, source))
+            continue
 
         if name == "opening-terrain":
             # 首 0.58s 严格原图静止对齐首帧，随后向赣南中央苏区缓推并亮起定位微芒波纹。
@@ -1601,26 +1605,6 @@ def render_all_shots(work: Path, sources: dict[str, Path]) -> list[tuple[dict, P
                 vf_extra="eq=brightness=-0.02:contrast=1.03:saturation=0.92",
             )
 
-        elif name == "yudu-bridge-3d":
-            # 本课 3D 于都河岸黄昏架桥航拍（替代原违和欧美独木舟实拍）。
-            render_video_clip(
-                RECORDED_3D / "3d-yudu-bridge.mp4",
-                dst,
-                start_sec=0.2,
-                frames=frames,
-                vf_extra="eq=brightness=-0.03:contrast=1.08:saturation=0.92",
-            )
-
-        elif name == "yudu-night-3d":
-            # 本课 3D 于都河岸星月夜渡低空滑移，与实景浮桥过河形成远近双机位衔接。
-            render_video_clip(
-                RECORDED_3D / "3d-yudu-night.mp4",
-                dst,
-                start_sec=0.2,
-                frames=frames,
-                vf_extra="eq=brightness=-0.02:contrast=1.07:saturation=0.94",
-            )
-
         elif name == "yudu-crossing":
             render_video_clip(
                 ASSETS / "yudu.mp4",
@@ -1656,16 +1640,6 @@ def render_all_shots(work: Path, sources: dict[str, Path]) -> list[tuple[dict, P
                 start_sec=2.5,
                 frames=frames,
                 vf_extra="eq=brightness=-0.12:contrast=1.12:saturation=0.38,colorbalance=bs=0.07:gs=0.02:rs=-0.05",
-            )
-
-        elif name == "xiang-crossing-3d":
-            # 本课 3D 湘江寒江抢渡高空俯冲（替代原静图缩放与硬烧右侧兵力面板；兵力对比卡由前端响应式安全区叠层渲染）。
-            render_video_clip(
-                RECORDED_3D / "3d-xiang-crossing.mp4",
-                dst,
-                start_sec=0.3,
-                frames=frames,
-                vf_extra="eq=brightness=-0.04:contrast=1.08:saturation=0.88",
             )
 
         elif name == "liping-rain-roof":
@@ -1746,16 +1720,6 @@ def render_all_shots(work: Path, sources: dict[str, Path]) -> list[tuple[dict, P
             )
             write_frames_video(dst, seq)
 
-        elif name == "zunyi-hall-3d":
-            # 本课 3D 遵义材料厅暮色庭院一镜穿门运镜（替代原静态会址老照片缩放，贵州遵义标牌交由前端安全区叠层）。
-            render_video_clip(
-                RECORDED_3D / "3d-zunyi-hall.mp4",
-                dst,
-                start_sec=0.3,
-                frames=frames,
-                vf_extra="eq=brightness=-0.02:contrast=1.06:saturation=0.94",
-            )
-
         elif name == "zunyi-meeting":
             render_video_clip(
                 ASSETS / "zunyi.mp4",
@@ -1763,16 +1727,6 @@ def render_all_shots(work: Path, sources: dict[str, Path]) -> list[tuple[dict, P
                 start_sec=0.5,
                 frames=frames,
                 vf_extra="eq=brightness=-0.01:contrast=1.04:saturation=0.95",
-            )
-
-        elif name == "zunyi-desk-3d":
-            # 本课精修 3D 会议桌实景特写（煤油灯下翻开手记、解绳揭封、展开路线图），自然呼应“集中解决军事和组织问题”。
-            render_video_clip(
-                RECORDED_3D / "3d-zunyi-desk.mp4",
-                dst,
-                start_sec=0.8,
-                frames=frames,
-                vf_extra="eq=brightness=-0.01:contrast=1.06:saturation=0.96",
             )
 
         elif name == "map-turning-recap":
@@ -1834,19 +1788,17 @@ def mix_audio(work: Path, voice_wav: Path, sources: dict[str, Path], dst_wav: Pa
 
     filter_complex = ";".join([
         f"[0:a]aresample={RATE},aformat=sample_fmts=fltp:channel_layouts=stereo,"
-        "highpass=f=75,equalizer=f=155:t=q:w=1.2:g=2.5,equalizer=f=6800:t=q:w=1.5:g=-2.2,"
-        "compand=attacks=0.015:decays=0.18:points=-70/-70|-26/-21|-12/-11|0/-3,"
-        "volume=1.18,asplit=2[voice_main][voice_sc]",
+        f"{VOICE_FILTER},asplit=2[voice_main][voice_sc]",
         f"[1:a]aresample={RATE},aformat=sample_fmts=fltp:channel_layouts=stereo,"
         f"atrim=start={MUSIC_START_SECONDS}:duration={TOTAL_SECONDS},asetpts=PTS-STARTPTS,"
         f"afade=t=in:st=0:d=1.6,afade=t=out:st={TOTAL_SECONDS - 3.4:.3f}:d=3.4,"
         "volume=0.25[music_raw]",
-        "[music_raw][voice_sc]sidechaincompress=threshold=0.022:ratio=4.2:attack=45:release=420:makeup=1[music_duck]",
+        f"[music_raw][voice_sc]{MUSIC_DUCK}[music_duck]",
         f"[2:a]aresample={RATE},aformat=sample_fmts=fltp:channel_layouts=stereo,"
         f"atrim=duration={TOTAL_SECONDS},asetpts=PTS-STARTPTS,"
         f"highpass=f=110,lowpass=f=3000,{water_env}[water_bed]",
         "[voice_main][music_duck][water_bed]amix=inputs=3:normalize=0:duration=first,"
-        "alimiter=limit=0.90:attack=5:release=60[mix]",
+        f"{MIX_LIMITER}[mix]",
     ])
 
     subprocess.run(
@@ -1862,7 +1814,7 @@ def mix_audio(work: Path, voice_wav: Path, sources: dict[str, Path], dst_wav: Pa
     )
 
 
-def assemble_final(work: Path, rendered: list[tuple[dict, Path]], ass_path: Path, mixed_wav: Path, target: Path) -> None:
+def assemble_final(work: Path, rendered: list[tuple[dict, Path]], audio: Path, target: Path, *, copy_audio=False) -> None:
     vignette_png = work / "edge-vignette.png"
     create_edge_vignette_png(vignette_png)
 
@@ -1872,7 +1824,7 @@ def assemble_final(work: Path, rendered: list[tuple[dict, Path]], ass_path: Path
     vig_idx = len(rendered)
     inputs.extend(["-loop", "1", "-framerate", str(FPS), "-i", str(vignette_png)])
     aud_idx = vig_idx + 1
-    inputs.extend(["-i", str(mixed_wav)])
+    inputs.extend(["-i", str(audio.resolve())])
 
     filters: list[str] = []
     for idx in range(len(rendered)):
@@ -1915,7 +1867,7 @@ def assemble_final(work: Path, rendered: list[tuple[dict, Path]], ass_path: Path
             "-maxrate", "3600k", "-bufsize", "6000k", "-x264-params", zones,
             "-color_primaries", "bt709", "-color_trc", "bt709", "-colorspace", "bt709", "-color_range", "tv",
             "-threads", "4",
-            "-c:a", "aac", "-b:a", "96k", "-ar", str(RATE), "-ac", "2",
+            *(["-c:a", "copy"] if copy_audio else ["-c:a", "aac", "-b:a", "96k", "-ar", str(RATE), "-ac", "2"]),
             "-movflags", "+faststart",
             "-metadata", "title=从于都到遵义 · 开场",
             "-metadata", f"comment={credits}",
@@ -1951,32 +1903,45 @@ def main() -> None:
     parser.add_argument("--source-dir", type=Path, default=SOURCE_CACHE)
     parser.add_argument("--voice-dir", type=Path, default=VOICE_CACHE)
     parser.add_argument("--download", action="store_true", help="下载并校验外部片源")
-    parser.add_argument("--synthesize", action="store_true", help="按 opening-narration.tsv 重新合成男声旁白")
+    sound = parser.add_mutually_exclusive_group()
+    sound.add_argument("--synthesize", action="store_true", help="按 opening-narration.tsv 重新合成男声旁白")
+    sound.add_argument("--audio-from", type=Path, help="只改画面时，从原版 MP4 复制已经审过的完整 AAC 音轨")
     parser.add_argument("--output", type=Path, default=ASSETS / "opening.mp4")
     args = parser.parse_args()
 
-    sources = prepare_sources(args.source_dir, args.download)
-    timeline = prepare_narration(args.voice_dir, args.synthesize)
+    sources = prepare_sources(args.source_dir, args.download, need_music=args.audio_from is None)
 
     with TemporaryDirectory(dir=args.output.resolve().parent) as folder:
         work = Path(folder)
         voice_wav = work / "voice.wav"
         mixed_wav = work / "mixed.wav"
-        ass_path = work / "opening.ass"
         candidate = work / "opening.mp4"
 
-        build_voice_track(args.voice_dir, timeline, voice_wav)
-        build_subtitles(timeline, ass_path)
+        audio = args.audio_from
+        if audio is None:
+            timeline = prepare_narration(args.voice_dir, args.synthesize)
+            build_voice_track(args.voice_dir, timeline, voice_wav)
+            build_subtitles(timeline, work / "opening.ass")
+            mix_audio(work, voice_wav, sources, mixed_wav)
+            audio = mixed_wav
+        else:
+            streams = json.loads(subprocess.check_output([
+                "ffprobe", "-v", "error", "-select_streams", "a", "-show_entries",
+                "stream=codec_name,sample_rate,channels,start_time,duration", "-of", "json", str(audio),
+            ]))["streams"]
+            if (len(streams) != 1 or streams[0]["codec_name"] != "aac" or int(streams[0]["sample_rate"]) != RATE
+                    or streams[0]["channels"] != 2 or float(streams[0]["start_time"]) != 0
+                    or abs(float(streams[0]["duration"]) - TOTAL_SECONDS) > 1 / RATE):
+                raise ValueError(f"参照音轨应为从 0 秒开始的 95 秒双声道 AAC：{streams}")
         rendered = render_all_shots(work, sources)
-        mix_audio(work, voice_wav, sources, mixed_wav)
-        assemble_final(work, rendered, ass_path, mixed_wav, candidate)
+        assemble_final(work, rendered, audio, candidate, copy_audio=args.audio_from is not None)
 
         seconds, size_mb = verify_output(candidate)
         candidate.replace(args.output)
 
     print(
         f"开场纪录片生成完毕：{seconds:.2f} 秒，{TOTAL_FRAMES} 帧，{size_mb:.2f} MB，"
-        f"含 {len(timeline['cues'])} 句纪实男声、后排字幕、三段暗调动态地图与全片物理动效。"
+        f"已写入 {args.output}"
     )
 
 

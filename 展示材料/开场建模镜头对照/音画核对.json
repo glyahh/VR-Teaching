@@ -1,0 +1,121 @@
+{
+  "decoded_frames_checked_per_film": 2280,
+  "fps": 24,
+  "size": [
+    1280,
+    720
+  ],
+  "audio_packets_identical": 4455,
+  "audio_packet_manifest_sha256": "3bc0ed2fea30bea84b00e33e6928d2d48aec56a46fd5c47fe7862fa3c89f6f50",
+  "before_bytes": 23364753,
+  "after_bytes": 22650914,
+  "comparison_includes_neighbor_frames_per_end": 16,
+  "unmodified_shots": {
+    "frames": 1793,
+    "ssim_at_320x180": {
+      "Y": {
+        "frame": 1599,
+        "minimum": 0.984699
+      },
+      "U": {
+        "frame": 1592,
+        "minimum": 0.982279
+      },
+      "V": {
+        "frame": 1592,
+        "minimum": 0.983369
+      },
+      "All": {
+        "frame": 1599,
+        "minimum": 0.985203
+      }
+    }
+  },
+  "edited_shots_vs_cut_sources": {
+    "于都架桥": [
+      {
+        "frame": 450,
+        "new_mae": 1.205,
+        "old_mae": 48.26
+      },
+      {
+        "frame": 469,
+        "new_mae": 1.204,
+        "old_mae": 48.409
+      },
+      {
+        "frame": 488,
+        "new_mae": 1.2,
+        "old_mae": 47.483
+      }
+    ],
+    "于都夜渡": [
+      {
+        "frame": 520,
+        "new_mae": 0.876,
+        "old_mae": 24.349
+      },
+      {
+        "frame": 534,
+        "new_mae": 0.948,
+        "old_mae": 24.129
+      },
+      {
+        "frame": 549,
+        "new_mae": 0.94,
+        "old_mae": 23.497
+      }
+    ],
+    "湘江涉水": [
+      {
+        "frame": 948,
+        "new_mae": 1.02,
+        "old_mae": 40.632
+      },
+      {
+        "frame": 978,
+        "new_mae": 1.191,
+        "old_mae": 34.221
+      },
+      {
+        "frame": 1008,
+        "new_mae": 0.751,
+        "old_mae": 33.302
+      }
+    ],
+    "遵义进门": [
+      {
+        "frame": 1760,
+        "new_mae": 1.313,
+        "old_mae": 38.803
+      },
+      {
+        "frame": 1787,
+        "new_mae": 1.359,
+        "old_mae": 23.86
+      },
+      {
+        "frame": 1814,
+        "new_mae": 1.186,
+        "old_mae": 34.737
+      }
+    ],
+    "遵义桌边": [
+      {
+        "frame": 1936,
+        "new_mae": 1.012,
+        "old_mae": 23.52
+      },
+      {
+        "frame": 1956,
+        "new_mae": 0.663,
+        "old_mae": 17.874
+      },
+      {
+        "frame": 1976,
+        "new_mae": 0.859,
+        "old_mae": 27.614
+      }
+    ]
+  }
+}

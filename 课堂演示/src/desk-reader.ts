@@ -5,7 +5,7 @@ const deskMapModes = [
   {mode:'parallel',label:'并排'},
 ] as const;
 
-function createDeskMapReader(body:HTMLElement, onMode:(mode:DeskRouteMode,replay?:boolean)=>void) {
+function createDeskMapReader(body:HTMLElement, onMode:(mode:DeskRouteMode)=>void) {
   const {bounds,places,original,revised,incoming,routes}=explorationStage.deskRouteMap;
   const plots=element('div','desk-map-plots');
   const tools=element('div','desk-map-toolbar');
@@ -14,20 +14,18 @@ function createDeskMapReader(body:HTMLElement, onMode:(mode:DeskRouteMode,replay
   const terrain=new Image();
   terrain.src=mediaAssets.terrain;
   const buttons=deskMapModes.map(({mode,label})=>control(label,()=>onMode(mode),'desk-map-mode'));
-  const replay=control('重画路线',()=>{if (active) onMode(active.mode,true);},'desk-map-replay','reset');
-  replay.setAttribute('aria-label','重画路线');
   tools.setAttribute('role','group');
   tools.setAttribute('aria-label','路线显示方式');
 
-  tools.append(...buttons,replay);
-  body.append(tools,plots,legend,fact);
+  tools.append(...buttons);
+  body.append(tools,legend,plots,fact);
   let active:Extract<DeskReading,{kind:'map'}>|undefined;
   let raf=0;
   const W=960, H=460;
   const base=element('canvas');
   base.width=W;
   base.height=H;
-  const duration=880;
+  const duration=560;
   const originalPlaces=new Set(['湘江','黎平','湘西北']);
   const revisedPlaces=new Set(['湘江','黎平','猴场','乌江','遵义']);
   const ink={incoming:'#62503d',original:'#244e60',revised:'#9b3129'};
@@ -190,7 +188,6 @@ function mountDeskReader(stage:HTMLElement, session:ReturnType<typeof mountDeskS
   let current:DeskReading|undefined;
   let map:ReturnType<typeof createDeskMapReader>|undefined;
   let book:ReturnType<typeof createBook>|undefined;
-  let seenSpread=-1;
   let shownClue:HallClue|undefined;
   let rotate:Animation|undefined;
   let fade:Animation|undefined;
@@ -200,16 +197,32 @@ function mountDeskReader(stage:HTMLElement, session:ReturnType<typeof mountDeskS
     panel.append(element('h3','',item.title),...item.lines.map(line=>element('p','',line)));
     return panel;
   }
+  function writeJournalPage(node:HTMLElement, side:'left'|'right'|'cover', index:number) {
+    const page=explorationStage.deskNotebook[index];
+    node.dataset.side=side;
+    node.dataset.page=String(index+1);
+    if (side==='cover') {
+      node.replaceChildren(element('span','desk-reader-cover-title','随记'));
+    } else if (side==='left') {
+      node.replaceChildren(element('h3','',page.title),element('p','',page.finding));
+    } else {
+      const facts=element('dl','desk-reader-facts');
+      for (const [label,value] of page.rows) facts.append(element('dt','',label),element('dd','',value));
+      node.replaceChildren(facts,element('p','desk-reader-note',page.note));
+    }
+  }
   function createBook() {
     const spread=element('div','desk-reader-book');
     const left=element('article','desk-reader-leaf is-left');
     const right=element('article','desk-reader-leaf is-right');
-    const turn=element('span','desk-reader-turn');
+    const turn=element('div','desk-reader-turn');
     turn.hidden=true;
     turn.setAttribute('aria-hidden','true');
-    const strips=Array.from({length:10},()=>element('span'));
-    turn.append(...strips);
+    const front=element('div','desk-reader-leaf desk-reader-turn-front');
+    const back=element('div','desk-reader-leaf desk-reader-turn-back');
+    turn.append(front,back);
     spread.append(left,right,turn);
+    let rendered='';
     let input:{id:number;x:number;y:number;drag?:DeskLeafDrag;ignore?:boolean}|undefined;
     spread.addEventListener('pointerdown',event=>{
       if (!event.isPrimary || event.button!==0) return;
@@ -243,23 +256,28 @@ function mountDeskReader(stage:HTMLElement, session:ReturnType<typeof mountDeskS
     spread.addEventListener('pointerup',event=>release(event,false));
     spread.addEventListener('pointercancel',event=>release(event,true));
     spread.addEventListener('lostpointercapture',event=>release(event,true));
-    return {spread,left,right,animate(leaf:DeskLeaf|undefined) {
-      turn.hidden=!leaf || leaf.progress<.015 || leaf.progress>.985;
-      if (!leaf || turn.hidden) return;
-      const backwards=leaf.direction==='back';
-      const direction=backwards ? -1 : 1;
-      turn.dataset.direction=leaf.direction;
-      const angle=Math.PI*leaf.progress, flex=Math.sin(angle);
-      let x=0, depth=0;
-      const section=turn.clientWidth/strips.length;
-      strips.forEach((strip,index)=>{
-        const u=(index+.5)/strips.length;
-        const bend=deskClamp(angle+flex*(1.05*(u-.32)-.32*Math.sin(Math.PI*u)),0,Math.PI);
-        strip.style.transform='translate3d('+(direction*x)+'px,0,'+depth+'px) rotateY('+(-direction*bend)+'rad)';
-        strip.style.setProperty('--strip-shade',String(.86+.14*Math.abs(Math.cos(bend))));
-        x+=Math.cos(bend)*section;
-        depth+=Math.sin(bend)*section;
-      });
+    return {spread,paint(committed:number, leaf:DeskLeaf|undefined) {
+      const key=committed+':'+(leaf?.direction??'');
+      if (rendered!==key) {
+        const faces=explorationStage.deskJournalFaces(committed,leaf?.direction);
+        writeJournalPage(left,'left',faces.left);
+        writeJournalPage(right,'right',faces.right);
+        if (leaf?.direction==='forward') {
+          writeJournalPage(front,faces.closed?'cover':'right',faces.front);
+          writeJournalPage(back,'left',faces.back);
+        } else if (leaf?.direction==='back') {
+          writeJournalPage(front,'left',faces.back);
+          writeJournalPage(back,faces.closed?'cover':'right',faces.front);
+        }
+        rendered=key;
+      }
+      left.style.visibility=committed===0 && (leaf?.progress??0)<=.56 ? 'hidden' : '';
+      turn.hidden=!leaf;
+      if (leaf) {
+        turn.dataset.direction=leaf.direction;
+        const angle=leaf.progress*(leaf.direction==='back'?180:-180);
+        turn.style.transform='rotateY('+angle+'deg)';
+      }
     },cancel(){
       const drag=input?.drag;
       const id=input?.id;
@@ -305,13 +323,12 @@ function mountDeskReader(stage:HTMLElement, session:ReturnType<typeof mountDeskS
       surface.inert=false;
       if (!wasOpen) {
         surface.style.transformOrigin=anchor.map(value=>100*value+'%').join(' ');
-        rotate=animatePart(surface,[{opacity:0,transform:'scale(.91)'},{opacity:1,transform:'none'}],260,60);
+        rotate=animatePart(surface,[{opacity:0,transform:'scale(.98)'},{opacity:1,transform:'none'}],160);
       }
       map?.dispose();
       map=undefined;
       book?.cancel();
       book=undefined;
-      seenSpread=-1;
       shownClue=undefined;
       content.replaceChildren();
       content.scrollTop=0;
@@ -326,16 +343,8 @@ function mountDeskReader(stage:HTMLElement, session:ReturnType<typeof mountDeskS
       title.textContent='会前手记';
       if (!book) {book=createBook();content.append(book.spread);}
       const index=Math.max(0,view.saved.spread-1);
-      if (seenSpread!==index) {
-        const leaf=explorationStage.deskNotebook[index];
-        book.left.replaceChildren(element('p','desk-reader-note',leaf.note),element('h3','',leaf.title),element('p','',leaf.finding));
-        const facts=element('dl','desk-reader-facts');
-        for (const [label,value] of leaf.rows) facts.append(element('dt','',label),element('dd','',value));
-        book.right.replaceChildren(facts,element('p','',leaf.detail));
-        seenSpread=index;
-      }
       const flight=view.preview?.kind==='page'?view.preview:undefined;
-      book.animate(flight);
+      book.paint(view.saved.spread,flight);
       pageLabel.textContent=(index+1)+' / '+deskSpreads;
       pageLabel.setAttribute('aria-label','第 '+(index+1)+' 页，共 '+deskSpreads+' 页');
       const blocked=view.saved.spread<=1 && (!flight || flight.direction==='back' || view.saved.spread===0);

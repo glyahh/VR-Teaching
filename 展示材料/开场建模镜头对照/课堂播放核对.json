@@ -1,0 +1,222 @@
+{
+  "opening_sha256": "4dbccab95b86c2a61f2d80c0d698e6d2ba9a5476523a1ddbdc8e43e745657345",
+  "single_file_sha256": {
+    "classroom": "d042ab6096a60e82255b659e137449e90f2113e5e080a733c184d33f1855b334",
+    "showcase": "d042ab6096a60e82255b659e137449e90f2113e5e080a733c184d33f1855b334",
+    "tested_preview": "d042ab6096a60e82255b659e137449e90f2113e5e080a733c184d33f1855b334"
+  },
+  "bytes_unchanged_outside_embedded_opening": 52036559,
+  "baseline_html_bytes": 83189563,
+  "current_html_bytes": 82237779,
+  "edge": "157.0.4341.46",
+  "offline_click_pause_resume_enter_passed": true,
+  "subtitle_checks": {
+    "viewport_pixels": [
+      [
+        1366,
+        768
+      ],
+      [
+        1440,
+        900
+      ]
+    ],
+    "matched_at": {
+      "19.5": "于都河上无固定桥，乡亲们卸下门板、划来渔船。",
+      "22.5": "连夜架起的浮桥上，大部队悄悄踏出长征第一步。",
+      "40.75": "出发时八万六千余人，过江后锐减至三万余人。",
+      "74.25": "1 月 15 日至 17 日，中央政治局在遵义召开扩大会议。",
+      "78.0": "1 月 15 日至 17 日，中央政治局在遵义召开扩大会议。",
+      "81.5": "危急关头，会议集中解决军事和组织问题。"
+    }
+  },
+  "join_mean_rgb_error_0_to_255": {
+    "first_vs_map": 2.48,
+    "last_vs_yudu_assembly": 2.36
+  },
+  "full_playback_with_other_tests": {
+    "seconds": 95,
+    "wall_ms": 95974.39999997616,
+    "dropped": 3,
+    "total": 2284,
+    "seen": [
+      {
+        "second": 17,
+        "subtitle": "于都河上无固定桥，乡亲们卸下门板、划来渔船。"
+      },
+      {
+        "second": 19.625,
+        "subtitle": "于都河上无固定桥，乡亲们卸下门板、划来渔船。"
+      },
+      {
+        "second": 22.416667,
+        "subtitle": "连夜架起的浮桥上，大部队悄悄踏出长征第一步。"
+      },
+      {
+        "second": 24,
+        "subtitle": "连夜架起的浮桥上，大部队悄悄踏出长征第一步。"
+      },
+      {
+        "second": 38,
+        "subtitle": ""
+      },
+      {
+        "second": 41.416667,
+        "subtitle": "出发时八万六千余人，过江后锐减至三万余人。"
+      },
+      {
+        "second": 43.708333,
+        "subtitle": ""
+      },
+      {
+        "second": 71.833333,
+        "subtitle": ""
+      },
+      {
+        "second": 74.5,
+        "subtitle": "1 月 15 日至 17 日，中央政治局在遵义召开扩大会议。"
+      },
+      {
+        "second": 77.416667,
+        "subtitle": "1 月 15 日至 17 日，中央政治局在遵义召开扩大会议。"
+      },
+      {
+        "second": 81.5,
+        "subtitle": "危急关头，会议集中解决军事和组织问题。"
+      },
+      {
+        "second": 84.125,
+        "subtitle": "一路受挫之后，这支队伍如何一步步走向转折？"
+      },
+      {
+        "second": 93,
+        "subtitle": "现在，我们回到于都河畔，亲手翻开这段历史。"
+      }
+    ],
+    "stalls": [],
+    "missed": [],
+    "edge": "157.0.4341.46",
+    "viewport": [
+      1366,
+      768
+    ],
+    "continued_to": "于都集结",
+    "browser_errors": []
+  },
+  "full_playback_separate_run": {
+    "seconds": 95,
+    "wall_ms": 95452.5,
+    "dropped": 0,
+    "total": 2284,
+    "seen": [
+      {
+        "second": 17,
+        "subtitle": "于都河上无固定桥，乡亲们卸下门板、划来渔船。"
+      },
+      {
+        "second": 19.625,
+        "subtitle": "于都河上无固定桥，乡亲们卸下门板、划来渔船。"
+      },
+      {
+        "second": 22.416667,
+        "subtitle": "连夜架起的浮桥上，大部队悄悄踏出长征第一步。"
+      },
+      {
+        "second": 24,
+        "subtitle": "连夜架起的浮桥上，大部队悄悄踏出长征第一步。"
+      },
+      {
+        "second": 38,
+        "subtitle": ""
+      },
+      {
+        "second": 41.416667,
+        "subtitle": "出发时八万六千余人，过江后锐减至三万余人。"
+      },
+      {
+        "second": 43.708333,
+        "subtitle": ""
+      },
+      {
+        "second": 71.833333,
+        "subtitle": ""
+      },
+      {
+        "second": 74.5,
+        "subtitle": "1 月 15 日至 17 日，中央政治局在遵义召开扩大会议。"
+      },
+      {
+        "second": 77.416667,
+        "subtitle": "1 月 15 日至 17 日，中央政治局在遵义召开扩大会议。"
+      },
+      {
+        "second": 81.5,
+        "subtitle": "危急关头，会议集中解决军事和组织问题。"
+      },
+      {
+        "second": 84.125,
+        "subtitle": "一路受挫之后，这支队伍如何一步步走向转折？"
+      },
+      {
+        "second": 93,
+        "subtitle": "现在，我们回到于都河畔，亲手翻开这段历史。"
+      }
+    ],
+    "stalls": [],
+    "missed": [],
+    "edge": "157.0.4341.46",
+    "viewport": [
+      1366,
+      768
+    ],
+    "continued_to": "于都集结",
+    "browser_errors": []
+  },
+  "click_to_first_frame": {
+    "edge": "157.0.4341.46",
+    "viewport": [
+      1366,
+      768
+    ],
+    "runs": {
+      "原版": [
+        {
+          "map_ready_ms": 1674,
+          "first_video_frame_ms": 733
+        },
+        {
+          "map_ready_ms": 1023,
+          "first_video_frame_ms": 607
+        },
+        {
+          "map_ready_ms": 1068,
+          "first_video_frame_ms": 582
+        }
+      ],
+      "新版": [
+        {
+          "map_ready_ms": 1443,
+          "first_video_frame_ms": 590
+        },
+        {
+          "map_ready_ms": 965,
+          "first_video_frame_ms": 601
+        },
+        {
+          "map_ready_ms": 993,
+          "first_video_frame_ms": 584
+        }
+      ]
+    },
+    "median": {
+      "原版": {
+        "map_ready_ms": 1068,
+        "first_video_frame_ms": 607
+      },
+      "新版": {
+        "map_ready_ms": 993,
+        "first_video_frame_ms": 590
+      }
+    }
+  }
+}

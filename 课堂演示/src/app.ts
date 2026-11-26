@@ -256,34 +256,12 @@ function chapterNav(current: number, jump: (index: number) => void) {
   return nav;
 }
 
-function mountStoryRail(label: string, steps: readonly StepItem[], onSelect: (step: StepItem) => void) {
-  const list = element('ol','story-rail');
-  list.setAttribute('aria-label',label);
-  const rows = steps.map(step => {
-    const row = element('li','story-stop');
-    const button = control('',()=>onSelect(step),'story-step');
-    if (step.date) button.append(element('time','',step.date));
-    button.append(element('strong','',step.title));
-    row.append(button);
-    list.append(row);
-    return {id: step.id,row,button};
-  });
-  return {
-    list,
-    refresh() {
-      for (const {id,row,button} of rows) {
-        row.dataset.revealed = String(revealed.has(id));
-        button.setAttribute('aria-pressed',String(activeSceneCue === id));
-      }
-    },
-  };
-}
-
 function openReview(conclusionPage = false) {
   releaseSceneLesson();
   disposePageEntry();
   releaseExplorationPage();
   releaseDesk();
+  releaseDeskPrewarm();
   releaseRecap();
   releaseOpeningOverlay();
   currentPractice = undefined;
@@ -299,7 +277,7 @@ function openReview(conclusionPage = false) {
   const header = element('header','top recap-top');
   const actions = element('div','top-actions');
   actions.append(soundButton());
-  actions.append(fullscreenButton(),lessonControl('map','地图',()=>renderMap(true),'','arrowLeft'));
+  actions.append(fullscreenButton(),lessonControl('map','返回地图',()=>renderMap(true),'','arrowLeft'));
   const title = element('h1','course-title',conclusionPage ? '全课结论' : '课堂回顾');
   title.tabIndex = -1;
   header.append(title,actions);
@@ -330,6 +308,7 @@ function renderMap(restoreFocus = false) {
   releaseMapCard = undefined;
   releaseExplorationPage();
   releaseDesk();
+  releaseDeskPrewarm();
   releaseRecap();
   releaseOpeningOverlay();
   currentPractice = undefined;
@@ -630,6 +609,7 @@ function renderOpening(autoplay = true) {
   disposePageEntry();
   releaseExplorationPage();
   releaseDesk();
+  releaseDeskPrewarm();
   releaseRecap();
   mapResize?.disconnect();
   currentPractice = undefined;
@@ -646,7 +626,7 @@ function renderOpening(autoplay = true) {
   const heading = element('header','scene-head');
   const title = element('h1','course-title','从于都到遵义');
   const actions = element('div','scene-actions');
-  const controls = element('div','opening-controls');
+  const controls = element('div','film-controls');
   const landing = photo('yudu-assembly','于都集结');
   void landing.decode().catch(()=>{});
   title.tabIndex = -1;
@@ -656,18 +636,37 @@ function renderOpening(autoplay = true) {
   stage.append(media);
   const player = attachVideo({mode:'opening',key:'opening'},'terrain',camera,controls);
   const openingVideo = camera.querySelector<HTMLVideoElement>('video');
-  if (openingVideo) mountOpeningOverlay(scene, openingVideo);
+  let autoEntry: number | undefined;
+  function cancelAutoEntry() {
+    window.clearTimeout(autoEntry);
+    autoEntry = undefined;
+  }
+  function enterClassroom() {
+    cancelAutoEntry();
+    if (!scene.isConnected) return;
+    player.pause();
+    openScene(0,'lesson',undefined,landing.complete && landing.naturalWidth ? landing : undefined);
+  }
+  if (openingVideo) {
+    mountOpeningOverlay(scene, openingVideo);
+    openingVideo.addEventListener('ended', () => {
+      cancelAutoEntry();
+      autoEntry = window.setTimeout(() => {
+        if (openingVideo.ended && !openingVideo.seeking) enterClassroom();
+      }, 2000);
+    });
+    openingVideo.addEventListener('play', cancelAutoEntry);
+    openingVideo.addEventListener('seeking', cancelAutoEntry);
+  }
   const backToMap = lessonControl('map','',()=>{
+    cancelAutoEntry();
     player.pause();
     renderMap(true);
   });
   setIconButton(backToMap,'地图','map');
   actions.append(controls,fullscreenButton(),backToMap);
   heading.append(title,actions);
-  const next = lessonControl('opening-next','进入课堂',()=>{
-    player.pause();
-    openScene(0,'lesson',undefined,landing.complete && landing.naturalWidth ? landing : undefined);
-  },'primary','arrowRight',true);
+  const next = lessonControl('opening-next','进入课堂',enterClassroom,'primary','arrowRight',true);
   controls.append(next);
   scene.append(stage,heading);
   app.replaceChildren(scene);
@@ -700,7 +699,9 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   const departingPage = currentView.kind === 'scene' ? chapterPages[currentView.position]?.page : null;
   const arriving = chapterPages[position].page;
   const spatial = departingPage ? findSpatialJourney(departingPage.title, arriving.title) : undefined;
-  const hallHandoff = arriving.activity === 'materials' ? captureHallHandoff() : undefined;
+  const deskDeparture = arriving.activity === 'materials' && departingPage?.video?.key === 'zunyi'
+    ? captureDeskDeparture() : undefined;
+  if (arriving.activity !== 'materials') releaseDeskPrewarm();
   const riverHandoff = arriving.image === 'yudu' ? captureExplorationView('yudu-river') : undefined;
   releaseSceneLesson();
   disposePageEntry();
@@ -754,6 +755,10 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   };
   let pauseVideo = () => {};
   const tools = element('div','scene-actions');
+  const riverTour = page.exploration === 'yudu-river'
+    ? mountRiverTour({scene, stage, tools, signal: lesson.signal})
+    : undefined;
+  if (riverTour) pauseVideo = riverTour.pause;
   if (page.video) {
     let movieAdvance: HTMLButtonElement | undefined;
     if (page.video.mode === 'transition') {
@@ -880,93 +885,40 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     });
   }
 
-  // ---- 4. Xiang River Force Curtain & Live Gauge (兵力对照) ----
   if (page.activity === 'troops') {
-    const afterImg = photo('xiang-aftermath','渡过湘江后回望江面');
-    afterImg.className = 'curtain-after';
-    camera.querySelector('.scene-spotlight')!.before(afterImg);
-    attachCinemagraph('xiang-aftermath', afterImg, 'curtain-after-motion');
-
-    const divider = element('div','curtain-divider');
-    divider.setAttribute('aria-hidden','true');
-    const handle = element('div','curtain-handle');
-    handle.append(svgIcon('moveHorizontal'));
-    divider.append(handle);
-    camera.append(divider);
-
-    const hud = element('aside','troop-hud classroom-sheet');
-    hud.setAttribute('aria-label','湘江前后兵力');
-    const troopRow = (term: 'before'|'after', date: string, label: string, amount: string, snap: number) => {
-      const row = lessonControl('scrub-'+term,'',()=>updateSplit(snap,true),'troop-hud-row');
-      row.dataset.term = term;
-      row.setAttribute('aria-label',label+' '+amount);
-      const top = element('span','troop-row-top');
-      const period = element('span','troop-period');
-      period.append(element('time','',date),element('span','',label));
-      top.append(period,element('strong','',amount));
-      const track = element('span','troop-track');
-      const bar = element('span','troop-bar');
-      bar.style.width = term === 'before' ? '100%' : '35%';
-      track.setAttribute('aria-hidden','true');
-      track.append(bar);
-      row.append(top,track);
-      return row;
-    };
-    const [before,after] = troopRecords;
-    const barBefore = troopRow('before',before.date,before.label,before.amount,86);
-    const barAfter = troopRow('after',after.date,after.label,after.amount,14);
-    const rangeInput = document.createElement('input');
-    rangeInput.type = 'range';
-    rangeInput.min = '8';
-    rangeInput.max = '92';
-    rangeInput.value = String(scrubValue);
-    rangeInput.className = 'curtain-range';
-    rangeInput.setAttribute('aria-label','对比长征出发与渡过湘江后兵力滑杆');
-
-    function updateSplit(val: number, broadcast = false) {
-      const clamped = Math.max(8, Math.min(92, Math.round(val)));
-      scrubValue = clamped;
-      rangeInput.value = String(clamped);
-      media.style.setProperty('--split', clamped + '%');
-      barBefore.dataset.focus = String(clamped >= 45);
-      barAfter.dataset.focus = String(clamped <= 55);
-      barBefore.setAttribute('aria-pressed',barBefore.dataset.focus);
-      barAfter.setAttribute('aria-pressed',barAfter.dataset.focus);
-    }
-
-    const comparison = element('div','troop-controls');
-    comparison.append(rangeInput,lessonControl('scrub-mid','并排',()=>updateSplit(50,true),'troop-center'));
-    rangeInput.addEventListener('input',()=>updateSplit(Number(rangeInput.value),true));
-
-    let curtainDrag: {id:number; x:number; y:number; active:boolean} | undefined;
-    const scrubPointer = (clientX: number) => {
-      const rect = media.getBoundingClientRect();
-      if (!rect.width) return;
-      updateSplit(((clientX - rect.left) / rect.width) * 100, true);
-    };
-    media.addEventListener('pointerdown', e => {
-      if (!e.isPrimary || e.button !== 0 ||
-        (e.target instanceof Element && e.target.closest('button,input,.troop-hud'))) return;
-      const active = e.target instanceof Node && handle.contains(e.target);
-      curtainDrag = {id:e.pointerId,x:e.clientX,y:e.clientY,active};
-      media.setPointerCapture(e.pointerId);
-      if (active) scrubPointer(e.clientX);
+    const approach = photo('xiang-ford');
+    approach.className = 'story-shot';
+    spotlight.before(approach);
+    const returnToBank = lessonControl('xiang-reflect', '回望渡口', () => {
+      if (!lesson.dismissPoint()) lesson.explain('xiang-reflection');
+    }, 'journey-control');
+    lesson.addCue('xiang-reflection', {
+      text: '有人留在险处，把过江的时间让给战友。渡江以后，红军要带着这些教训继续往前走。',
+      enter() {
+        approach.classList.add('is-current');
+        returnToBank.setAttribute('aria-pressed','true');
+        setButtonContent(returnToBank,'回到岸上');
+        soundscape.playSfx('route');
+      },
+      leave() {
+        approach.classList.remove('is-current');
+        returnToBank.setAttribute('aria-pressed','false');
+        setButtonContent(returnToBank,'回望渡口');
+      },
     });
-    media.addEventListener('pointermove', e => {
-      if (curtainDrag?.id !== e.pointerId) return;
-      if (curtainDrag.active || Math.hypot(e.clientX-curtainDrag.x,e.clientY-curtainDrag.y) > 7) {
-        curtainDrag.active = true;
-        scrubPointer(e.clientX);
+    returnToBank.setAttribute('aria-pressed','false');
+    const records = lessonControl('xiang-records','查兵力记录', () => {
+      const dates = element('dl','xiang-records');
+      for (const {date,label,amount} of troopRecords) {
+        const row = element('div');
+        row.append(element('dt','',date+' · '+label),element('dd','',amount));
+        dates.append(row);
       }
-    });
-    const finishCurtain = (e: PointerEvent) => { if (curtainDrag?.id === e.pointerId) curtainDrag = undefined; };
-    media.addEventListener('pointerup',finishCurtain);
-    media.addEventListener('pointercancel',finishCurtain);
-    media.addEventListener('lostpointercapture',finishCurtain);
-
-    hud.append(barBefore,barAfter,comparison);
-    stage.append(hud);
-    updateSplit(scrubValue, false);
+      modal('长征出发与渡过湘江后的兵力', dates,
+        element('p','','两组数字跨越从出发到渡江后的整段行程。其间的累计减员包含湘江战役前的损失。'),
+        element('p','xiang-record-source','出处：国防部《中国共产党领导红军主力开始长征》'));
+    },'journey-control');
+    tools.prepend(returnToBank, records);
   }
 
   // ---- 5. Liping Tabletop Perspective Map (进军方向) ----
@@ -1089,32 +1041,36 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   }
 
   if (liveDesk) {
-    currentDesk = mountDesk(stage,position,hallHandoff);
+    currentDesk = mountDesk(stage,position,deskDeparture);
     registerDismiss(()=>currentDesk?.dismiss());
   }
 
-  if (page.activity === 'wujiang-view') mountWujiangView(stage,tools);
+  if (page.activity === 'wujiang-view') mountWujiangView(stage,tools,near=>{
+    if (near) setCamera(59,73,1.32,true);
+    else setCamera();
+  });
 
-  if (page.activity === 'military' || page.activity === 'organization' || page.activity === 'result') lesson.mountItems(stage,page);
-
+  if (page.activity === 'military' || page.activity === 'result') {
+    lesson.mountItems(stage,page,mountStoryShots(camera,spotlight,page.steps));
+  }
+  if (page.activity === 'organization') {
+    const showFolder = mountOrganizationFolder(stage,()=>selectItem(page.steps[0].id));
+    const selectItem = lesson.mountItems(stage,page,showFolder);
+  }
   if (page.activity === 'houchang') {
-    const panel = element('aside','story-panel story-panel--right story-panel--chronology');
-    const rail = mountStoryRail('黎平至乌江',page.steps,step=>lesson.explain(step.id));
+    const showStop = mountHouchangMap(stage,page.steps,step=>lesson.explain(step.id));
     for (const step of page.steps) lesson.addCue(step.id,{
       text: step.detail,
       enter() {
         activeSceneCue = step.id;
         revealed.add(step.id);
-        rail.refresh();
+        showStop(step.id);
       },
       leave() {
         activeSceneCue = undefined;
-        rail.refresh();
+        showStop();
       },
     });
-    rail.refresh();
-    panel.append(rail.list);
-    stage.append(panel);
   }
 
   const navigation = element('div','scene-navigation');
@@ -1146,6 +1102,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     navigation.insertBefore(currentPractice.entry,next);
   }
   bottom.append(navigation);
+  if (riverTour) footer.append(riverTour.caption);
   footer.append(bottom);
   if (variant === 'lesson') footer.append(chapterNav(chapter,jump));
   scene.append(stage, heading, footer);
@@ -1199,7 +1156,10 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   lesson.enter(journey => {
     const finished = journey && playSpatialJourney(scene, journey, lesson.signal);
     startPageEntry(scene, [[identity,'left'],[tools,'right'],[footer,'bottom']],entranceImage,
-      {after: finished, onLayoutReady: lesson.start});
+      {after: finished, onLayoutReady: () => {
+        lesson.start();
+        if (page.video?.key === 'zunyi') prewarmDesk(stage,position+1);
+      }});
   }, spatial && !reducedMotion.matches ? { id: spatial, startedAt: sceneNow() } : undefined);
 
   function addHotspot(label: string, key: string, [x,y]: Point, cue: Pick<SceneCue,'text'|'enter'>, className = 'hotspot') {

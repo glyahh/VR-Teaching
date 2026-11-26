@@ -170,17 +170,19 @@ function printMaterial(title, rows, { stamp = '', kind = 'paper', paragraphs = [
       ctx.fillText(title[i], width * .76, height * .28 + i * 54);
     }
   } else if (!isDossier) {
-    ctx.fillStyle = '#34271c';
-    ctx.font = 'bold 73px SimSun, serif';
-    ctx.fillText(title, margin, 178, width - 2 * margin);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = '#9d7653';
-    ctx.beginPath();
-    ctx.moveTo(margin, 226);
-    ctx.lineTo(width - margin, 226);
-    ctx.stroke();
+    if (title) {
+      ctx.fillStyle = '#34271c';
+      ctx.font = 'bold 73px SimSun, serif';
+      ctx.fillText(title, margin, 178, width - 2 * margin);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#9d7653';
+      ctx.beginPath();
+      ctx.moveTo(margin, 226);
+      ctx.lineTo(width - margin, 226);
+      ctx.stroke();
+    }
 
-    let y = 324;
+    let y = title ? 324 : 178;
     for (const [label, value] of rows) {
       ctx.fillStyle = '#604c37';
       ctx.font = '37px Microsoft YaHei, sans-serif';
@@ -467,6 +469,22 @@ function moveLoose(mesh, at, lift, height, support) {
   mesh.geometry.computeBoundingSphere();
 }
 
+/** @param {'forward'|'back'} [direction] */
+export function deskJournalFaces(spread, direction) {
+  const current = Math.max(0, spread - 1);
+  const next = direction === 'forward';
+  const previous = direction === 'back';
+  const offset = next ? Number(spread > 0) : previous ? -1 : 0;
+  const destination = THREE.MathUtils.clamp(current + offset, 0, notebook.length - 1);
+  return {
+    left: previous ? destination : current,
+    right: next ? destination : current,
+    front: previous ? destination : current,
+    back: next ? destination : current,
+    closed: spread === 0 || previous && spread === 1,
+  };
+}
+
 export function createDeskPapers(scene, terrain) {
   const routeBoard = createRouteBoard(terrain);
   const textures = new Set();
@@ -493,7 +511,7 @@ export function createDeskPapers(scene, terrain) {
   const rightCover = remember(printMaterial('', [], {kind: 'dossier', grains}));
   const noteSlip = remember(printMaterial('摘录', [], {kind: 'folded', grains}));
   const neutralBack = remember(surface(0xd8c194, {side: THREE.BackSide, roughness: .91, bumpMap: grains.paper, bumpScale: .0012}));
-  const pages = notebook.map(page => remember(printMaterial(page.title, page.rows, {stamp: page.note, grains})));
+  const pages = notebook.map(page => remember(printMaterial('', page.rows, {stamp: page.note, grains})));
   const facingPages = notebook.map(page => remember(printMaterial(page.title, [], {
     paragraphs: [page.finding], grains,
   })));
@@ -594,18 +612,15 @@ export function createDeskPapers(scene, terrain) {
     const next = flip?.direction === 'forward';
     const hoverPage = !preview && (hoveredTarget === 'page-forward' || hoveredTarget === 'page-back');
     const turn = flip ? (next ? flip.progress : 1 - flip.progress) : spread === 0 ? 0 : 1;
-    const current = Math.max(0, spread - 1);
-    const destination = THREE.MathUtils.clamp(current + (next ? Number(spread > 0) : -1), 0, pages.length - 1);
+    const faces = deskJournalFaces(spread, flip?.direction);
     oppositeStack.visible = spread > 0 || !!flip && turn > .56;
-    leftPage.material = facingPages[flip && !next ? destination : current];
-    rightPage.material = pages[flip && next ? destination : current];
-    const closed = spread === 0 || flip && !next && spread === 1;
-    leaf.setSurface(closed ? leftCover : pages[flip && !next ? destination : current],
-      backPages[flip && next ? destination : current]);
-    rightPage.visible = !closed || !!flip;
+    leftPage.material = facingPages[faces.left];
+    rightPage.material = pages[faces.right];
+    leaf.setSurface(faces.closed ? leftCover : pages[faces.front], backPages[faces.back]);
+    rightPage.visible = !faces.closed || !!flip;
     leaf.face.visible = spread === 0 || !!flip;
     const previewLift = spread === 0 && hoverPage ? .024 : 0;
-    if (leaf.face.visible) leaf.bend(flip ? turn : previewLift,closed ? .72 : 1);
+    if (leaf.face.visible) leaf.bend(flip ? turn : previewLift,faces.closed ? .72 : 1);
     setEmissive(leftCover, hoveredTarget === 'page-forward' && spread === 0 ? hoverPulse : 0);
     setEmissive(rightPage.material, hoveredTarget === 'page-forward' && spread > 0 ? hoverPulse : 0);
     setEmissive(leftPage.material, hoveredTarget === 'page-back' && spread > 0 ? hoverPulse : 0);

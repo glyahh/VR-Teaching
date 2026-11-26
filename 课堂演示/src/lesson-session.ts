@@ -5,7 +5,6 @@ type VideoState = {mode:'static'|'paused'|'playing'; time:number; at?:number};
 let currentView: LessonView = {kind:'map'};
 let activeSceneCue: string | undefined;
 let currentVideo: ReturnType<typeof attachVideo> | undefined;
-let scrubValue = 50;
 let routeOffset = 0;
 let onStageDismiss: (()=>void) | undefined;
 

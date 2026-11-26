@@ -1,10 +1,11 @@
 from argparse import ArgumentParser
 from pathlib import Path
+import re
 from shutil import copyfile
 from tempfile import TemporaryDirectory
 from playwright.sync_api import expect, sync_playwright
-from exploration_input import drag, elapsed_frames, walk
-from course_checks import drag_desk, open_dossier
+from support.exploration_input import drag, elapsed_frames, walk
+from support.course_checks import drag_desk, open_dossier
 
 ROOT = Path(__file__).resolve().parents[1]
 COURSE = ROOT / "课堂演示" / "从于都到遵义-课堂演示.html"
@@ -22,47 +23,59 @@ def next_page(page):
     button(page, "下一页").click()
 
 
-def river(teacher):
+def river(teacher, output):
     button(teacher, "开始授课").click()
     button(teacher, "进入课堂").click()
     next_page(teacher)
     page_is(teacher, "岸边备桥")
     expect(teacher.locator(".probe-pin")).to_have_count(1)
     next_page(teacher)
+    page_is(teacher, "浮桥近景")
     button(teacher, "于都河岸").click()
+    expect(teacher.locator(".classroom-slide")).to_have_attribute("data-river-tour", "finished", timeout=30000)
+    button(teacher, "进入河岸").click()
     dock = teacher.locator("#river-tools")
-    for name in ("到桥头", "看桥下", "看架桥", "看夜渡", "看收桥"):
-        action = teacher.locator("#river-action")
-        expect(action).to_have_attribute("aria-label", name, timeout=12000)
-        action.click()
-    expect(dock).to_have_attribute("data-playback", "finished", timeout=12000)
+    expect(dock).to_have_attribute("data-observe", "", timeout=16000)
+    expect(dock.locator("#river-action")).to_be_hidden()
+    expect(dock.locator("#river-compare, #river-comparison")).to_have_count(0)
     read_pose = "() => {const {eye,target,zoom}=explorationActivity.read().state;return [eye,target,zoom]}"
     recall_view = teacher.evaluate(read_pose)
-    button(teacher, "分流对照").click()
-    expect(teacher.locator("#river-tools")).to_have_attribute("data-comparing", "")
-    allocation = teacher.locator("#river-allocation")
-    compare = teacher.locator("#river-run-comparison")
-    view = teacher.evaluate(read_pose)
-    compare.click()
-    teacher.wait_for_function("Number(document.querySelector('#river-tools').dataset.progress) > .12")
-    compare.click()
-    expect(teacher.locator("#river-tools")).to_have_attribute("data-playback", "paused")
-    compare.click()
-    expect(teacher.locator("#river-instruction")).to_have_text("未过河 6 组", timeout=13000)
-    for _ in range(6):
-        allocation.press("ArrowRight")
-    compare.click()
-    expect(teacher.locator("#river-instruction")).to_have_text("未过河 1 组", timeout=13000)
-    assert teacher.evaluate(read_pose) == view
-    expect(dock).to_have_attribute("data-progress", "1")
-    print("同机位显示一处通行与两处分流的不同候渡结果，暂停和续播通过", flush=True)
-    return recall_view
+    history = button(teacher, "史料")
+    history.click()
+    reading = teacher.locator("#reading")
+    expect(reading.get_by_role("heading", name="渡河计划")).to_be_visible()
+    expect(dock.locator("#river-instruction")).to_be_hidden()
+    expect(reading.locator(".river-plan-stats dd")).to_have_text(["8.6 万余人", "8 处", "5 座"])
+    expect(reading.locator(".river-plan-timeline")).to_contain_text("野战军南渡贡水计划表")
+    expect(reading.get_by_text("史料出处", exact=True)).to_have_count(0)
+    expect(reading).not_to_contain_text("课堂推演")
+    if output:
+        teacher.screenshot(path=output / "于都渡河计划.png", animations="disabled")
+    expect(button(teacher, "收桥后")).to_have_attribute("aria-pressed", "true")
+    button(teacher, "夜渡").click()
+    expect(reading).to_be_hidden()
+    expect(history).to_be_focused()
+    expect(dock.locator("#river-instruction")).to_contain_text("不同渡口")
+    assert teacher.evaluate(read_pose) == recall_view
+
+    history.click()
+    expect(button(teacher, "夜渡")).to_have_attribute("aria-pressed", "true")
+    button(teacher, "收桥后").click()
+    expect(reading).to_be_hidden()
+    expect(dock.locator("#river-instruction")).to_contain_text("拂晓前撤桥")
+    assert teacher.evaluate(read_pose) == recall_view
+
+    button(teacher, "看构件").click()
+    expect(button(teacher, "船体")).to_be_visible()
+    button(teacher, "纵梁").click()
+    expect(dock.locator("#river-instruction")).to_contain_text("纵梁")
+    dock.get_by_role("button", name="返回", exact=True).click()
+    expect(dock.locator("#river-instruction")).to_contain_text("拂晓前撤桥")
+    assert teacher.evaluate(read_pose) == recall_view
+    print("渡河计划面板、同机位夜渡和收桥后、构件查看与归位通过", flush=True)
 
 
-def journey_and_routes(teacher, recall_view):
-    teacher.locator("#river-allocation").press("Escape")
-    expect(teacher.locator("#river-tools")).not_to_have_attribute("data-comparing", "")
-    assert teacher.evaluate("() => {const {eye,target,zoom}=explorationActivity.read().state;return [eye,target,zoom]}") == recall_view
+def journey_and_routes(teacher, output):
     next_page(teacher)
     page_is(teacher, "夜渡于都河")
     expect(teacher.locator(".journey-departure")).to_have_count(1)
@@ -72,8 +85,23 @@ def journey_and_routes(teacher, recall_view):
     expect(layer.locator(".journey-route .past")).to_have_count(1)
     expect(layer.locator(".spatial-station").filter(has_text="湘江")).to_have_count(1)
     expect(layer).to_have_count(0)
-    for _ in range(4):
-        next_page(teacher)
+    next_page(teacher)
+    page_is(teacher, "湘江渡口")
+    next_page(teacher)
+    page_is(teacher, "湘江留下的启示")
+    expect(teacher.locator(".troop-hud")).to_have_count(0)
+    button(teacher, "回望渡口").click()
+    expect(teacher.locator("[data-activity=troops] .story-shot.is-current")).to_have_count(1)
+    if output:
+        expect(teacher.locator(".caption-copy")).to_contain_text("让给战友", timeout=9000)
+        teacher.screenshot(path=output / "湘江回望渡口.png", animations="disabled")
+    button(teacher, "回到岸上").click()
+    expect(teacher.locator("[data-activity=troops] .story-shot.is-current")).to_have_count(0)
+    button(teacher, "查兵力记录").click()
+    expect(teacher.get_by_role("dialog")).to_contain_text("累计减员包含湘江战役前的损失")
+    teacher.keyboard.press("Escape")
+    next_page(teacher)
+    next_page(teacher)
     page_is(teacher, "黎平翘街")
     expect(teacher.locator(".journey-layer")).to_have_count(0)
     next_page(teacher)
@@ -91,19 +119,35 @@ def journey_and_routes(teacher, recall_view):
     print("路线过场与桌图拖动通过", flush=True)
 
 
-def wujiang_and_desk(teacher):
+def wujiang_and_desk(teacher, output):
     next_page(teacher)
     page_is(teacher, "猴场会议")
+    expect(teacher.locator(".spatial-journey")).to_have_count(0, timeout=10000)
+    march = teacher.get_by_role("group", name="从黎平到乌江的行军图")
+    button(teacher, "抢渡乌江").click()
+    expect(march.locator(".houchang-ink")).to_have_attribute("d", re.compile(r"M .* L .* L .*"))
+    if output:
+        teacher.screenshot(path=output / "猴场桌图.png", animations="disabled")
+    button(teacher, "改向黔北").click()
+    expect(march.locator(".houchang-ink")).to_have_attribute("d", "")
     next_page(teacher)
     page_is(teacher, "渡过乌江")
+    expect(teacher.locator(".spatial-journey")).to_have_count(0, timeout=10000)
+    button(teacher, "走近江岸").click()
+    expect(teacher.locator(".scene-stage")).to_have_attribute("data-shore-view", "near")
+    button(teacher, "退回岸上").click()
+    expect(teacher.locator(".scene-stage")).to_have_attribute("data-shore-view", "wide")
     assert teacher.locator(".probe-pin").count() == 0
     button(teacher, "看地形").click()
     expect(teacher.locator(".wujiang-lens")).to_be_visible()
     expect(teacher.locator(".wujiang-lens .terrain-surface canvas")).to_be_visible()
+    expect(teacher.locator(".wujiang-landmark")).to_have_text(["猴场", "乌江", "遵义"])
     route = teacher.locator(".wujiang-lens path")
     top = route.get_attribute("d")
     button(teacher, "斜视").click()
     expect(route).not_to_have_attribute("d", top)
+    if output:
+        teacher.screenshot(path=output / "乌江三维地形.png", animations="disabled")
     next_page(teacher)
     hall_and_desk(teacher)
 
@@ -148,8 +192,11 @@ def hall_and_desk(teacher):
 def main():
     parser = ArgumentParser()
     parser.add_argument("--html", type=Path, default=COURSE)
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--desk-only", action="store_true", help="只验材料厅到会议桌的线索交接")
     args = parser.parse_args()
+    if args.output:
+        args.output.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory() as folder, sync_playwright() as playwright:
         lesson=Path(folder)/"lesson.html"
         copyfile(args.html,lesson)
@@ -168,10 +215,9 @@ def main():
                     hall_and_desk(teacher)
                     assert not errors,errors
                     return
-                recall_view=river(teacher)
-                expect(teacher.locator("#river-instruction")).to_have_text("未过河 1 组")
-                journey_and_routes(teacher,recall_view)
-                wujiang_and_desk(teacher)
+                river(teacher, args.output)
+                journey_and_routes(teacher, args.output)
+                wujiang_and_desk(teacher, args.output)
                 assert not errors,errors
 
 

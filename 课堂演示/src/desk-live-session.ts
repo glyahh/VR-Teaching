@@ -28,7 +28,6 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
   let focus:DeskFocus|undefined;
   let pointer:DeskPointer|undefined;
   let world:DeskWorld|undefined;
-  let pitchBeforeOverhead=0;
   let pageGoal=saved.spread;
   let objectFrame=0;
   let cameraFrame=0;
@@ -45,8 +44,9 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
     cancelAnimationFrame(paintFrame);
     paintFrame=0;
     const now=performance.now();
-    world?.draw(read(),reducedMotion.matches ? 0 : (now-ambientStart)*.001);
-    onChange(read());
+    const view=read();
+    world?.draw(view,reducedMotion.matches ? 0 : (now-ambientStart)*.001);
+    onChange(view);
   }
   function queueDraw() {
     if (!paintFrame) paintFrame=requestAnimationFrame(()=>redraw());
@@ -268,8 +268,8 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
     }
     redraw();
   }
-  function chooseMap(mode:DeskRouteMode, replay=false) {
-    if (disposed || reading?.kind!=='map' || (reading.mode===mode && !replay)) return;
+  function chooseMap(mode:DeskRouteMode) {
+    if (disposed || reading?.kind!=='map' || reading.mode===mode) return;
     clearObjectAnimation(true);
     saved={...saved,map:mode==='parallel' ? 'both' : mode,routeReading:mode};
     reading={kind:'map',mode,drawAt:Date.now()};
@@ -462,7 +462,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
   window.addEventListener('blur',blur);
 
   return {
-    read, turn, beginLeaf, dragLeaf, releaseLeaf, openReading, openMap, chooseMap, dismiss, zoom,
+    read, turn, beginLeaf, dragLeaf, releaseLeaf, openReading, openMap, chooseMap, dismiss,
     get world() {return world;},
     connect(next:DeskWorld) {
       world=next;
@@ -475,19 +475,6 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
       startAmbientLoop();
     },
     resize(width:number,height:number) {world?.resize(width,height);redraw();},
-    home() {
-      switchCamera(deskHome(),330);
-      frame.focus({preventScroll:true});
-    },
-    overhead() {
-      const target=saved.camera;
-      if (target.pitch>=13) switchCamera({...target,pitch:pitchBeforeOverhead},330);
-      else {
-        pitchBeforeOverhead=target.pitch;
-        switchCamera({...target,pitch:15},330);
-      }
-      frame.focus({preventScroll:true});
-    },
     leave() {
       window.removeEventListener('blur',blur);
       cancelAnimationFrame(ambientFrame);

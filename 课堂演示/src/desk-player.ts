@@ -1,39 +1,3 @@
-function playDeskHandoff(frame:HTMLElement, handoff:HallHandoff, poster:HTMLImageElement, target:[number,number]) {
-  const layer = element('div','desk-handoff');
-  layer.setAttribute('aria-hidden','true');
-  const outgoing = handoff.closeup ?? handoff.frame;
-  const landing = element('img');
-  landing.src = poster.src;
-  landing.alt = '';
-  landing.hidden = !handoff.anchor;
-  if (handoff.closeup) layer.append(handoff.frame);
-  layer.append(outgoing,landing);
-  frame.append(layer);
-  const point = (at: number[]) => (100*at[0])+'% '+(100*at[1])+'%';
-  const align = ([x,y]: number[]) => {
-    const scale = Math.max(1.46, .5 / Math.min(x,1-x,y,1-y));
-    return 'translate('+(50-x*100)+'%, '+(50-y*100)+'%) scale('+scale+')';
-  };
-  const remove = () => layer.remove();
-  if (handoff.anchor) {
-    outgoing.style.transformOrigin = point(handoff.anchor);
-    landing.style.transformOrigin = point(target);
-    animatePart(landing,[
-      {opacity:0,transform:align(target)}, {opacity:0,transform:align(target),offset:.3},
-      {opacity:1,transform:align(target),offset:.63},{opacity:1,transform:'none'},
-    ],820,0,'linear');
-  }
-  const motion = handoff.anchor ? [
-    {opacity:handoff.closeup ? 0 : 1,transform:'none'},
-    {opacity:1,transform:'none',offset:.21}, {opacity:1,transform:align(handoff.anchor),offset:.36},
-    {opacity:0,transform:align(handoff.anchor),offset:.64}, {opacity:0,transform:align(handoff.anchor)},
-  ] : [{opacity:1},{opacity:0}];
-  const fade = animatePart(outgoing,motion,handoff.anchor ? 820 : 320,0,'linear');
-  if (fade) void fade.finished.then(remove,remove);
-  else remove();
-}
-
-
 type DeskPlayer = {
   transport:HTMLElement;
   dismiss:()=>void;
@@ -45,6 +9,7 @@ let standaloneDesk=location.hash==='#desk';
 const deskHistory=new Map<string,DeskSaved>();
 
 function resetDeskHistory() {
+  releaseDeskPrewarm();
   deskHistory.clear();
   standaloneDesk=false;
 }
@@ -52,6 +17,49 @@ function resetDeskHistory() {
 function releaseDesk() {
   currentDesk?.dispose();
   currentDesk=undefined;
+}
+
+function deskPixels(stage:HTMLElement):[number,number] {
+  const width=Math.max(1,stage.clientWidth), height=Math.max(1,stage.clientHeight);
+  const scale=Math.min(devicePixelRatio,1.5,1600/width,1000/height);
+  return [Math.max(1,Math.round(width*scale)),Math.max(1,Math.round(height*scale))];
+}
+
+function prepareDesk(position:number, stage?:HTMLElement) {
+  const canvas=element('canvas','desk-live-canvas');
+  let pending:Promise<DeskWorld>|undefined;
+  let idle=0;
+  let released=false;
+  function start() {
+    if (idle) window.cancelIdleCallback(idle);
+    idle=0;
+    return pending ??= explorationStage.createDeskWorld(canvas,mediaAssets);
+  }
+  if (stage) {
+    idle=window.requestIdleCallback(()=>{
+      void start().then(world=>{
+        if (released || !stage.isConnected || !stage.clientWidth || !stage.clientHeight) return;
+        world.resize(...deskPixels(stage));
+        world.draw({saved:deskHistory.get('lesson:'+position)??freshDesk()});
+      }).catch(()=>{});
+    },{timeout:400});
+  }
+  return {position,canvas,start,dispose() {
+    released=true;
+    if (idle) window.cancelIdleCallback(idle);
+    if (pending) void pending.then(world=>world.dispose(),()=>{});
+  }};
+}
+
+let deskPrewarm:ReturnType<typeof prepareDesk>|undefined;
+function releaseDeskPrewarm() {
+  deskPrewarm?.dispose();
+  deskPrewarm=undefined;
+}
+function prewarmDesk(stage:HTMLElement, position:number) {
+  if (deskPrewarm?.position===position) return;
+  releaseDeskPrewarm();
+  deskPrewarm=prepareDesk(position,stage);
 }
 
 const deskHoverLabels:Readonly<Record<string,string|undefined>> = {
@@ -62,31 +70,26 @@ const deskHoverLabels:Readonly<Record<string,string|undefined>> = {
   overlay:'行军图 · 点击看路线，向右拖可折起',table:'',
 };
 
-function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):DeskPlayer {
+function mountDesk(stage:HTMLElement, position:number, outgoing?:HTMLCanvasElement|HTMLImageElement):DeskPlayer {
   const historyKey=(standaloneDesk?'standalone:':'lesson:')+position;
+  const prepared=deskPrewarm?.position===position ? deskPrewarm : prepareDesk(position);
+  if (prepared===deskPrewarm) deskPrewarm=undefined;
   const frame=element('div','desk-live-frame');
   frame.tabIndex=0;
   frame.dataset.space='loading';
   frame.setAttribute('aria-label','会前的桌边，三维观察区');
   const poster=photo('desk-front','遵义会议室桌边');
   poster.className='desk-live-still';
-  const canvas=element('canvas','desk-live-canvas');
+  frame.style.setProperty('--desk-poster','url("'+poster.src+'")');
+  const {canvas}=prepared;
   canvas.hidden=true;
+  if (outgoing) {
+    outgoing.className='desk-live-outgoing';
+    outgoing.setAttribute('aria-hidden','true');
+  }
   const pinLayer=element('div','desk-live-pins');
   const guide=element('p','desk-inquiry-cue scene-note');
   guide.hidden=true;
-  const tools=element('div','desk-orbit-tools');
-  tools.setAttribute('role','group');
-  tools.setAttribute('aria-label','桌面视角');
-  const zoomOut=control('−',()=>session.zoom(1/1.13),'desk-orbit-button');
-  const zoomIn=control('+',()=>session.zoom(1.13),'desk-orbit-button');
-  zoomOut.setAttribute('aria-label','拉远桌面');
-  zoomIn.setAttribute('aria-label','拉近桌面');
-  const home=control('',()=>session.home(),'desk-orbit-button desk-live-home');
-  setIconButton(home,'回到正面机位','reset');
-  const overhead=control('俯看',()=>session.overhead(),'desk-orbit-button desk-orbit-overhead');
-  overhead.setAttribute('aria-label','俯看桌面');
-  tools.append(overhead,zoomOut,zoomIn,home);
   const transport=element('div','desk-live-transport');
   const cluesGroup=element('div','desk-clue-pills');
   cluesGroup.hidden=true;
@@ -124,13 +127,11 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
       return {target,anchor};
     });
 
-  frame.append(poster,canvas,pinLayer,guide,tools);
+  frame.append(poster,canvas,pinLayer,guide);
+  if (outgoing) frame.append(outgoing);
   stage.append(frame);
   const session=mountDeskSession(frame,canvas,deskHistory.get(historyKey)??freshDesk(),paint);
   const reader=mountDeskReader(stage,session,dismiss);
-  if (handoff) requestAnimationFrame(()=>{
-    if (frame.isConnected) playDeskHandoff(frame,handoff,poster,anchors.dossier);
-  });
 
   function renderClues() {
     cluesGroup.hidden=!clues.length;
@@ -162,7 +163,11 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
   function pinPoint(object:DeskObject,target:DeskTarget,view:DeskView) {
     const mapTarget=object==='map' && view.saved.map!=='stored' ? 'overlay' : target;
     const result=session.world?.project(mapTarget,view);
-    return usablePoint(result) ? result : anchors[object];
+    if (usablePoint(result)) return result;
+    if (session.world) return undefined;
+    const scale=Math.min(frame.clientWidth/16,frame.clientHeight/9);
+    const [x,y]=anchors[object];
+    return [.5+(x-.5)*16*scale/Math.max(1,frame.clientWidth),.5+(y-.5)*9*scale/Math.max(1,frame.clientHeight)];
   }
   function readerAnchor(view:DeskView):Point {
     const reading=view.reading;
@@ -171,6 +176,7 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
       : reading.kind==='dossier' || reading.kind==='sheet' && reading.id==='discussion' ? 'dossier' : 'journal';
     const target=object==='map' ? 'map' : object==='dossier' ? 'right' : 'left';
     const point=pinPoint(object,target,view);
+    if (!point) return [.5,.55];
     const bounds=frame.getBoundingClientRect(), outer=stage.getBoundingClientRect();
     return outer.width && outer.height ? [
       (bounds.left-outer.left+point[0]*bounds.width)/outer.width,
@@ -217,12 +223,12 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
 
     const moving=!!preview && preview.kind!=='inspect';
     for (const {object,target,pin} of pins) {
-      pin.hidden=!!reading || moving;
+      const point=reading || moving || frame.dataset.space==='loading' ? undefined : pinPoint(object,target,view);
+      pin.hidden=!usablePoint(point);
       pin.dataset.seen=String(seen.includes(object));
       if (seen.includes(object)) pin.setAttribute('aria-description','已查看，可再次打开');
       else pin.removeAttribute('aria-description');
-      if (!pin.hidden) {
-        const point=pinPoint(object,target,view);
+      if (!pin.hidden && point) {
         const clearance=object==='map' && usable ? 29/Math.max(1,frame.clientWidth) : 0;
         setPosition(pin,[deskClamp(point[0]+clearance,.028,.972),deskClamp(point[1],.07,.93)]);
       }
@@ -237,11 +243,6 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
       }
     }
 
-    tools.hidden=!usable || !!reading;
-    zoomOut.setAttribute('aria-disabled',String(camera.zoom<=.921));
-    zoomIn.setAttribute('aria-disabled',String(camera.zoom>=1.279));
-    overhead.setAttribute('aria-pressed',String(camera.pitch>=13));
-    home.setAttribute('aria-disabled',String(Math.abs(camera.yaw)<.1 && Math.abs(camera.pitch)<.1 && Math.abs(camera.zoom-1)<.01));
     clueButtons.forEach((button,index)=>button.setAttribute('aria-pressed',String(
       reading?.kind==='clue' && reading.index===index || reading?.kind==='compare' && reading.clueIndex===index,
     )));
@@ -252,11 +253,8 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
   }
 
   function resize() {
-    const width=Math.min(stage.clientWidth,stage.clientHeight*16/9);
-    if (width<=0 || disposed) return;
-    frame.style.width=width+'px';
-    const pixels=Math.max(320,Math.min(1600,Math.round(width*Math.min(devicePixelRatio,1.5)/16)*16));
-    session.resize(pixels,pixels*9/16);
+    if (!stage.clientWidth || !stage.clientHeight || disposed) return;
+    session.resize(...deskPixels(stage));
   }
   const observer=new ResizeObserver(resize);
   observer.observe(stage);
@@ -264,18 +262,27 @@ function mountDesk(stage:HTMLElement, position:number, handoff?:HallHandoff):Des
     if (disposed) return;
     frame.dataset.space='fixed';
     canvas.hidden=true;
+    poster.hidden=false;
+    outgoing?.remove();
     session.releaseWorld();
     for (const {anchor} of targets) anchor.hidden=true;
     paint(session.read());
   }
   canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();fallback();});
-  explorationStage.createDeskWorld(canvas,mediaAssets).then(world=>{
+  void prepared.start().then(world=>{
     if (disposed) {world.dispose();return;}
+    world.resize(...deskPixels(stage));
+    session.connect(world);
     canvas.hidden=false;
     frame.dataset.space='ready';
-    session.connect(world);
-    resize();
-    animatePart(canvas,[{opacity:0},{opacity:1}],180);
+    paint(session.read());
+    if (outgoing) {
+      const remove=()=>outgoing.remove();
+      const fade=animatePart(outgoing,[{opacity:1},{opacity:0}],160);
+      if (fade) void fade.finished.then(remove,remove);
+      else remove();
+    }
+    poster.hidden=true;
   }).catch(fallback);
   renderClues();
   paint(session.read());
