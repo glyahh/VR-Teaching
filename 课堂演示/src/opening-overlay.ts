@@ -2,30 +2,43 @@ type OpeningCaptionCue = readonly [start: number, end: number, text: string];
 type OpeningBadgeCue = readonly [start: number, end: number, title: string, sub: string, side: 'left' | 'right'];
 
 const openingCaptions: readonly OpeningCaptionCue[] = [
-  [1.20, 4.59, '1934 年秋，第五次反“围剿”失败。'],
-  [4.98, 10.08, '中央红军主力被迫撤离苏区，踏上战略转移之路。'],
-  [10.88, 16.04, '十月中旬，八万六千余名将士在江西于都集结。'],
-  [16.38, 21.14, '于都河上无固定桥，乡亲们卸下门板、划来渔船。'],
-  [21.43, 26.04, '连夜架起的浮桥上，大部队悄悄踏出长征第一步。'],
-  [26.98, 32.46, '十一月底，红军在广西全州、兴安之间血战湘江。'],
-  [32.85, 37.62, '部队拼死突破第四道封锁线，却付出惨重代价。'],
-  [38.11, 42.85, '出发时八万六千余人，过江后锐减至三万余人。'],
-  [43.84, 48.63, '沉重的损失，迫使红军重新审视眼前的去路。'],
-  [49.02, 54.27, '原定北上湘西北与友军会合，前方却已布满重兵。'],
-  [54.66, 59.86, '12 月 18 日，黎平会议果断决定，改向黔北进军。'],
-  [60.70, 65.95, '1935 年元旦，猴场会议重申方针，催促部队北进。'],
-  [66.35, 71.77, '几天后，红军顶着天险急流强渡乌江，直指遵义。'],
-  [72.71, 78.11, '1 月 15 日至 17 日，中央政治局在遵义召开扩大会议。'],
-  [78.55, 82.76, '危急关头，会议集中解决军事和组织问题。'],
-  [83.65, 88.47, '一路受挫之后，这支队伍如何一步步走向转折？'],
-  [88.96, 93.45, '现在，我们回到于都河畔，亲手翻开这段历史。'],
+  [1.15, 3.11, '第五次反围剿失败后，'],
+  [3.11, 6.1351, '中央红军主力被迫撤离苏区。'],
+  [6.5551, 9.0392, '走之前，先要过于都河。'],
+  [10.55, 14.6298, '河上没有固定桥，乡亲们送来门板和木船。'],
+  [14.9698, 16.6197, '门板铺成桥面，'],
+  [16.6197, 18.7405, '木船在桥下托住纵梁。'],
+  [19.65, 24.155, '趁着夜色，大部队分批走上浮桥，开始了长征。'],
+  [25.85, 29.6866, '一路向西，红军接连突破三道封锁线。'],
+  [30.0866, 34.0792, '十一月底到了湘江，第四道封锁线就在面前。'],
+  [35.25, 38.0341, '主力拼死过了江，损失惨重。'],
+  [41.15, 46.0803, '出发时八万六千余人，渡过湘江后只剩三万余人。'],
+  [46.5403, 49.2909, '一路打下来，减员超过一半。'],
+  [50.45, 55.2881, '原定北上湘西北，同红二、红六军团会合。'],
+  [55.6881, 58.0179, '可敌军已在那里布下重兵。'],
+  [59.6, 62.4432, '刚闯过湘江，前面又被堵死。'],
+  [62.8232, 65.1953, '原来的路，还走得通吗？'],
+  [66.15, 69.3761, '十二月到了黎平，会上仍有争论。'],
+  [69.7761, 73.2239, '毛泽东主张改向敌军力量薄弱的贵州。'],
+  [74.6, 76.2212, '多数同志赞成。'],
+  [76.5612, 79.0012, '黎平会议决定向黔北进军，'],
+  [79.0012, 82.6081, '在以遵义为中心的川黔边建立根据地。'],
+  [84.35, 87.61, '元旦，猴场会议重申了这一决定，'],
+  [87.61, 89.5842, '部队随即向乌江推进。'],
+  [91.45, 94.1728, '红军强渡乌江，进驻遵义。'],
+  [94.5728, 97.1491, '行军方向，总算定下来了。'],
+  [98.4, 101.1951, '可一路受挫的根源，还没理清。'],
+  [101.6151, 105.0951, '遵义会议集中解决军事和组织问题，'],
+  [105.0951, 107.6733, '明确今后怎么打、由谁指挥。'],
+  [109.9, 113.8495, '三个月间，红军怎样一步步走向转折？'],
+  [114.3295, 117.6949, '现在回到于都，从出发的那一夜看起。'],
 ];
 
 const openingBadges: readonly OpeningBadgeCue[] = [
-  [6.60, 10.05, '中央苏区', '1934.10 · 战略转移', 'right'],
-  [43.65, 46.05, '贵州黎平', '1934.12', 'left'],
-  [69.75, 72.10, '乌江天险', '1935.01', 'left'],
-  [72.65, 76.35, '贵州遵义', '遵义会议会址', 'right'],
+  [6.6, 9.15, '中央苏区', '1934.10 · 战略转移', 'right'],
+  [60.6, 65.95, '贵州黎平', '1934.12', 'left'],
+  [93, 97.75, '乌江天险', '1935.01', 'left'],
+  [99.1, 104.7, '贵州遵义', '遵义会议会址', 'right'],
 ];
 
 const openingTimelineStops = [
@@ -40,6 +53,33 @@ let currentOpeningOverlayDispose: (() => void) | undefined;
 function releaseOpeningOverlay() {
   currentOpeningOverlayDispose?.();
   currentOpeningOverlayDispose = undefined;
+}
+
+function mountOpeningProgress(scene: HTMLElement, video: HTMLVideoElement, seek: (time: number) => void) {
+  const dock = element('div', 'opening-progress');
+  const range = element('input', 'opening-progress-range');
+  range.type = 'range';
+  range.min = '0';
+  range.step = '0.1';
+  range.setAttribute('aria-label', '片头播放进度');
+  dock.append(range);
+  scene.append(dock);
+
+  function sync() {
+    const available = !video.error && !video.hidden && Number.isFinite(video.duration) && video.duration > 0;
+    range.disabled = !available;
+    if (!available) return;
+    range.max = String(video.duration);
+    range.valueAsNumber = video.currentTime;
+    range.style.setProperty('--opening-progress-value', `${range.valueAsNumber / video.duration * 100}%`);
+  }
+
+  range.addEventListener('input', () => {
+    if (range.valueAsNumber !== video.currentTime) seek(range.valueAsNumber);
+    sync();
+  });
+  for (const event of ['durationchange', 'timeupdate', 'seeked', 'error']) video.addEventListener(event, sync);
+  sync();
 }
 
 function clamp01(v: number) {
@@ -121,8 +161,7 @@ function mountOpeningOverlay(scene: HTMLElement, video: HTMLVideoElement) {
   let lastCaption = '';
 
   function renderAt(t: number) {
-    const active = !video.hidden && t >= 0.55 && t <= 93.55;
-    if (!active) {
+    if (video.hidden) {
       prologue.hidden = true;
       badge.hidden = true;
       timeline.hidden = true;
@@ -134,11 +173,12 @@ function mountOpeningOverlay(scene: HTMLElement, video: HTMLVideoElement) {
     // 1. 字幕同步
     let subText = '';
     for (const [s, e, text] of openingCaptions) {
-      if (t >= s && t <= e) { subText = text; break; }
+      if (t >= s && t < e) { subText = text; break; }
     }
     if (subText !== lastCaption) {
       lastCaption = subText;
       caption.textContent = subText;
+      caption.style.setProperty('--opening-cue-glyph-scale', String(1 / (Math.max(1, [...subText].length) * 1.045)));
     }
     caption.hidden = !subText;
 
@@ -180,14 +220,14 @@ function mountOpeningOverlay(scene: HTMLElement, video: HTMLVideoElement) {
       badge.hidden = true;
     }
 
-    if (t >= 83.35 && t <= 88.45) {
-      const tLocal = t - 83.15;
+    if (t >= 108.70 && t <= 114.65) {
+      const tLocal = t - 108.50;
       const inP = easeOutCubic((tLocal - 0.20) / 0.45);
-      const outP = 1 - clamp01((t - 88.00) / 0.45);
+      const outP = 1 - clamp01((t - 114.20) / 0.45);
       const a = inP * outP;
       timeline.hidden = a <= 0.01;
       timeline.style.opacity = a.toFixed(3);
-      const elapsed = (tLocal - 0.45) / 3.70;
+      const elapsed = (tLocal - 0.45) / 4.50;
       const next = openingTimelineStops.findIndex(stop => elapsed < stop.frac);
       let progress = next < 0 ? 1 : 0;
       if (next > 0) {

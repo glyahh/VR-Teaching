@@ -1906,7 +1906,7 @@ def main() -> None:
     sound = parser.add_mutually_exclusive_group()
     sound.add_argument("--synthesize", action="store_true", help="按 opening-narration.tsv 重新合成男声旁白")
     sound.add_argument("--audio-from", type=Path, help="只改画面时，从原版 MP4 复制已经审过的完整 AAC 音轨")
-    parser.add_argument("--output", type=Path, default=ASSETS / "opening.mp4")
+    parser.add_argument("--output", type=Path, required=True, help="历史 95 秒版本的重建输出路径")
     args = parser.parse_args()
 
     sources = prepare_sources(args.source_dir, args.download, need_music=args.audio_from is None)

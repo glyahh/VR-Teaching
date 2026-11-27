@@ -649,6 +649,14 @@ function renderOpening(autoplay = true) {
   }
   if (openingVideo) {
     mountOpeningOverlay(scene, openingVideo);
+    mountOpeningProgress(scene, openingVideo, time => {
+      cancelAutoEntry();
+      if (openingVideo.ended && time < openingVideo.duration) {
+        void player.set({mode:'paused',time});
+      } else {
+        openingVideo.currentTime = time;
+      }
+    });
     openingVideo.addEventListener('ended', () => {
       cancelAutoEntry();
       autoEntry = window.setTimeout(() => {

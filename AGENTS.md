@@ -93,7 +93,7 @@
 - 遵义桌边精修场景的建模和材质准备脚本在 `课堂演示/media-source/desk-study/`。可编辑 Blender 工程、两个机位的渲染图及[素材来源与复建命令](展示材料/遵义会议室精修场景/场景与素材.md)在 `展示材料/遵义会议室精修场景/`。用 `Test/verify-desk-study.py` 从单独复制的工程重渲，验证贴图已内嵌。
 
 - 更新课件素材时，将运行文件放入 `课堂演示/assets/`。新增或更名时同步核对 `build.mjs` 的打包清单与场景中的资源键。素材说明记录画面和材料的制作类型，教学资料保留史料出处。重建后断网检查相关场景。
-- 「开始授课」先播放由 `课堂演示/media-source/make-opening.py` 剪出的约 95 秒开场纪实导览。自然播完停留 2 秒后进入于都集结，教师也可点「进入课堂」直接转入。回地图或重播时取消等待。开场计入地图导入时段，音频由主控播放。
+- 「开始授课」先播放 120 秒 OpenMotion 纪实导览。片头沿用原控件、云健旁白与底部单行字幕，按字幕长度和窗口宽度调字。进度条默认隐藏，鼠标悬停底部或用键盘聚焦时显示。拖动后画面、配音和字幕按同一时点播放或停留。自然播完停留 2 秒后进入于都集结，回地图、重播或拖回片中时取消等待。开场计入地图导入时段，音频由主控播放。
 - 片头湘江涉水镜头保留字幕与原声。四站时间轴的日期、圆点和站名共用网格，进度线在首末圆点的中心之间推进，抵达节点时点亮。用 `run opening` 在横屏与窄窗核对遮挡、逐站点亮及暂停续播。
 - 片头外部素材的来源、许可、分镜与离线重剪方式见[片头素材](课堂演示/media-source/opening-sources.md)。
 - 于都备桥短片由 `课堂演示/media-source/make-yudu-preparation.py` 剪辑。传入经核对的原始抬送视频和输出路径，产物为 `课堂演示/assets/yudu-preparation.mp4`。用单屏脚本检查 Edge 实际解码首尾帧、归位、暂停续播和回到浮桥的画面。
@@ -137,7 +137,7 @@ TypeScript、HTML 和构建脚本使用两个空格缩进。变量和函数用 `
 | 局部改动边界 | `node "Test/verify-lesson-scope.mjs" --base <任务起点> --allow <文件>` 核对文件范围。共享文件可用 `--range 文件:起行-止行` 限定基线区段，选定范围后实走相关入口。 |
 | 三维自由探索 | 按章检查可玩场景与实际动作。试不同顺序、直接操作和回看，观察学员能否从画面反馈理解先辈的处境与行动。 |
 | 自然美术与轻透界面 | 用实际机位从远近和侧后核对可见环境、比例、材质、光线和接触。在明暗背景下验透景、可读性、跟手响应和连贯性。 |
-| 影视衔接以实际课页为准。外部素材记录来源和许可，转场由画面、物件或声音承接。 | 开场用 `make-opening.py` 的分镜清单与片源校验，并保留 `opening-sources.md`。`python -B "Test/verify-course-media.py" --check-join opening terrain yudu-assembly` 核对开场的 Edge 解码首尾帧。各短片使用实际入图和出图的资源键，例如 `--check-join yudu-preparation yudu-bank yudu-bridge`。用正常速度验实际切换、讲解和暂停续播。 |
+| 影视衔接以实际课页为准。外部素材记录来源和许可，转场由画面、物件或声音承接。 | 开场分镜与素材见 `opening-sources.md`。`python -B "Test/verify-course-media.py" --check-join opening terrain yudu-assembly` 核对开场的 Edge 解码首尾帧。各短片使用实际入图和出图的资源键，例如 `--check-join yudu-preparation yudu-bank yudu-bridge`。用正常速度验实际切换、讲解和暂停续播。 |
 | 湘江渡口短片的首尾帧要与实际前后课页对齐。 | `Test/verify-xiang-crossing.py` 从真实翻页路径取「湘江河谷」和「湘江留下的启示」底图，直接与 Edge 解码帧比较。首或尾的平均 RGB 差超过 3/255，GitHub Actions 的湘江回归失败。 |
 
 长征课专属 CLI 位于 `Test/course_cli.py`。`doctor` 检查实际成品和 Edge，`run opening`、`run entry`、`run desk` 直接操作课件，`play` 执行指定的课堂操作文件。按[验收技能](.agents/skills/verify-long-march-course/SKILL.md)选择入口与证据目录。

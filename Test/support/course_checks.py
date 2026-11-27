@@ -2,7 +2,7 @@ from io import BytesIO
 
 from PIL import Image, ImageChops, ImageStat
 from playwright.sync_api import expect
-from course_cli import EXPLORATION_LOAD_TIMEOUT, SCREENSHOT_TIMEOUT
+from course_cli import EXPLORATION_LOAD_TIMEOUT, SCREENSHOT_TIMEOUT, VIDEO_COMPLETION_TIMEOUT
 from .lesson_rule_checks import narration, disclosures, journeys, controls
 
 
@@ -267,6 +267,9 @@ def opening(room, url):
     film = page.locator('.opening-page video')
     expect(film).to_be_visible()
     page.wait_for_function('document.querySelector(".opening-page video").currentTime > .4')
+    expect(film).to_have_js_property('duration', 120)
+    progress = page.get_by_role('slider', name='片头播放进度')
+    expect(progress).to_have_css('opacity', '0')
     button(page, '暂停短片').click()
     expect(film).to_have_js_property('paused',True)
     frozen = film.evaluate('video => video.currentTime')
@@ -279,13 +282,40 @@ def opening(room, url):
           video.currentTime = seconds;
         })''', seconds)
 
-    seek_to(41.2)
+    def drag_to(seconds):
+        box = progress.bounding_box()
+        y = box['y'] + box['height'] / 2
+        width = box['width'] - 12
+        current = float(progress.input_value())
+        page.mouse.move(box['x'] + 6 + width * current / 120, y)
+        expect(progress).to_have_css('opacity', '1')
+        page.mouse.down()
+        page.mouse.move(box['x'] + 6 + width * seconds / 120, y, steps=5)
+        page.mouse.up()
+        page.wait_for_function('t => { const video = document.querySelector(".opening-page video"); return !video.seeking && Math.abs(video.currentTime - t) < 1; }', arg=seconds)
+
+    drag_to(44)
     expect(page.locator('.opening-troops')).to_have_count(0)
     expect(page.locator('.opening-sub')).to_contain_text('出发时八万六千余人')
-    room.shot('湘江涉水与字幕')
+    expect(film).to_have_js_property('paused', True)
+    room.shot('拖动进度条与单行字幕')
+    page.mouse.move(20, page.viewport_size['height'] // 2)
+    expect(progress).to_have_css('opacity', '0')
+
+    button(page, '继续播放').click()
+    drag_to(54)
+    expect(film).to_have_js_property('paused', False)
+    button(page, '暂停短片').click()
+    page.mouse.move(20, page.viewport_size['height'] // 2)
+    progress.focus()
+    before_key = float(progress.input_value())
+    page.keyboard.press('ArrowRight')
+    assert float(progress.input_value()) > before_key
+    expect(progress).to_have_css('opacity', '1')
+    button(page, '继续播放').focus()
 
     timeline = page.locator('.opening-timeline')
-    for seconds, lit_count in ((84.2, 1), (85.4, 2), (86.1, 3), (87.5, 4)):
+    for seconds, lit_count in ((110.25, 1), (111.25, 2), (112.4, 3), (113.6, 4)):
         seek_to(seconds)
         expect(timeline).to_be_visible()
         expect(timeline.locator('[data-lit=true]')).to_have_count(lit_count)
@@ -314,10 +344,7 @@ def opening(room, url):
             assert layout['fill'] < stops[lit_count]['x'], layout
     room.shot('片头四站时间轴')
 
-    seek_to(86.1)
-    button(page, '继续播放').click()
-    expect(timeline.locator('[data-lit=true]')).to_have_count(4)
-    expect(timeline).to_be_hidden()
+    seek_to(112.4)
     film.evaluate('''video => {
       window.openingTiming = {};
       video.addEventListener('ended', () => {
@@ -330,29 +357,58 @@ def opening(room, url):
         observer.disconnect();
       });
       observer.observe(document.querySelector('#app'), {childList:true});
-      video.currentTime = video.duration - .7;
     }''')
+    button(page, '继续播放').click()
+    expect(timeline.locator('[data-lit=true]')).to_have_count(4)
+    expect(timeline).to_be_hidden()
+    page.wait_for_function('window.openingTiming.ended !== undefined', timeout=VIDEO_COMPLETION_TIMEOUT)
     expect(page.locator('.scene-head h1')).to_have_text('于都集结', timeout=5500)
     delay = page.evaluate('openingTiming.entered - openingTiming.ended')
     assert page.evaluate('openingTiming.holdsFrame')
     assert 1980 <= delay < 3300, delay
     room.shot('自动进入于都集结')
 
-    def start_near_end():
-        page.goto(url)
-        button(page, '开始授课').click()
-        page.wait_for_function('document.querySelector(".opening-page video").currentTime > .15')
+    def start_near_end(action):
+        if film.count():
+            button(page, '继续播放').click()
+        else:
+            if not button(page, '开始授课').count():
+                button(page, '地图').click()
+            button(page, '开始授课').click()
+        page.wait_for_function('''() => {
+          const video = document.querySelector('.opening-page video');
+          return video && !video.paused && video.currentTime > .15;
+        }''')
         expect(page.locator('.opening-page')).to_have_attribute('data-entry-phase', 'ready')
-        film.evaluate('video => { video.currentTime = video.duration - .4; }')
-        expect(film).to_have_js_property('ended', True)
+        # Act inside the two-second hold even when the test runner is under load.
+        film.evaluate('''(video, action) => {
+          window.openingTailAction = false;
+          video.addEventListener('ended', () => {
+            const scene = video.closest('.opening-page');
+            if (action === 'seek') {
+              const range = scene.querySelector('input[type=range]');
+              range.value = '44';
+              range.dispatchEvent(new Event('input', {bubbles: true}));
+            } else {
+              scene.querySelector(`button[data-lesson-action="${action}"]`).click();
+            }
+            window.openingTailAction = true;
+          }, {once:true});
+          video.currentTime = video.duration - .7;
+        }''', action)
+        page.wait_for_function('window.openingTailAction === true', timeout=VIDEO_COMPLETION_TIMEOUT)
 
-    start_near_end()
-    button(page, '地图').click()
+    start_near_end('seek')
+    expect(button(page, '继续播放')).to_be_visible()
+    page.wait_for_timeout(2200)
+    expect(film).to_have_js_property('paused', True)
+    expect(page.locator('.opening-sub')).to_contain_text('出发时八万六千余人')
+
+    start_near_end('map')
     page.wait_for_timeout(2200)
     expect(button(page, '开始授课')).to_be_visible()
 
-    start_near_end()
-    button(page, '重播').click()
+    start_near_end('video-playback')
     page.wait_for_function('''() => {
       const video = document.querySelector('.opening-page video');
       return video && !video.paused && video.currentTime > 2;
