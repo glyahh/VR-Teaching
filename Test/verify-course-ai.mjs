@@ -1,16 +1,15 @@
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { once } from 'node:events';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createCourseHarnessServer, resolveCourseAIConfig, signDeveloperGrant } from '../课堂演示/harness/course-ai-server.mjs';
-import { filterVerifiedSources, sanitizeDirectorActions } from '../课堂演示/harness/archive-knowledge.mjs';
+import { sanitizeDirectorActions } from '../课堂演示/harness/archive-knowledge.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const sources = ['fake-source', 'src-liping-turn', 'src-liping-turn'];
-assert.equal(filterVerifiedSources(sources).length, 1);
 assert.deepEqual(sanitizeDirectorActions([
   { type: 'navigate_page', pageTitle: '不存在的页面' },
   { type: 'open_desk_object', object: 'dossier' },
@@ -21,21 +20,16 @@ const replies = {
   director: {
     narration: '现在对照黎平的两条路线。',
     actions: [{ type: 'compare_liping_routes', side: 'both' }, { type: 'other' }],
-    citedSourceIds: sources,
   },
   sandbox: {
     trajectory: 'west-breakthrough', riskLevel: 'viable', chokeLabel: '方向节点', telegramTitle: '比较路线',
-    battlefieldOutcome: '比较当时条件。', historicalContrast: '黎平会议决定转向贵州北部。', citedSourceIds: sources,
-  },
-  debate: {
-    stage: 'rebuttal', verdictTitle: '核对证据', message: '结合两册卷宗回应原问题。',
-    followUpPrompt: '回看右册。', accepted: true, highlightDeskObject: 'dossier', dawnProgress: 1, citedSourceIds: sources,
+    battlefieldOutcome: '比较当时条件。', historicalContrast: '黎平会议决定转向贵州北部。',
   },
   recap: {
     title: '课堂复盘', subtitle: '课堂笔记', executiveSummary: '按实际轨迹查证。', journeyHighlights: [],
     decisionComparison: '比较既定安排与现场情况。',
     gridMapping: ['现场', '复核'].map(topic => ({ topic, principle: '现场查证', action: '补全证据' })),
-    discussionQuestions: ['如何查证？', '如何复核？'], citedSourceIds: sources,
+    discussionQuestions: ['如何查证？', '如何复核？'],
   },
 };
 
@@ -53,7 +47,6 @@ const stub = http.createServer(async (req, res) => {
   }
   const system = request.messages[0].content;
   const type = system.includes('1934 战地推演参谋') ? 'sandbox'
-    : system.includes('会场历史质询员') ? 'debate'
       : system.includes('复盘架构师') ? 'recap' : 'director';
   const value = prompt.includes('格式故障') ? { actions: [] } : replies[type];
   res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -64,19 +57,31 @@ const stub = http.createServer(async (req, res) => {
   }));
 });
 await new Promise(resolve => stub.listen(0, '127.0.0.1', resolve));
+const work = path.join(root, '.march-build');
+mkdirSync(work, { recursive: true });
+const memoryScratch = mkdtempSync(path.join(work, 'director-memory-'));
 const options = {
   port: 0,
   baseUrl: `http://127.0.0.1:${stub.address().port}/v1`,
   model: 'fixture-model',
   apiKey: 'fixture-key',
   disableThinking: true,
+  directorMemoryPath: path.join(memoryScratch, 'sessions.sqlite'),
 };
-const gateway = await createCourseHarnessServer(options);
+let gateway = await createCourseHarnessServer(options);
 const { accessToken } = resolveCourseAIConfig(options);
 try {
   const health = await (await fetch(`${gateway.url}/api/course-ai/health`)).json();
   assert.equal(health.engine, 'vercel-ai-sdk');
   assert.equal(health.model, options.model);
+  const readiness = `${gateway.url}/api/course-ai/ready`;
+  assert.equal((await fetch(readiness)).status, 401);
+  assert.equal((await fetch(`${gateway.url}/api/course-ai/director/voice`, {
+    method: 'POST', headers: { Authorization: `Bearer ${accessToken}` },
+  })).status, 404);
+  const ready = await fetch(readiness, { headers: { Authorization: `Bearer ${accessToken}` } });
+  assert.deepEqual(await ready.json(), { ok: true, ready: true });
+  assert.equal(upstreamCalls.length, 0);
   const attach = (nonce, expiresAt, token = accessToken) => fetch(`${gateway.url}/api/course-ai/dev/attach`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -104,17 +109,12 @@ try {
 
   const director = await (await post('director', { utterance: '对照路线' })).json();
   assert.deepEqual(director.actions, [{ type: 'compare_liping_routes', side: 'both' }]);
-  assert.equal(director.citedSources.length, 1);
+  assert.equal(Object.hasOwn(director, 'citedSources'), false);
   const sandbox = await (await post('sandbox', { proposal: '比较历史约束' })).json();
   assert.equal(sandbox.hypothesisTag, '假设推演 · 非真实史实');
   assert.equal(sandbox.historicalContrast, replies.sandbox.historicalContrast);
   assert.ok(sandbox.mapPath.length >= 2);
-  const debate = await (await post('zunyi-debate', {
-    stage: 'rebuttal', argument: '说明组织保障', question: '原问题', seenObjects: ['journal', 'dossier'],
-  })).json();
-  assert.equal(debate.accepted, true);
-  assert.equal(debate.dawnProgress, 1);
-  assert.match(upstreamCalls.at(-1).request.messages.at(-1).content, /本轮质询：原问题/);
+  assert.equal((await post('zunyi-debate', {})).status, 410);
   const report = await (await post('recap-report', {
     roleTrack: '特高压运维', trace: { visitedPages: ['于都集结'] },
   })).json();
@@ -126,7 +126,7 @@ try {
   const limited = await post('director', { utterance: '额度故障' });
   assert.equal(limited.status, 429);
   assert.equal((await limited.json()).code, 'MODEL_QUOTA');
-  assert.equal(upstreamCalls.length, 6);
+  assert.equal(upstreamCalls.length, 5);
   for (const call of upstreamCalls) {
     assert.equal(call.authorization, 'Bearer fixture-key');
     assert.equal(call.url, '/v1/chat/completions');
@@ -135,22 +135,70 @@ try {
     assert.match(call.request.messages[0].content, /JSON Schema/);
     assert.equal(call.request.tools, undefined);
   }
+
+  const sessionId = randomUUID();
+  const readHistory = async id => (await (await post('director/history', { sessionId: id })).json()).turns;
+  assert.equal((await post('director/history', { sessionId }, '')).status, 401);
+  assert.equal((await post('director/history', { sessionId: 'invalid' })).status, 400);
+  assert.deepEqual(await readHistory(sessionId), []);
+  for (let i = 0; i < 14; i++) {
+    assert.equal((await post('director', { sessionId, utterance: `对照路线 ${i}` })).status, 200);
+  }
+  assert.equal((await post('director', { sessionId, utterance: '格式故障' })).status, 502);
+  await gateway.close();
+  gateway = await createCourseHarnessServer(options);
+  const saved = await readHistory(sessionId);
+  assert.deepEqual(saved, Array.from({ length: 14 }, (_, i) => ({
+    utterance: `对照路线 ${i}`, narration: replies.director.narration,
+  })));
+  assert.deepEqual(await readHistory(randomUUID()), []);
+
+  assert.equal((await post('director', { sessionId, utterance: '刚才那两条怎么走', currentPageTitle: '进军方向' })).status, 200);
+  const { messages, tools } = upstreamCalls.at(-1).request;
+  assert.equal(tools, undefined);
+  assert.deepEqual(messages.slice(1, -1).filter(message => message.role === 'user').map(message => message.content),
+    Array.from({ length: 12 }, (_, i) => `对照路线 ${i + 2}`));
+  assert.deepEqual(JSON.parse(messages.at(-2).content), {
+    narration: replies.director.narration, actions: [{ type: 'compare_liping_routes', side: 'both' }],
+  });
+  assert.match(messages.at(-1).content, /当前页面：进军方向.*\n讲师\/学员口令：刚才那两条怎么走/);
+  const fixtureFiles = [{ name: '课堂资料.txt', text: '仅供测试的资料词：银杏工位' }];
+  assert.equal((await post('director', { sessionId, utterance: '阅读附件', attachments: fixtureFiles })).status, 200);
+  assert.ok(upstreamCalls.at(-1).request.messages.at(-1).content.includes(JSON.stringify(fixtureFiles)));
+  assert.equal((await post('director', { sessionId, utterance: '阅读附件',
+    attachments: [{ name: '课堂资料.txt', text: '大'.repeat(1400) }] })).status, 413);
+  assert.equal((await post('director', { sessionId, utterance: '阅读附件',
+    attachments: [{ name: '../资料.txt', text: '无效路径' }] })).status, 400);
+  assert.equal((await post('director', { sessionId, utterance: '打开课堂回顾',
+    classroom: { sessionId: randomUUID(), interactionId: randomUUID() } })).status, 400);
+  const native = await createCourseHarnessServer({ ...options, jsonSchemaOutput: true, directorMemoryPath: ':memory:' });
+  try {
+    const response = await fetch(`${native.url}/api/course-ai/sandbox`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ proposal: '验证原生结构化输出' }),
+    });
+    assert.equal(response.status, 200);
+    const format = upstreamCalls.at(-1).request.response_format;
+    assert.equal(format.type, 'json_schema');
+    assert.equal(format.json_schema.strict, false);
+  } finally {
+    await native.close();
+  }
 } finally {
   await gateway.close();
   stub.closeAllConnections();
   await new Promise(resolve => stub.close(resolve));
+  rmSync(memoryScratch, { recursive: true, force: true });
 }
 
 // 隔离启动器文件和日志，避免影响本机正在运行的课堂网关。
-const work = path.join(root, '.march-build');
-mkdirSync(work, { recursive: true });
 const scratch = mkdtempSync(path.join(work, 'course-ai-launch-'));
 let launchedPid;
 try {
   const course = path.join(scratch, '课堂演示');
   const harness = path.join(course, 'harness');
   mkdirSync(harness, { recursive: true });
-  for (const name of ['launch-course.mjs', 'course-ai-server.mjs', 'archive-knowledge.mjs']) {
+  for (const name of ['launch-course.mjs', 'course-ai-server.mjs', 'archive-knowledge.mjs', 'course-context.mjs']) {
     copyFileSync(path.join(root, '课堂演示', 'harness', name), path.join(harness, name));
   }
   const windowsEntry = path.join(scratch, '启动入口', 'Windows');

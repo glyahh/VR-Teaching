@@ -14,3 +14,4 @@ node_modules/
 /课堂演示/harness/course-ai.config.json
 /课堂演示/harness/.harness.log
 /课堂演示/harness/.activation/
+/课堂演示/harness/.director-memory/

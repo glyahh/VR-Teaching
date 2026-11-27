@@ -499,6 +499,7 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
   }
 
   const header = shell.querySelector<HTMLElement>('.recap-top')!;
+  const disposeDirectorTrigger = courseHarness.mountDirectorTrigger(shell, header.querySelector<HTMLElement>('.top-actions')!);
   function positionCard() {
     stage.style.setProperty('--recap-card-top', header.offsetHeight + 12 + 'px');
     stage.style.setProperty('--recap-footer-height', footer.offsetHeight + 'px');
@@ -549,6 +550,7 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
 
   currentRecapDispose = () => {
     disposed = true;
+    disposeDirectorTrigger();
     disposeRecapReport();
     cancelAnimationFrame(rafId);
     finale?.dispose();

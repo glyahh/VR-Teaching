@@ -291,6 +291,8 @@ function beginLesson() {
   recapFocusIndex = null;
   completedPractices.clear();
   courseHarness.resetTrace();
+  courseHarness.resetDirectorSession();
+  courseDeskMaterials.clear();
   visitedExplorations.clear();
   lastViewed.clear();
   routeOffset = 0;

@@ -129,8 +129,8 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
 
   let practiceFocus = '';
   let showPracticeReference: ((focus: PracticeQuestion['focus']) => void) | undefined;
-  let openTroopRecords: (() => void) | undefined;
-  let compareLipingRoutes: ((side: 'east' | 'west' | 'both') => void) | undefined;
+  let openTroopRecords: (() => boolean) | undefined;
+  let compareLipingRoutes: ((side: 'east' | 'west' | 'both') => boolean) | undefined;
   let disposeSandbox: (() => void) | undefined;
   const directorBanner = courseHarness.mountDirectorBanner(stage);
   const disposeDirectorTrigger = courseHarness.mountDirectorTrigger(scene, tools);
@@ -214,11 +214,13 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
         dates.append(row);
       }
       modal('长征出发与渡过湘江后的兵力', dates,
-        element('p','','两组数字跨越从出发到渡江后的整段行程。其间的累计减员包含湘江战役前的损失。'),
-        element('p','xiang-record-source','出处：国防部《中国共产党领导红军主力开始长征》'));
+        element('p','','两组数字跨越从出发到渡江后的整段行程。其间的累计减员包含湘江战役前的损失。'));
     },'journey-control');
     tools.prepend(returnToBank, records);
-    openTroopRecords = () => records.click();
+    openTroopRecords = () => {
+      records.click();
+      return dialog.open && Boolean(dialog.querySelector('dl.xiang-records'));
+    };
   }
 
   // ---- 5. Liping Tabletop Perspective Map (进军方向) ----
@@ -301,11 +303,14 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
       paper,
       svg,
       deck,
-      onRestoreRealRoute: () => btnWest.click(),
+      onRestoreRealRoute: () => {
+        btnWest.click();
+        return btnWest.getAttribute('aria-pressed') === 'true';
+      },
     });
     compareLipingRoutes = side => {
-      if (side === 'east') { btnEast.click(); return; }
-      if (side === 'west') { btnWest.click(); return; }
+      if (side === 'east') { btnEast.click(); return btnEast.getAttribute('aria-pressed') === 'true'; }
+      if (side === 'west') { btnWest.click(); return btnWest.getAttribute('aria-pressed') === 'true'; }
       recordLessonProgress(revealed, 'direction-east');
       recordLessonProgress(revealed, 'direction-west');
       comparing = true;
@@ -315,6 +320,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
       appear(eastNode, 260, 240);
       appear(westNode, 340, 240);
       directionNote('directions-both');
+      return comparing;
     };
 
     function updateMarch(progress: number, broadcast = false) {
@@ -433,7 +439,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     focusHotspot: key => lesson.explain(key),
     compareLiping: compareLipingRoutes,
     openTroopRecords,
-    showDirectorBanner: (text, cites) => directorBanner.show(text, cites),
+    showDirectorBanner: text => directorBanner.show(text),
   });
   lesson.signal.addEventListener('abort', () => {
     disposeDirectorTrigger();

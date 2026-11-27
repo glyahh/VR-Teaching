@@ -8,6 +8,10 @@ export function assertDemoTemplate(template) {
 
 const presentationRules = [
   {
+    matches: /(?:史料|文献|权威)出处|参考文献|依据《中国共产党简史》|\b(?:xiang-record-source|practice-source|sandbox-cite|harness-director-banner-cite)\b/u,
+    fix: '删除历史文献引用，保留教学材料及其统计口径。',
+  },
+  {
     matches: /(?:情[境景]|场景|路线|构图)示意|(?:教学)?情[境景]复原|已探查|已拼入/u,
     fix: '删除画面里的说明性标签，将来源与制作类型记录到素材说明。',
   },

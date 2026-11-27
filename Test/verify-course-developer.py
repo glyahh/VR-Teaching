@@ -69,14 +69,32 @@ def main():
         expect(panel).to_be_hidden()
         lesson_action(page, 'ai-director').click()
         dock = page.locator('.harness-director-bar')
-        dock.locator('.harness-input').fill('打开黎平的「进军方向」课页。')
+        question = '打开黎平的「进军方向」课页，并对照当时的两条路线。'
+        dock.locator('.harness-input').fill(question)
         with page.expect_response(lambda response: response.url.endswith('/api/course-ai/director'), timeout=45000) as reply:
             dock.locator('.harness-submit').click()
-        assert reply.value.ok, f'模型接口返回 HTTP {reply.value.status}'
+        assert reply.value.ok, f'模型接口返回 HTTP {reply.value.status}: {reply.value.json().get("code")}'
+        expect(lesson_action(page, 'director-confirm')).to_be_visible()
+        narration = dock.locator('[data-current-message] .harness-status-line').inner_text()
+        expect(page.locator('h1')).to_have_text('岸边备桥')
+        lesson_action(page, 'director-confirm').click()
         expect(page.locator('h1')).to_have_text('进军方向')
         page.screenshot(path=output / '真实模型联动.png')
+        lesson_action(page, 'ai-director').click()
+        expect(dock.locator('.harness-director-user').first).to_have_text(question)
+        expect(dock.locator('.harness-status-line').first).to_have_text(narration)
+        expect(lesson_action(page, 'director-confirm')).to_be_hidden()
+        dock.locator('.harness-input').fill('刚才那两条各自往哪里走？请只回答，保持当前课页。')
+        with page.expect_response(lambda response: response.url.endswith('/api/course-ai/director'), timeout=45000) as follow_up:
+            dock.locator('.harness-submit').click()
+        assert follow_up.value.ok, f'追问接口返回 HTTP {follow_up.value.status}: {follow_up.value.json().get("code")}'
+        expect(dock.locator('[data-current-message] .harness-status-line')).to_have_text(
+            re.compile(r'(?=.*湘西北)(?=.*(?:黔北|贵州北部))'))
+        expect(lesson_action(page, 'director-confirm')).to_be_hidden()
+        expect(page.locator('h1')).to_have_text('进军方向')
+        page.screenshot(path=output / '真实模型跨页续问.png', animations='disabled')
         report = {'passed': True, 'browser': browser.version, 'same_tab': True, 'same_progress': True,
-                  'protocol_dispatched_by_windows_shell': True, 'real_model': True}
+                  'protocol_dispatched_by_windows_shell': True, 'real_model': True, 'cross_page_memory': True}
         (output / 'report.json').write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
         print(output / 'report.json')
         browser.close()

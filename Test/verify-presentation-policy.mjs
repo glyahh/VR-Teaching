@@ -17,7 +17,9 @@ for (const source of previousMarkup) {
   assert.throws(()=>assertPresentationSource('旧课件片段',source), /删除画面|共用圆点|课页的 addHotspot|逐项展开|步骤箭头/);
 }
 assert.doesNotThrow(()=>assertPresentationSource('必要材料和提示',
-  "element('p','','依据《中国共产党简史》整理。'); syncScenePoint('boat','船体',open,'hotspot');"));
+  "element('p','','两组数字对应不同统计时点。'); syncScenePoint('boat','船体',open,'hotspot');"));
+assert.throws(()=>assertPresentationSource('文献引用', "element('p','','依据《中国共产党简史》整理。')"),
+  /删除历史文献引用/);
 await assertPresentationDirectory(new URL('../课堂演示/src/',import.meta.url));
 await assertPresentationDirectory(new URL('../课堂演示/自由探索实验/',import.meta.url));
 console.log(`旧课件的 ${previousMarkup.length} 个回归片段均被拦截，当前两套界面源码通过检查。`);

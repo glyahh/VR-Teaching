@@ -3,5 +3,15 @@
   "model": "deepseek-v4.1-flash",
   "apiKey": "",
   "port": 4318,
-  "disableThinking": false
+  "disableThinking": false,
+  "context": {
+    "inputLimit": 16000,
+    "modelWindow": 32768,
+    "safetyMargin": 1024,
+    "recentTurns": 2,
+    "summaryEnabled": true,
+    "summaryThreshold": 16000,
+    "summaryTarget": 12000,
+    "summaryTimeoutMs": 5000
+  }
 }

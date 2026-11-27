@@ -61,7 +61,7 @@ function saveLessonProgress() {
       version: 1, view: currentView, selectedChapter, reviewConclusion, reviewAnswer, recapFocusIndex,
       lastViewed: [...lastViewed], revealed: [...revealed], seen: [...lessonItemsSeen],
       practices: [...completedPractices], harnessTrace: courseHarness.getTrace(), explorations: [...visitedExplorations],
-      halls: retainedHallClues, reviewSteps: [...reviewSteps],
+      halls: retainedHallClues, reviewSteps: [...reviewSteps], deskMaterials: [...courseDeskMaterials],
     }));
   } catch {}
 }
@@ -105,6 +105,9 @@ function restoreLessonProgress() {
   }
   for (const key of list(data.revealed).filter(string)) revealed.add(key);
   for (const key of list(data.seen).filter(string)) lessonItemsSeen.add(key);
+  for (const item of list(data.deskMaterials)) {
+    if (item === 'journal' || item === 'dossier' || item === 'map') courseDeskMaterials.add(item);
+  }
   for (const id of list(data.practices).filter(practiceId)) completedPractices.add(id);
   courseHarness.restoreTrace(data.harnessTrace);
   for (const id of list(data.explorations).filter(explorationId)) visitedExplorations.add(id);

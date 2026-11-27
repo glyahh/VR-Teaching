@@ -1,6 +1,6 @@
 type DeskPlayer = {
   transport:HTMLElement;
-  openObject:(object:DeskObject)=>void;
+  openObject:(object:DeskObject)=>boolean;
   dismiss:()=>void;
   dispose:()=>void;
 };
@@ -8,6 +8,7 @@ type DeskPlayer = {
 let currentDesk:DeskPlayer|undefined;
 let standaloneDesk=location.hash==='#desk';
 const deskHistory=new Map<string,DeskSaved>();
+const courseDeskMaterials = new Set<DeskObject>();
 
 function resetDeskHistory() {
   releaseDeskPrewarm();
@@ -134,22 +135,15 @@ function mountDesk(stage:HTMLElement, position:number, outgoing?:HTMLCanvasEleme
   frame.append(poster,canvas,pinLayer,guide);
   if (outgoing) frame.append(outgoing);
   stage.append(frame);
-  const session=mountDeskSession(frame,canvas,deskHistory.get(historyKey)??freshDesk(),paint);
+  const savedDesk = deskHistory.get(historyKey) ?? freshDesk();
+  const session=mountDeskSession(frame,canvas,standaloneDesk ? savedDesk
+    : { ...savedDesk, seen: [...new Set([...(savedDesk.seen ?? []), ...courseDeskMaterials])] },paint);
   const reader=mountDeskReader(stage,session,dismiss);
-  const openObject=(object:DeskObject)=>object==='map' ? session.openMap() : session.openReading({kind:object});
-  const disposeDebate=courseHarness.mountZunyiDebate({
-    frame,
-    stage,
-    transport,
-    getSeenObjects:()=>session.read().saved.seen??[],
-    openObject,
-    highlightPin:obj=>{
-      for (const {object,pin} of pins) {
-        const hit=obj==='both' ? object==='journal'||object==='dossier' : obj===object;
-        pin.dataset.debateFocus=String(hit);
-      }
-    },
-  });
+  const openObject=(object:DeskObject)=>{
+    if (object === 'map') session.openMap();
+    else session.openReading({kind:object});
+    return session.read().reading?.kind === object;
+  };
 
   function renderClues() {
     cluesGroup.hidden=!clues.length;
@@ -233,6 +227,7 @@ function mountDesk(stage:HTMLElement, position:number, outgoing?:HTMLCanvasEleme
     }
 
     const seen=saved.seen??[];
+    if (!standaloneDesk) for (const object of seen) courseHarness.recordDeskMaterial(object);
     const right=seen.includes('dossier') || saved.sheets.some(sheet=>sheet.id==='discussion');
     const left=seen.includes('journal') || saved.spread>0;
     const finished=left && right;
@@ -310,7 +305,6 @@ function mountDesk(stage:HTMLElement, position:number, outgoing?:HTMLCanvasEleme
     dismiss,
     dispose() {
       disposed=true;
-      disposeDebate();
       observer.disconnect();
       reader.dispose();
       const saved=session.leave();

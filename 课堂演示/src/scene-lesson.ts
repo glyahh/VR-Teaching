@@ -86,7 +86,7 @@ function mountSceneLesson(scene: HTMLElement, host: HTMLElement, page: LessonPag
   }
 
   function explain(id: string) {
-    if (!cues.has(id)) return;
+    if (!cues.has(id)) return false;
     soundscape.playSfx('point');
     const now = sceneNow();
     const resume = narration.kind === 'point'
@@ -96,6 +96,7 @@ function mountSceneLesson(scene: HTMLElement, host: HTMLElement, page: LessonPag
         : narration.progress;
     const interruptedAt = narration.kind === 'point' ? narration.interruptedAt : now;
     setNarration({ kind: 'point', id, startedAt: now, interruptedAt, resume });
+    return true;
   }
 
   function dismissPoint() {
