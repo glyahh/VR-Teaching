@@ -53,6 +53,29 @@ def subtitle_style(caption):
     }""")
 
 
+def play_backup_from_closeup(page):
+    video = page.locator(".scene-camera video")
+    button(page, "抬送门板：群众捐出自家门板").click()
+    expect(page.locator(".slide-line")).to_have_attribute("data-narration-view", "point")
+    video.evaluate("""video => {
+      video.startTimes = [];
+      video.addEventListener('playing', () => video.startTimes.push(video.currentTime));
+    }""")
+    button(page, "播放备桥短片").click()
+    page.wait_for_function("document.querySelector('.scene-camera video')?.currentTime > .2")
+    started = video.evaluate("video => video.startTimes[0]")
+    assert 0 <= started < .05, f"备桥短片从 {started:.3f} 秒起播"
+
+    button(page, "暂停短片").click()
+    expect(video).to_have_js_property("paused", True)
+    paused = video.evaluate("video => video.currentTime")
+    button(page, "继续播放").click()
+    page.wait_for_function("document.querySelector('.scene-camera video')?.startTimes.length === 2")
+    resumed = video.evaluate("video => video.startTimes[1]")
+    assert abs(resumed - paused) < .05, (paused, resumed)
+    return {"startedAt": started, "pausedAt": paused, "resumedAt": resumed}
+
+
 def exercise(html, viewport, output):
     with launch(html, viewport) as (context, url, edge, errors):
         page = context.new_page()
@@ -85,9 +108,9 @@ def exercise(html, viewport, output):
         assert contrast["ratio"] >= 4.5 and 0.5 < contrast["alpha"] < 1 and "blur" in contrast["filter"], contrast
         page.screenshot(path=output / "岸边按钮-未悬停.png")
 
+        backup_playback = None
         if viewport["width"] == 718:
-            backup.click()
-            page.wait_for_function("document.querySelector('.scene-camera video')?.currentTime > .2")
+            backup_playback = play_backup_from_closeup(page)
         else:
             button(page, "下一页").click()
         expect(page.locator("h1")).to_have_text("浮桥近景", timeout=12000)
@@ -202,7 +225,8 @@ def exercise(html, viewport, output):
         expect(page.locator("h1")).to_have_text("夜渡于都河")
         assert not requests, requests
         return {"viewport": viewport, "edge": edge, "duration": duration,
-                "buttonContrast": contrast, "captions": captions, "cueTimes": cue_times,
+                "buttonContrast": contrast, "backupPlayback": backup_playback,
+                "captions": captions, "cueTimes": cue_times,
                 "playingLayout": playing_layout, "finishedLayout": finished_layout,
                 "networkRequests": requests}
 

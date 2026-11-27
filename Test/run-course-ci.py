@@ -15,7 +15,11 @@ SRC = COURSE + "src/"
 ASSETS = COURSE + "assets/"
 MEDIA_SOURCE = COURSE + "media-source/"
 HTML = COURSE + "从于都到遵义-课堂演示.html"
-GENERATED = {HTML, "展示材料/成果展示/课堂预览.html"}
+RELEASE_ARTIFACTS = (
+    HTML,
+    "展示材料/成果展示/课堂预览.html",
+    "展示材料/成果展示/沉浸式VR课程-从于都到遵义-成果展示包.zip",
+)
 CORE = {"single_screen", "opening", "entry", "desk", "recap"}
 SPECIAL = {
     "xiang-crossing": ("verify-xiang-crossing.py", False),
@@ -68,7 +72,7 @@ def select(paths):
     reasons = {}
     selected = set(CORE)
     for path in paths:
-        if path in GENERATED:
+        if path in RELEASE_ARTIFACTS:
             continue
         checks = {
             check for patterns, matches in RULES
@@ -83,8 +87,6 @@ def select(paths):
         if checks:
             reasons[path] = [check for check in CHECKS if check in checks]
             selected.update(checks)
-    if GENERATED.intersection(paths) and not reasons:
-        return list(CHECKS), {"生成物缺少已识别的源改动": list(CHECKS)}
     return [check for check in CHECKS if check in selected], reasons
 
 
@@ -101,6 +103,10 @@ def write_report(path, report):
 
 
 def plan(output, base):
+    tracked = subprocess.check_output(["git", "ls-files", "-z", "--", *RELEASE_ARTIFACTS], cwd=ROOT)
+    if tracked:
+        names = tracked.decode("utf-8").rstrip("\0").replace("\0", "\n")
+        raise SystemExit("以下发布成品应放入 GitHub Release：\n" + names)
     paths = changed_paths(base)
     checks, reasons = select(paths)
     report = {"base": base, "sha256": html_sha256(), "changedPaths": paths,

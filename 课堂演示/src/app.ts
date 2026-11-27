@@ -1281,7 +1281,7 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
         await waitMediaEvent('loadeddata', 4000);
         if (request !== generation || !video.isConnected) return;
       }
-      const target = targetTimeOf(state);
+      const target = clip.mode === 'transition' ? state.time : targetTimeOf(state);
       const shouldSeek = entering ? Math.abs(video.currentTime - target) > .04 : Math.abs(video.currentTime - target) > .12;
       if (shouldSeek) {
         const sought = entering && target > .04 ? waitMediaEvent('seeked', 350) : undefined;

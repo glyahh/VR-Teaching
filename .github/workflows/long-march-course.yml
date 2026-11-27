@@ -23,6 +23,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - run: npm --prefix "课堂演示/自由探索实验" ci
+      - run: npm --prefix "课堂演示/自由探索实验" run check:course
+      - run: node "Test/verify-presentation-policy.mjs"
+      - name: 从源码构建并校验离线课件
+        run: |
+          New-Item -ItemType Directory -Force ".march-build/ci" | Out-Null
+          node "课堂演示/build.mjs" 2>&1 | Tee-Object -FilePath ".march-build/ci/build.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node "课堂演示/build.mjs" --check 2>&1 | Tee-Object -FilePath ".march-build/ci/build.log" -Append
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git diff --exit-code -- "展示材料/成果展示/成果与计划.html"
+          exit $LASTEXITCODE
       - name: 记录课件哈希和回归清单
         env:
           COURSE_CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
@@ -35,13 +47,6 @@ jobs:
             }
           }
           python -B "Test/run-course-ci.py" plan "--base=$base"
-      - run: npm --prefix "课堂演示/自由探索实验" ci
-      - run: npm --prefix "课堂演示/自由探索实验" run check:course
-      - run: node "Test/verify-presentation-policy.mjs"
-      - name: 校验离线产物
-        run: |
-          node "课堂演示/build.mjs" --check 2>&1 | Tee-Object -FilePath ".march-build/ci/build.log"
-          exit $LASTEXITCODE
       - run: python -m pip install playwright==1.63.0 Pillow==12.2.0
       - name: 断网 Edge 回归
         run: python -B "Test/run-course-ci.py" run
