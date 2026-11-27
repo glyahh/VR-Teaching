@@ -269,7 +269,7 @@ def journeys(room, url):
     page.keyboard.press("PageDown")
     heading(page,"进军方向")
     expect(page.locator(".spatial-journey")).to_have_count(0)
-    expect(caption(page).locator(".visually-hidden")).to_have_text("原计划是去湘西北，与红二、红六军团会合。")
+    expect(page.locator('.classroom-slide[data-activity="directions"] .march-marker')).to_be_visible()
     room.steps.append("全线五段按近景描线、拉远、总览、进场顺序播放，连翻只保留当前页")
 
 

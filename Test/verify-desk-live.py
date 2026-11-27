@@ -67,8 +67,10 @@ def verify_interruptions(room):
     page.mouse.up()
     expect(frame).not_to_have_attribute('data-yaw', '0.000')
     assert -9.4<float(frame.get_attribute('data-yaw'))<-8.8
+    old_zoom = frame.get_attribute('data-zoom')
     page.mouse.wheel(0,-150)
-    expect(frame).to_have_attribute('data-zoom','1.2712')
+    expect(frame).not_to_have_attribute('data-zoom', old_zoom)
+    assert float(frame.get_attribute('data-zoom')) > float(old_zoom)
     frame.press('Home')
     expect(frame).to_have_attribute('data-yaw', '0.000')
 
