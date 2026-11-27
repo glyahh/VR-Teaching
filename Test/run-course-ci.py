@@ -21,6 +21,7 @@ RELEASE_ARTIFACTS = (
     "展示材料/成果展示/沉浸式VR课程-从于都到遵义-成果展示包.zip",
 )
 CORE = {"single_screen", "opening", "entry", "desk", "recap"}
+EDGE_SHARDS = 3
 SPECIAL = {
     "xiang-crossing": ("verify-xiang-crossing.py", False),
     "yudu-shorts": ("verify-yudu-shorts.py", False),
@@ -127,13 +128,17 @@ def command(check, output):
             str(output), *options, "run", feature]
 
 
-def run(output):
+def run(output, shard):
     selection = json.loads((output / "selection.json").read_text(encoding="utf-8"))
     digest = html_sha256()
     if digest is None or digest != selection["sha256"]:
         raise SystemExit("正式课件缺失或在选测后发生变化")
+    checks = selection["checks"]
+    if shard is not None:
+        checks = checks[shard - 1::EDGE_SHARDS]
+        print(f"Edge 回归第 {shard}/{EDGE_SHARDS} 组 " + ", ".join(checks), flush=True)
     failed = []
-    for check in selection["checks"]:
+    for check in checks:
         evidence = output / check
         evidence.mkdir(parents=True, exist_ok=True)
         print(f"断网 Edge · {check}", flush=True)
@@ -157,13 +162,13 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / ".march-build/ci")
     modes = parser.add_subparsers(dest="mode", required=True)
     modes.add_parser("plan").add_argument("--base", default="")
-    modes.add_parser("run")
+    modes.add_parser("run").add_argument("--shard", type=int, choices=range(1, EDGE_SHARDS + 1))
     args = parser.parse_args()
     output = args.output.resolve()
     if args.mode == "plan":
         plan(output, args.base)
     else:
-        run(output)
+        run(output, args.shard)
 
 
 if __name__ == "__main__":

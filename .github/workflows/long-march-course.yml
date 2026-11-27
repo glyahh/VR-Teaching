@@ -9,8 +9,15 @@ permissions:
 
 jobs:
   course:
-    runs-on: windows-2025
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    defaults:
+      run:
+        shell: pwsh
     env:
       PYTHONUTF8: "1"
     steps:
@@ -49,11 +56,11 @@ jobs:
           python -B "Test/run-course-ci.py" plan "--base=$base"
       - run: python -m pip install playwright==1.63.0 Pillow==12.2.0
       - name: 断网 Edge 回归
-        run: python -B "Test/run-course-ci.py" run
+        run: python -B "Test/run-course-ci.py" run --shard ${{ matrix.shard }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: 长征课 Edge 验收
+          name: 长征课 Edge 验收 ${{ matrix.shard }}
           path: .march-build/ci/
           include-hidden-files: true
           if-no-files-found: ignore
