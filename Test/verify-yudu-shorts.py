@@ -164,6 +164,10 @@ def exercise(html, viewport, output):
               window.riverCaptions.push([node.textContent, video.currentTime]);
           }).observe(node, { childList: true });
         }""")
+        check_pause = viewport["width"] == 1366
+        if check_pause:
+            # Keep the clip playing while the software runner processes the input sequence.
+            video.evaluate("film => { film.playbackRate = .25; }")
         playback.click()
         expect(scene).to_have_attribute("data-river-tour", "playing")
         expect(entry).to_be_visible()
@@ -172,7 +176,6 @@ def exercise(html, viewport, output):
           const film = document.querySelector('.river-tour video');
           return film.currentTime > .25 && film.webkitAudioDecodedByteCount > 0 && !film.muted;
         }""")
-        check_pause = viewport["width"] == 1366
         if check_pause:
             playback.click()
             expect(scene).to_have_attribute("data-river-tour", "paused")
@@ -205,6 +208,7 @@ def exercise(html, viewport, output):
             expect(playback).to_be_visible()
             assert abs(video.evaluate("film => film.currentTime") - early_exit) < .05
             film_layout(page)
+            video.evaluate("film => { film.playbackRate = 1; }")
             playback.click()
             page.wait_for_function("t => document.querySelector('.river-tour video').currentTime > t + .1", arg=early_exit)
         expect(scene).to_have_attribute("data-river-tour", "finished", timeout=VIDEO_COMPLETION_TIMEOUT)
