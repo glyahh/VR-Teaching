@@ -291,6 +291,7 @@ def journeys(room, url):
 def controls(room, url):
     page = room.page
     page.goto(url)
+    expect(page.locator(".shell")).to_have_attribute("data-entry-phase", "ready")
     card = page.locator(".event-card")
     tools = page.locator(".map-tools")
     expect(tools.locator("xpath=..").locator(".timeline")).to_have_count(1)
