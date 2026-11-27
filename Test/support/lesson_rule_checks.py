@@ -89,7 +89,7 @@ def narration(room, url):
     assert isclose(metrics[0], metrics[1], abs_tol=1.2) and metrics[2] <= metrics[3], metrics
     page.clock.install()
     page.goto(url)
-    page.locator(".timeline").get_by_role("button", name="湘江战役", exact=True).click()
+    lesson_action(page, "time-1").click()
     lesson_action(page, "enter-scene").click()
     heading(page, "湘江河谷")
     page.set_viewport_size({"width": 414, "height": 811})
