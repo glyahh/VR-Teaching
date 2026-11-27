@@ -74,16 +74,35 @@ const courseDeveloper = (() => {
     return courseHarness.probe(base, token);
   }
 
+  function positionPanel() {
+    if (!panel?.open || !opener?.isConnected) return;
+    const bounds = opener.getBoundingClientRect();
+    panel.style.setProperty('--developer-top', `${bounds.bottom + 8}px`);
+    panel.style.setProperty('--developer-right', `${Math.max(12, window.innerWidth - bounds.right)}px`);
+  }
+
   function open(button: HTMLButtonElement) {
+    if (panel?.open) {
+      panel.close();
+      return;
+    }
     if (!panel) {
-      panel = element('dialog', 'course-developer-panel');
-      panel.setAttribute('aria-label', '开发者模式');
+      panel = element('dialog', 'course-developer-panel copy-panel');
+      panel.id = 'course-developer-panel';
+      panel.setAttribute('aria-labelledby', 'course-developer-title');
+      const header = element('header', 'course-developer-header');
+      const title = element('h2', '', '开发者模式');
+      title.id = 'course-developer-title';
       const status = element('p', 'course-developer-status');
       status.setAttribute('role', 'status');
+      const showStatus = (state: 'idle' | 'starting' | 'connected' | 'error', message: string) => {
+        status.dataset.state = state;
+        status.textContent = message;
+      };
       const start = control('启动后端', async () => {
         if (start.disabled) return;
         start.disabled = true;
-        status.textContent = '正在启动';
+        showStatus('starting', '正在启动');
         try {
           const nonce = crypto.randomUUID().replace(/-/g, '');
           const pending = waitForHandoff(nonce);
@@ -92,31 +111,46 @@ const courseDeveloper = (() => {
           link.click();
           const handoff = await pending;
           if (!handoff) {
-            status.textContent = '未收到启动结果。请确认已注册本机入口并允许 Edge 打开它，然后重试。';
+            showStatus('error', '未收到启动结果。请确认已注册本机入口并允许 Edge 打开它，然后重试。');
           } else if (handoff.reason) {
-            status.textContent = failures[handoff.reason] ?? failures['start-failed'];
+            showStatus('error', failures[handoff.reason] ?? failures['start-failed']);
           } else {
-            status.textContent = await attach(handoff) ? '后端已连接' : '连接未完成，请重试。';
+            if (await attach(handoff)) showStatus('connected', '后端已连接');
+            else showStatus('error', '连接未完成，请重试。');
           }
         } catch {
-          status.textContent = '连接未完成，请重试。';
+          showStatus('error', '连接未完成，请重试。');
         } finally {
           start.disabled = false;
         }
-      });
+      }, 'primary');
+      start.autofocus = true;
       const close = control('收起', () => panel?.close());
-      panel.append(element('strong', '', '开发者模式'), status, start, close);
+      header.append(title, close);
+      panel.append(header, status, start);
       panel.addEventListener('close', () => {
+        if (panel?.open) return;
+        opener?.setAttribute('aria-expanded', 'false');
         if (opener?.isConnected && !opener.hidden) opener.focus({ preventScroll: true });
       });
       window.addEventListener('course-harness-status', () => {
-        if (!start.disabled && courseHarness.isOnline()) status.textContent = '后端已连接';
+        if (start.disabled) return;
+        if (courseHarness.isOnline()) showStatus('connected', '后端已连接');
+        else showStatus('idle', '后端未连接');
       });
+      window.addEventListener('resize', positionPanel);
       document.body.append(panel);
-      status.textContent = courseHarness.isOnline() ? '后端已连接' : '后端未连接';
+      if (courseHarness.isOnline()) showStatus('connected', '后端已连接');
+      else showStatus('idle', '后端未连接');
     }
     opener = button;
-    if (!panel.open) panel.show();
+    panel.show();
+    positionPanel();
+    const toolbarAnimations = button.parentElement?.getAnimations() ?? [];
+    if (toolbarAnimations.length) {
+      void Promise.allSettled(toolbarAnimations.map(animation => animation.finished)).then(positionPanel);
+    }
+    button.setAttribute('aria-expanded', 'true');
   }
 
   if (available) {
@@ -140,8 +174,11 @@ const courseDeveloper = (() => {
 
   return (toolbar: HTMLElement) => {
     if (!available) return;
+    if (panel?.open) panel.close();
     const button = lessonControl('developer-mode', '开发者模式', () => open(button));
     button.hidden = !revealed;
+    button.setAttribute('aria-controls', 'course-developer-panel');
+    button.setAttribute('aria-expanded', 'false');
     toolbar.append(button);
   };
 })();

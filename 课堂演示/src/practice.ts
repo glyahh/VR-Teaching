@@ -12,7 +12,6 @@ type Practice = {
   title: string;
   from: TeachingPace;
   teacher: string;
-  source: string;
   questions: [PracticeQuestion, ...PracticeQuestion[]];
 };
 
@@ -20,7 +19,6 @@ const practices: Record<PracticeId, Practice> = {
   'bridge-parts': {
     title: '浮桥结构与应急协作', from: 30,
     teacher: '留 2 分钟。让学员从工程制约角度分析门板与渔船的分工，并追问天亮前拆桥的战术原因。',
-    source: '教学摘要 · 中央红军长征出发纪念园讲解词',
     questions: [
       { prompt: '河宽缺桥材，乡亲卸下的门板最先补上哪块工程短板？', options: ['连片桥面通道','水下抗流承托'], answer: 0, focus: 'plank',
         retry: '看亮起的上方铺面。没有平整连续的桥面，夜行重装队伍无法通行。', evidence: '门板铺在纵梁上连成平整通道，解决了大部队夜间快速通过的桥面短板。' },
@@ -31,7 +29,6 @@ const practices: Record<PracticeId, Practice> = {
   'troop-dates': {
     title: '史料口径与归因辨析', from: 30,
     teacher: '留 2 分钟。先核对两组数字的精确时点，再辨析“湘江一战牺牲五万多人”是否严谨。',
-    source: '教学摘要 · 《中国共产党简史》与国防部党史资料',
     questions: [
       { prompt: '史料中的「8.6 万余人」锚定在哪个时间点？', options: ['湘江开战前夕','1934 年 10 月长征出发时'], answer: 1, focus: 'before',
         retry: '核对两行日期。8.6 万余人对应的是于都出发时的总兵力。', evidence: '8.6 万余人对应 1934 年 10 月长征出发时。' },
@@ -44,7 +41,6 @@ const practices: Record<PracticeId, Practice> = {
   'crossing-evidence': {
     title: '战术结果与战略代价', from: 40,
     teacher: '留 2 分钟。两组分别挑出支撑“突围结果”与“战略代价”的依据，说明为什么不能只看单一指标。',
-    source: '教学摘要 · 党史和文献研究院《红军长征过广西》及《中国共产党简史》',
     questions: [
       { prompt: '哪条史料直接证明“主力完成了战术突围”？', options: ['两个时点的兵力对照','全州、兴安一带的渡江记录'], answer: 1, column: '渡江结果',
         retry: '找直接写明红军在哪里过江、突破第四道封锁线的作战记录。', evidence: '全州、兴安一带渡江记录证明，中央红军拼死突破了第四道封锁线。' },
@@ -55,7 +51,6 @@ const practices: Record<PracticeId, Practice> = {
   'turn-evidence': {
     title: '逆境中的路线权衡', from: 40,
     teacher: '留 2 分钟。对照原定路线与敌我态势，请学员说明为什么既定方案与现场实情冲突时必须及时转轨。',
-    source: '教学摘要 · 党史和文献研究院《中央红军长征在贵州》及《中国共产党简史》',
     questions: [
       { prompt: '面对湘西北重兵堵截与减员过半，黎平会议决定转向哪里？', options: ['敌军防守薄弱的贵州北部','按原计划硬闯湘西北会合'], answer: 0, focus: 'routes',
         retry: '看舆图上的「原计划」与「会议决定」，哪条方向避开了重兵口袋阵？', evidence: '黎平会议放弃北上湘西北，果断改向敌军力量薄弱的贵州北部。' },
@@ -66,7 +61,6 @@ const practices: Record<PracticeId, Practice> = {
   'zunyi-issues': {
     title: '治标纠偏与机制落地', from: 30,
     teacher: '留 2 分钟。结合桌上两册材料，区分“怎么打”的军事纠偏与“由谁指挥”的组织保障。',
-    source: '教学摘要 · 党史和文献研究院《遵义会议决议》解读',
     questions: [
       { prompt: '黎平已改对了方向，遵义仍集中追查此前受挫教训，归入哪类核心问题？', options: ['军事问题：不纠偏错误指挥原则，换了路还会吃亏','组织问题：只需更换行军路线图即可'], answer: 0,
         retry: '看摘要里的两段受挫经历，会议追查的是脱离实际的军事领导与作战原则。', evidence: '属于军事问题。会议集中总结第五次反“围剿”和长征初期的军事指挥教训。' },
@@ -98,8 +92,7 @@ function mountPractice(id: PracticeId, scene: HTMLElement, caption: HTMLElement,
   const feedback = element('p','practice-feedback');
   feedback.setAttribute('role','status');
   const board = element('div','practice-board');
-  const source = element('p','practice-source',practice.source);
-  panel.append(head,prompt,options,feedback,board,source);
+  panel.append(head,prompt,options,feedback,board);
 
   const entry = control('展开练习',()=>{
     if (state) {
@@ -201,7 +194,6 @@ function mountPractice(id: PracticeId, scene: HTMLElement, caption: HTMLElement,
     if (state.retry) feedback.replaceChildren(svgIcon('info'),element('span','',item.retry));
     else if (answered && !item.column) feedback.replaceChildren(svgIcon('check'),element('span','',item.evidence));
     else feedback.replaceChildren();
-    source.hidden = !state.shown.length;
     board.replaceChildren(...practice.questions.flatMap(({column,evidence},index)=>{
       if (!column) return [];
       const cell = element('div','practice-evidence');

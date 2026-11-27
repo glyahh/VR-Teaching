@@ -214,8 +214,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
         dates.append(row);
       }
       modal('长征出发与渡过湘江后的兵力', dates,
-        element('p','','两组数字跨越从出发到渡江后的整段行程。其间的累计减员包含湘江战役前的损失。'),
-        element('p','xiang-record-source','出处：国防部《中国共产党领导红军主力开始长征》'));
+        element('p','','两组数字跨越从出发到渡江后的整段行程。其间的累计减员包含湘江战役前的损失。'));
     },'journey-control');
     tools.prepend(returnToBank, records);
     openTroopRecords = () => records.click();
@@ -433,7 +432,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     focusHotspot: key => lesson.explain(key),
     compareLiping: compareLipingRoutes,
     openTroopRecords,
-    showDirectorBanner: (text, cites) => directorBanner.show(text, cites),
+    showDirectorBanner: text => directorBanner.show(text),
   });
   lesson.signal.addEventListener('abort', () => {
     disposeDirectorTrigger();

@@ -51,7 +51,6 @@
 .xiang-records{display:grid;gap:10px;padding:12px 0;border-block:1px solid currentColor}
 .xiang-records>div{display:flex;justify-content:space-between;gap:14px}
 .xiang-records dd{font-weight:700;white-space:nowrap}
-.xiang-record-source{font-size:.9em;opacity:.86}
 .wujiang-lens .wujiang-landmark{position:absolute;color:#f9e9bf;white-space:nowrap;transform:translate(-50%,-110%);text-shadow:0 2px 4px #080c0a,0 1px 8px #080c0a;font-size:clamp(14px,1.75vw,26px);font-weight:700;pointer-events:none}
 .wujiang-lens .wujiang-landmark::after{content:'';position:absolute;left:50%;top:100%;width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px #2229}
 @media(max-width:760px){

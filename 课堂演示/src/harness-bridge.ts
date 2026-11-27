@@ -3,7 +3,7 @@
  * 原则：
  * - 直接打开单文件课件时跳过 AI 网关。
  * - 从一键开课进入并检测到网关后，激活以下功能。
- *   1. AI 实景副导（语音/口令直控切页、高亮构件、对照路线、调取史料）
+ *   1. AI 实景副导（根据语音或文字提出课页动作，确认后执行）
  *   2. 黎平「1934 战地推演沙盘」（SVG 动态假设路径、受阻红区与历史对照）
  *   3. 遵义会议桌 3D 现场「1935 会场质询 / 持证辩论」（驱动 3D 卷宗与破晓光影）
  *   4. 课尾「千班千面」实训复盘简报生成与单页 HTML 导出归档
@@ -21,8 +21,13 @@ type DirectorResponse = {
   ok: true;
   narration: string;
   actions: DirectorAction[];
-  citedSources: string[];
 };
+
+type DirectorTurn =
+  | { kind: 'idle' }
+  | { kind: 'working'; request: AbortController }
+  | { kind: 'reply'; utterance: string; narration: string; actions: DirectorAction[] }
+  | { kind: 'error'; message: string };
 
 type SandboxResponse = {
   ok: true;
@@ -34,7 +39,6 @@ type SandboxResponse = {
   telegramTitle: string;
   battlefieldOutcome: string;
   historicalContrast: string;
-  citedSources: string[];
 };
 
 type ZunyiDebateResponse = {
@@ -46,7 +50,6 @@ type ZunyiDebateResponse = {
   accepted: boolean;
   highlightDeskObject: 'journal' | 'dossier' | 'map' | 'both';
   dawnProgress: number;
-  citedSources: string[];
 };
 
 type RecapReportPayload = {
@@ -57,7 +60,6 @@ type RecapReportPayload = {
   decisionComparison: string;
   gridMapping: { topic: string; principle: string; action: string }[];
   discussionQuestions: string[];
-  citedSources: string[];
 };
 
 type CourseSessionTrace = {
@@ -65,13 +67,6 @@ type CourseSessionTrace = {
   directorRuns: { utterance: string; narration: string }[];
   sandboxRuns: { proposal: string; telegramTitle: string; riskLevel: string }[];
   zunyiDebates: { argument: string; verdictTitle: string; accepted: boolean }[];
-};
-
-type HarnessHealth = {
-  ok: boolean;
-  engine?: string;
-  model?: string;
-  capabilities?: string[];
 };
 
 type SpeechRecognitionCtor = new () => {
@@ -90,7 +85,7 @@ type ActiveSceneBridge = {
   focusHotspot?: (key: string) => void;
   compareLiping?: (side: 'east' | 'west' | 'both') => void;
   openTroopRecords?: () => void;
-  showDirectorBanner?: (text: string, cites: string[]) => void;
+  showDirectorBanner?: (text: string) => void;
 };
 
 const courseHarness = (() => {
@@ -99,10 +94,10 @@ const courseHarness = (() => {
   let accessToken = new URLSearchParams(location.hash.slice(1)).get('ai-access');
 
   let online = false;
-  let healthInfo: HarnessHealth = { ok: false };
+  let connectionCheck = 0;
+  let monitorTimer: number | undefined;
+  let monitoring = false;
   let activeScene: ActiveSceneBridge | undefined;
-  let directorDock: HTMLElement | undefined;
-  let directorRequest: AbortController | undefined;
 
   let trace: CourseSessionTrace = {
     visitedPages: [],
@@ -111,32 +106,37 @@ const courseHarness = (() => {
     zunyiDebates: [],
   };
 
-  function emitStatus() {
-    window.dispatchEvent(new CustomEvent('course-harness-status', { detail: { online, healthInfo } }));
+  function setOnline(connected: boolean) {
+    if (online === connected) return;
+    online = connected;
+    window.dispatchEvent(new CustomEvent('course-harness-status', { detail: { online } }));
   }
 
   async function probe(base = gatewayBase, token = accessToken) {
     if (!base) return false;
+    const check = ++connectionCheck;
+    window.clearTimeout(monitorTimer);
+    let ready = false;
     try {
-      const res = await fetch(`${base}/api/course-ai/health`, {
+      const res = await fetch(`${base}/api/course-ai/ready`, {
         method: 'GET',
         signal: AbortSignal.timeout(1500),
         cache: 'no-store',
+        ...(token && { headers: { Authorization: `Bearer ${token}` } }),
       });
-      if (!res.ok) return false;
-      const data = await res.json() as HarnessHealth;
-      if (data?.ok) {
-        gatewayBase = base;
-        accessToken = token;
-        online = true;
-        healthInfo = data;
-        emitStatus();
-        return true;
-      }
-      return false;
-    } catch {
-      return false;
+      if (res.ok) ready = (await res.json())?.ready === true;
+    } catch {}
+    if (check !== connectionCheck) return false;
+    if (ready) {
+      gatewayBase = base;
+      accessToken = token;
+      monitoring = true;
+      setOnline(true);
+    } else if (base === gatewayBase && token === accessToken) {
+      setOnline(false);
     }
+    if (monitoring) monitorTimer = window.setTimeout(() => void probe(), 3000);
+    return ready;
   }
 
   async function postJson<T>(path: string, payload: Record<string, unknown>, signal?: AbortSignal): Promise<T> {
@@ -214,7 +214,7 @@ const courseHarness = (() => {
     return win.SpeechRecognition || win.webkitSpeechRecognition;
   }
 
-  function createVoiceButton(onTranscript: (text: string) => void): HTMLButtonElement | undefined {
+  function createVoiceButton(onTranscript: (text: string) => void, signal?: AbortSignal): HTMLButtonElement | undefined {
     const Ctor = speechCtor();
     if (!Ctor) return undefined;
     let rec: InstanceType<SpeechRecognitionCtor> | undefined;
@@ -244,6 +244,12 @@ const courseHarness = (() => {
     }, 'harness-voice-btn');
     btn.setAttribute('aria-pressed', 'false');
     btn.setAttribute('aria-label', '语音收音输入');
+    signal?.addEventListener('abort', () => {
+      if (!rec) return;
+      rec.onresult = rec.onerror = rec.onend = null;
+      try { rec.stop(); } catch {}
+      rec = undefined;
+    }, { once: true });
     return btn;
   }
 
@@ -251,7 +257,7 @@ const courseHarness = (() => {
     return new Promise<void>(resolve => window.setTimeout(resolve, ms));
   }
 
-  function executeDirectorActions(actions: DirectorAction[], narration: string, cites: string[]) {
+  function executeDirectorActions(actions: DirectorAction[], narration: string) {
     const goTo = (matches: (page: LessonPage) => boolean) => {
       const idx = chapterPages.findIndex(entry => matches(entry.page));
       if (idx >= 0 && (currentView.kind !== 'scene' || currentView.position !== idx)) openScene(idx, 'lesson');
@@ -278,119 +284,209 @@ const courseHarness = (() => {
         openReview(Boolean(action.conclusion));
       }
     }
-    if (narration) activeScene?.showDirectorBanner?.(narration, cites);
+    if (narration) activeScene?.showDirectorBanner?.(narration);
   }
 
-  function closeDirectorDock() {
-    directorRequest?.abort();
-    directorRequest = undefined;
-    directorDock?.remove();
-    directorDock = undefined;
-  }
-
-  function toggleDirectorDock(host: HTMLElement) {
-    if (!online) return;
-    if (directorDock?.isConnected) {
-      closeDirectorDock();
-      return;
+  function directorActionLabel(action: DirectorAction) {
+    switch (action.type) {
+      case 'navigate_page':
+        return `前往${action.pageTitle}`;
+      case 'focus_hotspot': {
+        const probe = chapterPages.flatMap(({ page }) => page.probes ?? []).find(({ id }) => id === action.key);
+        if (probe) return `查看${probe.label}`;
+        if (action.key === 'boat') return '查看浮桥船体';
+        if (action.key === 'plank') return '查看浮桥门板';
+        return '查看课页线索';
+      }
+      case 'compare_liping_routes':
+        return { east: '查看湘西北路线', west: '查看黔北路线', both: '对照黎平路线' }[action.side];
+      case 'open_archive':
+        return '查看湘江兵力记录';
+      case 'open_desk_object':
+        return '打开遵义会议桌';
+      case 'open_review':
+        return action.conclusion ? '查看课程结语' : '打开课堂回顾';
     }
-    closeDirectorDock();
-    const dock = element('section', 'harness-director-bar');
-    dock.setAttribute('aria-label', 'AI 实景副导');
+  }
+
+  function directorIcon(name: 'microphone' | 'send' | 'pin') {
+    const paths = {
+      microphone: 'M9 11V6a3 3 0 0 1 6 0v5a3 3 0 0 1-6 0ZM5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21m-3 0h6',
+      send: 'M12 20V4m-6 6 6-6 6 6',
+      pin: 'M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Zm-4 0a3 3 0 1 0-6 0 3 3 0 0 0 6 0Z',
+    };
+    const icon = document.createElementNS(svgNamespace, 'svg');
+    icon.setAttribute('class', 'icon');
+    icon.setAttribute('viewBox', '0 0 24 24');
+    icon.setAttribute('aria-hidden', 'true');
+    const path = document.createElementNS(svgNamespace, 'path');
+    path.setAttribute('d', paths[name]);
+    icon.append(path);
+    return icon;
+  }
+
+  function openDirectorDock(host: HTMLElement, trigger: HTMLButtonElement, onClose: () => void) {
+    let turn: DirectorTurn = { kind: 'idle' };
+    const lifetime = new AbortController();
+    const dock = element('section', 'harness-director-bar copy-panel');
+    dock.id = 'course-director-dock';
+    dock.setAttribute('aria-labelledby', 'course-director-title');
+
+    function close(restoreFocus = false) {
+      if (turn.kind === 'working') turn.request.abort();
+      turn = { kind: 'idle' };
+      lifetime.abort();
+      dock.remove();
+      trigger.setAttribute('aria-expanded', 'false');
+      onClose();
+      if (restoreFocus && trigger.isConnected && !trigger.hidden) trigger.focus({ preventScroll: true });
+    }
 
     const head = element('div', 'harness-director-head');
-    const badge = element('span', 'harness-badge', 'AI 实景副导');
-    const closeBtn = control('收起', closeDirectorDock, 'harness-mini-btn');
-    head.append(badge, closeBtn);
+    const badge = element('h2', 'harness-badge', 'AI 实景副导');
+    badge.id = 'course-director-title';
+    head.append(svgIcon('compass'), badge, control('收起', () => close(true), 'harness-mini-btn'));
 
+    const chat = element('div', 'harness-director-chat');
+    const userLine = element('p', 'harness-director-user');
+    const reply = element('div', 'harness-director-reply');
+    const statusLine = element('p', 'harness-status-line');
+    statusLine.setAttribute('role', 'status');
+    reply.append(svgIcon('compass'), statusLine);
+    const actionSlot = element('div', 'harness-director-actions');
+    chat.append(userLine, reply, actionSlot);
+
+    const quickItems = ['查看湘江兵力', '打开遵义会议桌'];
     const presets = element('div', 'harness-presets');
-    const quickItems = [
-      '对照黎平双线与转向贵州',
-      '调出湘江兵力记录核对口径',
-      '查看于都浮桥承托船体',
-      '进入遵义会议桌翻看卷宗',
-    ];
+    const chips = quickItems.map(label => control(label, () => void runUtterance(label), 'harness-chip'));
+    presets.append(...chips);
+
     const form = element('form', 'harness-director-form');
+    const composer = element('div', 'harness-director-composer');
     const input = element('input', 'harness-input');
     input.type = 'text';
     input.maxLength = 180;
-    input.placeholder = '口述或输入指令…';
+    input.placeholder = '输入课堂指令…';
     input.setAttribute('aria-label', 'AI 实景副导指令');
-    const submitBtn = element('button', 'primary harness-submit', '执行');
+    const voiceBtn = createVoiceButton(transcript => void runUtterance(transcript), lifetime.signal);
+    composer.append(input);
+    if (voiceBtn) {
+      voiceBtn.replaceChildren(directorIcon('microphone'));
+      composer.append(voiceBtn);
+    }
+    const submitBtn = element('button', 'primary harness-submit');
     submitBtn.type = 'submit';
-    const statusLine = element('p', 'harness-status-line');
-    statusLine.hidden = true;
+    submitBtn.setAttribute('aria-label', '发送课堂指令');
+    submitBtn.append(directorIcon('send'));
+    form.append(composer, submitBtn);
+
+    function renderTurn() {
+      dock.dataset.turn = turn.kind;
+      chat.hidden = turn.kind === 'idle';
+      submitBtn.disabled = turn.kind === 'working';
+      for (const chip of chips) chip.disabled = submitBtn.disabled;
+      if (voiceBtn) voiceBtn.disabled = submitBtn.disabled;
+      statusLine.dataset.error = String(turn.kind === 'error');
+      actionSlot.replaceChildren();
+      switch (turn.kind) {
+        case 'idle':
+          statusLine.textContent = '';
+          break;
+        case 'working':
+          statusLine.textContent = '正在查找课堂内容…';
+          break;
+        case 'error':
+          statusLine.textContent = turn.message;
+          break;
+        case 'reply': {
+          const proposal = turn;
+          const { actions, narration, utterance } = proposal;
+          const action = actions.find(({ type }) => type === 'open_desk_object' || type === 'open_archive')
+            ?? actions.find(({ type }) => type === 'navigate_page') ?? actions[0];
+          statusLine.textContent = narration || (action ? '可以查看相关内容。' : '请指定要查看的课页或材料。');
+          if (!action) break;
+          const confirm = lessonControl('director-confirm', directorActionLabel(action), () => {
+            if (turn !== proposal || !dock.isConnected) return;
+            close();
+            addTrace(trace.directorRuns, { utterance, narration });
+            saveLessonProgress();
+            soundscape.playSfx('route');
+            executeDirectorActions(actions, narration);
+          }, 'harness-director-confirm', 'arrowRight', true);
+          confirm.prepend(directorIcon('pin'));
+          actionSlot.append(confirm);
+          break;
+        }
+      }
+      chat.scrollTop = chat.scrollHeight;
+    }
 
     async function runUtterance(text: string) {
-      const clean = text.trim();
-      if (!clean || directorRequest || !dock.isConnected) return;
-      const request = directorRequest = new AbortController();
-      submitBtn.disabled = true;
-      statusLine.hidden = false;
-      statusLine.dataset.error = 'false';
-      statusLine.textContent = '正在调度场景与史料…';
+      const utterance = text.trim();
+      if (!utterance || turn.kind === 'working' || !dock.isConnected) return;
+      const request = new AbortController();
+      turn = { kind: 'working', request };
+      userLine.textContent = utterance;
+      input.value = '';
+      renderTurn();
       try {
-        const res = await postJson<DirectorResponse>('/api/course-ai/director', {
-          utterance: clean,
+        const { narration, actions } = await postJson<DirectorResponse>('/api/course-ai/director', {
+          utterance,
           currentView: currentView.kind,
           currentPageTitle: activeScene?.pageTitle || '',
           revealedKeys: [...revealed],
         }, request.signal);
-        if (request.signal.aborted) return;
-        addTrace(trace.directorRuns, { utterance: clean, narration: res.narration });
-        saveLessonProgress();
-        statusLine.textContent = res.narration || '请指定要查看的课页或材料。';
-        if (!res.actions.length) return;
-        soundscape.playSfx('route');
-        closeDirectorDock();
-        executeDirectorActions(res.actions, res.narration, res.citedSources);
+        if (request.signal.aborted || !dock.isConnected) return;
+        turn = { kind: 'reply', utterance, narration, actions };
       } catch (err) {
-        if (!dock.isConnected) return;
-        statusLine.dataset.error = 'true';
-        statusLine.textContent = err instanceof Error ? err.message : '调度失败，请检查服务连接后重试。';
-      } finally {
-        if (directorRequest === request) directorRequest = undefined;
-        submitBtn.disabled = false;
+        if (request.signal.aborted || !dock.isConnected) return;
+        turn = { kind: 'error', message: err instanceof Error ? err.message : '课堂指令发送失败，请重试。' };
+        if (!input.value) input.value = utterance;
       }
+      renderTurn();
     }
 
-    for (const label of quickItems) {
-      presets.append(control(label, () => {
-        input.value = label;
-        void runUtterance(label);
-      }, 'harness-chip'));
-    }
-
-    const voiceBtn = createVoiceButton(transcript => {
-      input.value = transcript;
-      void runUtterance(transcript);
-    });
-    if (voiceBtn) form.append(voiceBtn);
-    form.append(input, submitBtn);
     form.addEventListener('submit', ev => {
       ev.preventDefault();
       void runUtterance(input.value);
     });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || event.defaultPrevented || dialog.open) return;
+      event.preventDefault();
+      close(true);
+    }, { capture: true, signal: lifetime.signal });
 
-    dock.append(head, presets, form, statusLine);
+    dock.append(head, chat, presets, form);
     host.append(dock);
-    directorDock = dock;
-    appear(dock, 0, 220);
+    trigger.setAttribute('aria-expanded', 'true');
+    renderTurn();
     input.focus({ preventScroll: true });
+    return close;
   }
 
   function mountDirectorTrigger(scene: HTMLElement, tools: HTMLElement) {
-    const btn = lessonControl('ai-director', 'AI 副导', () => toggleDirectorDock(scene), 'harness-director-btn', 'compass');
+    let closeDock: ((restoreFocus?: boolean) => void) | undefined;
+    const btn = lessonControl('ai-director', 'AI 副导', () => {
+      if (closeDock) {
+        closeDock(true);
+        return;
+      }
+      const host = tools.closest<HTMLElement>('.scene-head');
+      if (!online || !host || !scene.contains(host)) return;
+      closeDock = openDirectorDock(host, btn, () => { closeDock = undefined; });
+    }, 'harness-director-btn', 'compass');
     btn.hidden = !online;
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-controls', 'course-director-dock');
     tools.prepend(btn);
     const sync = () => {
       btn.hidden = !online;
-      if (!online) closeDirectorDock();
+      if (!online) closeDock?.();
     };
     window.addEventListener('course-harness-status', sync);
     return () => {
       window.removeEventListener('course-harness-status', sync);
-      closeDirectorDock();
+      closeDock?.();
     };
   }
 
@@ -398,19 +494,16 @@ const courseHarness = (() => {
     const banner = element('aside', 'harness-director-banner');
     banner.hidden = true;
     const textNode = element('p', 'harness-director-banner-text');
-    const citeNode = element('cite', 'harness-director-banner-cite');
     const dismiss = control('关闭', () => { banner.hidden = true; }, 'harness-mini-btn');
     const body = element('div', 'harness-director-banner-body');
-    body.append(textNode, citeNode);
+    body.append(textNode);
     banner.append(body, dismiss);
     stage.append(banner);
     let hideTimer = 0;
     return {
-      show(text: string, cites: string[]) {
+      show(text: string) {
         window.clearTimeout(hideTimer);
         textNode.textContent = text;
-        citeNode.textContent = cites.join(' · ');
-        citeNode.hidden = !cites.length;
         banner.hidden = false;
         appear(banner, 0, 240);
         hideTimer = window.setTimeout(() => { banner.hidden = true; }, 11000);
@@ -499,7 +592,6 @@ const courseHarness = (() => {
       const title = element('h3', 'sandbox-telegram-title', res.telegramTitle);
       const outcome = element('p', 'sandbox-outcome', res.battlefieldOutcome);
       const contrast = element('p', 'sandbox-contrast', `历史对照：${res.historicalContrast}`);
-      const cites = element('cite', 'sandbox-cite', res.citedSources.join(' · '));
       const restoreBtn = control('对照真实历史抉择 · 转向黔北', () => {
         lastSimulation = undefined;
         resultBox.hidden = true;
@@ -507,7 +599,6 @@ const courseHarness = (() => {
         opts.onRestoreRealRoute();
       }, 'primary sandbox-restore-btn', 'compass');
       resultBox.append(tag, title, outcome, contrast);
-      if (res.citedSources.length) resultBox.append(cites);
       resultBox.append(restoreBtn);
     }
 
@@ -651,9 +742,6 @@ const courseHarness = (() => {
       promptBox.append(msg);
       if (res.stage === 'rebuttal') promptBox.prepend(element('p', 'debate-follow', question));
       if (res.followUpPrompt) promptBox.append(follow);
-      if (res.citedSources.length) {
-        promptBox.append(element('cite', 'sandbox-cite', res.citedSources.join(' · ')));
-      }
 
       actionsRow.replaceChildren();
       const targets = res.highlightDeskObject === 'both' ? ['journal', 'dossier'] as const : [res.highlightDeskObject];
@@ -804,7 +892,6 @@ const courseHarness = (() => {
   <div class="grid">${report.gridMapping.map(item => `<div class="card"><strong>${esc(item.topic)}</strong><small>${esc(item.principle)}</small><div>${esc(item.action)}</div></div>`).join('')}</div>
   <h2>班组后续研讨题</h2>
   <ul>${report.discussionQuestions.map(q => `<li>${esc(q)}</li>`).join('')}</ul>
-  <footer>权威出处：${esc(report.citedSources.join(' · '))}</footer>
 </main>
 </body>
 </html>`;
@@ -813,9 +900,11 @@ const courseHarness = (() => {
   function mountRecapReportButton(footer: HTMLElement) {
     let selectedRole = '电力调度';
     let lastReport: { report: RecapReportPayload; role: string } | undefined;
+    let reportSheet: HTMLElement | undefined;
 
     function openReportModal() {
       const wrap = element('div', 'report-sheet');
+      reportSheet = wrap;
       const roleBar = element('div', 'harness-presets');
       const roles = ['电力调度', '特高压运维', '配网抢修', '青年班组长'];
       const roleButtons: HTMLButtonElement[] = [];
@@ -896,9 +985,6 @@ const courseHarness = (() => {
         }
 
         const foot = element('div', 'report-footer');
-        if (report.citedSources.length) {
-          foot.append(element('cite', 'sandbox-cite', report.citedSources.join(' · ')));
-        }
         const exportBtn = control('导出归档 HTML', () => {
           const html = buildPrintableHtml(report, role);
           const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
@@ -956,7 +1042,10 @@ const courseHarness = (() => {
     btn.hidden = !online;
     footer.append(btn);
 
-    const sync = () => { btn.hidden = !online; };
+    const sync = () => {
+      btn.hidden = !online;
+      if (!online && reportSheet?.isConnected && dialog.contains(reportSheet)) dialog.close();
+    };
     window.addEventListener('course-harness-status', sync);
     return () => window.removeEventListener('course-harness-status', sync);
   }
