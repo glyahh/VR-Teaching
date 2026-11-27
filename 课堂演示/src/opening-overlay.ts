@@ -126,7 +126,7 @@ function mountOpeningOverlay(scene: HTMLElement, video: HTMLVideoElement) {
   badge.append(badgeBar, badgeBody);
 
   // 四站地图的进度轴与字幕共用底部排版。
-  const timeline = element('div', 'opening-timeline');
+  const timeline = element('div', 'opening-timeline copy-panel');
   timeline.hidden = true;
   const tlTrack = element('div', 'opening-tl-track');
   const tlFill = element('span', 'opening-tl-fill');

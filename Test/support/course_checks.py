@@ -208,11 +208,20 @@ def single_screen(room, url):
     room.steps.append('单屏首页、遵义章节、会议桌和旧投影链接已验证')
 
 
+def assert_copy_panel(panel):
+    expect(panel).to_have_css('background-color', 'rgba(24, 24, 19, 0.1)')
+    expect(panel).to_have_css('border-top-style', 'solid')
+    # Chromium rounds a 1px border to one device pixel on reduced-scale runners.
+    assert 0 < panel.evaluate("node => parseFloat(getComputedStyle(node).borderTopWidth)") <= 2
+    expect(panel).to_have_css('backdrop-filter', 'blur(5px)')
+
+
 def entry(room, url):
     page = room.page
     enter_lesson(page, url)
     slide = page.locator('.classroom-slide')
     expect(slide).to_have_attribute('data-entry-phase','ready',timeout=18000)
+    assert_copy_panel(slide.locator('.slide-line'))
     if room.reduced:
         button(page,'下一页').click()
         expect(slide).to_have_attribute('data-entry-phase','ready')
@@ -319,6 +328,8 @@ def opening(room, url):
         seek_to(seconds)
         expect(timeline).to_be_visible()
         expect(timeline.locator('[data-lit=true]')).to_have_count(lit_count)
+        if lit_count == 3:
+            assert_copy_panel(timeline)
         layout = timeline.evaluate('''node => {
           const rect = selector => node.querySelector(selector).getBoundingClientRect();
           const centerX = r => (r.left + r.right) / 2;

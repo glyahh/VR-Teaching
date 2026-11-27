@@ -18,7 +18,7 @@ const narrationGraphemes = new Intl.Segmenter('zh-Hans', { granularity: 'graphem
 const narrationFadeMs = 300;
 
 function mountNarration(host: HTMLElement, total: number, signal: AbortSignal) {
-  const box = element('p', 'slide-line');
+  const box = element('p', 'slide-line copy-panel');
   box.dataset.narrationEmpty = 'true';
   box.dataset.narrationTotal = String(total);
   const viewport = element('span', 'narration-viewport');
