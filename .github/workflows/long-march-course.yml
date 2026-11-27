@@ -2,7 +2,11 @@ name: 长征离线课件
 
 on:
   push:
+    branches: ['**']
+    paths-ignore: ['**/*.md']
   pull_request:
+    paths-ignore: ['**/*.md']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -10,17 +14,18 @@ permissions:
 jobs:
   course:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 20 || 10 }}
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1,2,3,4]' || '[1]') }}
     defaults:
       run:
         shell: pwsh
     env:
       PYTHONUTF8: "1"
       COURSE_EDGE_RENDER_SCALE: "0.5"
+      COURSE_CI_FULL: ${{ github.event_name == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,6 +52,10 @@ jobs:
         env:
           COURSE_CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
+          if ($env:COURSE_CI_FULL -eq 'true') {
+            python -B "Test/run-course-ci.py" plan --full
+            exit $LASTEXITCODE
+          }
           $base = $env:COURSE_CI_BASE
           if ($base -match '^(?!0{40}$)[0-9a-f]{40}$') {
             git cat-file -e "$base^{commit}" 2>$null
@@ -63,7 +72,13 @@ jobs:
           sudo apt-get "${ubuntu_sources[@]}" -o Acquire::Retries=3 update -qq
           sudo apt-get "${ubuntu_sources[@]}" -o Acquire::Retries=3 install -y --no-install-recommends fonts-noto-cjk
       - name: 断网 Edge 回归
-        run: python -B "Test/run-course-ci.py" run --shard ${{ matrix.shard }}
+        run: |
+          if ($env:COURSE_CI_FULL -eq 'true') {
+            python -B "Test/run-course-ci.py" run --shard ${{ matrix.shard }}
+          } else {
+            python -B "Test/run-course-ci.py" run
+          }
+          exit $LASTEXITCODE
       - uses: actions/upload-artifact@v4
         if: always()
         with:

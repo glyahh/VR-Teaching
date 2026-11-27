@@ -20,7 +20,7 @@ RELEASE_ARTIFACTS = (
     "展示材料/成果展示/课堂预览.html",
     "展示材料/成果展示/沉浸式VR课程-从于都到遵义-成果展示包.zip",
 )
-CORE = {"single_screen", "opening", "entry", "desk", "recap"}
+SMOKE = "single_screen"
 EDGE_SHARDS = 4
 SPECIAL = {
     "xiang-crossing": ("verify-xiang-crossing.py", False),
@@ -32,24 +32,12 @@ CHECKS = (
     "single_screen", "opening", "entry", "narration", "disclosures", "journeys",
     "controls", "desk", "recap", "reduced-motion", *SPECIAL,
 )
-RULES = (
-    ((SRC + "exploration-page.ts", SRC + "exploration-page.css"),
-     ("controls", "xiang-crossing", "yudu-shorts")),
-    ((ASSETS + "xiang-crossing/*", MEDIA_SOURCE + "xiang-crossing-tour.*",
-      MEDIA_SOURCE + "make-xiang-crossing-tour.py", "Test/verify-xiang-crossing.py"),
-     ("xiang-crossing",)),
-    ((ASSETS + "yudu-river/*", ASSETS + "yudu-preparation*", MEDIA_SOURCE + "yudu-*",
-      "Test/verify-yudu-shorts.py"), ("yudu-shorts", "route-interactions")),
+QUICK_RULES = (
     ((ASSETS + "opening*", SRC + "opening-overlay.ts", MEDIA_SOURCE + "opening-*",
-      MEDIA_SOURCE + "make-opening.py"), ("opening",)),
-    ((SRC + "route-scenes.ts", "Test/verify-route-interactions.py"),
-     ("journeys", "route-interactions")),
-    ((SRC + "narration.ts",), ("narration",)),
-    ((SRC + "story-scenes*",), ("disclosures",)),
-    ((SRC + "page-entry.ts",), ("narration", "journeys", "reduced-motion")),
-    ((SRC + "recap-*", ASSETS + "recap-*"), ("disclosures",)),
-    ((SRC + "desk-*", ASSETS + "desk-*", "Test/verify-desk-live.py"),
-     ("desk-live", "route-interactions")),
+      MEDIA_SOURCE + "make-opening.py"), "opening"),
+    ((SRC + "app.ts", SRC + "lesson-session.ts", SRC + "page-entry.ts"), "entry"),
+    ((SRC + "story-scenes*",), "disclosures"),
+    ((SRC + "recap-*", ASSETS + "recap-*"), "recap"),
 )
 
 
@@ -67,24 +55,18 @@ def changed_paths(base):
         return None
 
 
-def select(paths):
+def select(paths, full):
+    if full:
+        return list(CHECKS), {"手动全量": list(CHECKS)}
     if paths is None:
-        return list(CHECKS), {"无法比较 Git 基线": list(CHECKS)}
+        return [SMOKE], {"无法比较 Git 基线": [SMOKE]}
     reasons = {}
-    selected = set(CORE)
+    selected = {SMOKE}
     for path in paths:
-        if path in RELEASE_ARTIFACTS:
-            continue
         checks = {
-            check for patterns, matches in RULES
+            check for patterns, check in QUICK_RULES
             if any(fnmatchcase(path, pattern) for pattern in patterns)
-            for check in matches
         }
-        if not checks and (
-            path in (".gitattributes", ".gitmodules")
-            or (path.startswith((COURSE, "Test/", ".github/")) and not path.endswith(".md"))
-        ):
-            checks.update(CHECKS)
         if checks:
             reasons[path] = [check for check in CHECKS if check in checks]
             selected.update(checks)
@@ -103,15 +85,15 @@ def write_report(path, report):
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def plan(output, base):
+def plan(output, base, full):
     tracked = subprocess.check_output(["git", "ls-files", "-z", "--", *RELEASE_ARTIFACTS], cwd=ROOT)
     if tracked:
         names = tracked.decode("utf-8").rstrip("\0").replace("\0", "\n")
         raise SystemExit("以下发布成品应放入 GitHub Release：\n" + names)
-    paths = changed_paths(base)
-    checks, reasons = select(paths)
+    paths = None if full else changed_paths(base)
+    checks, reasons = select(paths, full)
     report = {"base": base, "sha256": html_sha256(), "changedPaths": paths,
-              "checks": checks, "reasons": reasons}
+              "mode": "full" if full else "quick", "checks": checks, "reasons": reasons}
     output.mkdir(parents=True, exist_ok=True)
     write_report(output / "selection.json", report)
     print("断网 Edge 检查 " + ", ".join(checks), flush=True)
@@ -161,12 +143,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / ".march-build/ci")
     modes = parser.add_subparsers(dest="mode", required=True)
-    modes.add_parser("plan").add_argument("--base", default="")
+    planning = modes.add_parser("plan")
+    planning.add_argument("--base", default="")
+    planning.add_argument("--full", action="store_true")
     modes.add_parser("run").add_argument("--shard", type=int, choices=range(1, EDGE_SHARDS + 1))
     args = parser.parse_args()
     output = args.output.resolve()
     if args.mode == "plan":
-        plan(output, args.base)
+        plan(output, args.base, args.full)
     else:
         run(output, args.shard)
 

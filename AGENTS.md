@@ -128,7 +128,7 @@ TypeScript、HTML 和构建脚本使用两个空格缩进。变量和函数用 `
 | 场内说明右上轻透，循环背景自动播放，河岸视频文字沿画面边缘放置。 | 场内说明共用 `.scene-note`。`run controls` 检查窄窗和背景播放，`Test/verify-yudu-shorts.py` 验证画面铺满、按钮对比度、连播、播放中进入河岸及返回原位续播。 |
 | 总览地图底栏右侧是工具，卡片可拖动并在地图边界内减速停下。 | `map-card.ts` 统一处理拖动、惯性和边界，`run controls` 实测宽窄布局、滑行与卡片按钮。 |
 
-本地用 `npm --prefix "课堂演示/自由探索实验" run check:course` 执行类型检查。GitHub Actions 用同一命令，加上 `Test/verify-presentation-policy.mjs`、构建校验和 Edge 回归，失败时保留验收报告与截图。
+本地用 `npm --prefix "课堂演示/自由探索实验" run check:course` 执行类型检查。普通 GitHub Actions 检查构建、界面规则和断网 Edge 单屏入口，再按改动加跑短用例。需要完整回归时手动运行[长征离线课件工作流](.github/AGENTS.md)，或用本地验收脚本复跑专项。
 
 ## 验收
 
