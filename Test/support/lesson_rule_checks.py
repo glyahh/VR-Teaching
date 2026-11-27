@@ -93,6 +93,11 @@ def narration(room, url):
     lesson_action(page, "enter-scene").click()
     heading(page, "湘江河谷")
     page.set_viewport_size({"width": 414, "height": 811})
+    expect(caption(page)).to_be_visible()
+    assert caption(page).evaluate("""box => {
+      const right = box.getBoundingClientRect().right;
+      return right <= box.closest('.lesson-footer').getBoundingClientRect().right + 1;
+    }"""), "窄窗讲述框应在课页底栏的可用宽度内"
     onward(page, "湘江渡口")
     narrated(page, "中央红军在广西全州、兴安之间渡过湘江。")
     onward(page, "湘江留下的启示")
