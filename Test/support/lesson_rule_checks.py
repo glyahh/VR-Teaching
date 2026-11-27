@@ -63,7 +63,7 @@ def narration(room, url):
     expect(caption(page)).to_have_attribute("data-narration-count", "1")
     # 校验非文字化微光刻度条存在，且在焦点移至标题时按全局空格键仍可推进字幕
     expect(caption(page).locator(".narration-pip")).to_have_count(3)
-    page.locator(".scene-head h1").click()
+    page.locator(".scene-head h1").focus()
     page.keyboard.press("Space")
     narrated(page, "各路队伍在于都集结。出发前，得先渡过于都河。")
     onward(page, "岸边备桥")
@@ -110,7 +110,7 @@ def narration(room, url):
       requestAnimationFrame(sample);
     }""")
     with paused_clock(page) as clock:
-        button(page, "回望渡口").click()
+        button(page, "回望渡口").press("Enter")
         clock.run_for(5500)
     narrated(page, "有人留在险处，把过江的时间让给战友。渡江以后，红军要带着这些教训继续往前走。", "point")
     frames = page.evaluate("captionFrames")
