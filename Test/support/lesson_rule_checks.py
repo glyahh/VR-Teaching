@@ -25,6 +25,28 @@ def caption(page):
     return page.locator(".caption-copy > .slide-line")
 
 
+def assert_bottom_rail(rail, same_row):
+    expect(rail).to_be_visible()
+    geometry = rail.evaluate("""rail => {
+      const groups = [...rail.children].map(node => node.getBoundingClientRect());
+      const chapters = groups[0], actions = groups.at(-1);
+      const {top, left, right} = rail.getBoundingClientRect();
+      const screenBottom = rail.closest('.scene, .map').getBoundingClientRect().bottom;
+      return {
+        above: Math.min(chapters.top, actions.top) - top - rail.clientTop,
+        below: screenBottom - Math.max(chapters.bottom, actions.bottom),
+        centerDifference: (actions.top + actions.bottom - chapters.top - chapters.bottom) / 2,
+        gap: actions.left - chapters.right,
+        actionInset: right - actions.right,
+        fits: chapters.left >= left - 1 && chapters.right <= right + 1 && actions.left >= left - 1,
+      };
+    }""")
+    assert abs(geometry["above"] - geometry["below"]) <= 1 and geometry["above"] > 0, geometry
+    assert geometry["fits"] and abs(geometry["actionInset"]) <= 1, geometry
+    if same_row:
+        assert abs(geometry["centerDifference"]) <= 1 and geometry["gap"] > 0, geometry
+
+
 def narrated(page, text, kind="main"):
     box = caption(page)
     expect(box).to_have_attribute("data-narration-view", kind)
@@ -84,9 +106,10 @@ def narration(room, url):
     metrics = caption(page).evaluate("""box => {
       const text = box.querySelector('.narration-viewport');
       return [text.clientHeight, parseFloat(getComputedStyle(box).lineHeight),
-              box.getBoundingClientRect().right, document.querySelector('.scene-navigation').getBoundingClientRect().left];
+              box.getBoundingClientRect().bottom, document.querySelector('.lesson-bottom-rail').getBoundingClientRect().top];
     }""")
     assert isclose(metrics[0], metrics[1], abs_tol=1.2) and metrics[2] <= metrics[3], metrics
+    assert_bottom_rail(page.locator(".lesson-bottom-rail"), same_row=True)
     page.clock.install()
     page.goto(url)
     lesson_action(page, "time-1").click()
@@ -94,6 +117,7 @@ def narration(room, url):
     heading(page, "湘江河谷")
     page.set_viewport_size({"width": 414, "height": 811})
     expect(caption(page)).to_be_visible()
+    assert_bottom_rail(page.locator(".lesson-bottom-rail"), same_row=True)
     assert caption(page).evaluate("""box => {
       const right = box.getBoundingClientRect().right;
       return right <= box.closest('.lesson-footer').getBoundingClientRect().right + 1;
@@ -277,6 +301,7 @@ def controls(room, url):
       return [tools.left - rail.right, (tools.top + tools.bottom - rail.top - rail.bottom)/2];
     }""")
     assert geometry[0] >= 8 and abs(geometry[1]) < 5, geometry
+    assert_bottom_rail(page.locator(".map-footer"), same_row=True)
     expect(card).to_have_attribute("data-movable","")
     card_box = card.bounding_box()
     x, y = card_box["x"] + 70, card_box["y"] + 36
@@ -299,6 +324,7 @@ def controls(room, url):
     assert clamped["x"] + clamped["width"] <= map_box["x"] + map_box["width"] - 10
     page.set_viewport_size({"width":414,"height":811})
     assert tools.evaluate("node => node.getBoundingClientRect().top >= node.previousElementSibling.getBoundingClientRect().bottom")
+    assert_bottom_rail(page.locator(".map-footer"), same_row=False)
     page.set_viewport_size({"width":1366,"height":768})
     begin(page)
     onward(page,"岸边备桥")

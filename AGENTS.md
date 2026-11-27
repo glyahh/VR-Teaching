@@ -120,6 +120,7 @@ TypeScript、HTML 和构建脚本使用两个空格缩进。变量和函数用 `
 | **10%透明度文案装用背景板**。片头时间轴和课页共用讲述框采用 10% 不透明度的暖灰底色、细边及轻微背景模糊。新做同类叠层文案默认复用这块底板。文字与进度标记保持清晰，窄窗内讲述框贴合底栏可用宽度。 | `style.css` 的 `.copy-panel` 统一样式。`run opening` 与 `run entry` 检查实际底色、细边和模糊。`run narration` 检查湘江窄窗边界与讲述换行。 |
 | 展示面以画面交代事实，文字留给必要的地名、操作和当前反馈。设计说明、来源和规格存项目记录或按需打开的材料。 | `page-policy.mjs` 拦截已有的说明性标签和探查计数样式。`node "Test/verify-presentation-policy.mjs"` 用旧课件片段验证规则，实走课件核对其余文案。 |
 | 章节切换用横向细线导航，当前项用金色细框。连续史实、卷宗要点和课堂回顾用纵向细线与圆点，真实的日期和地点排在节点标题上方。 | 正式课件、独立样课和成果页共用 `lesson-rails.css`。`course_cli.py` 验收正式课件中的章节切换、节点揭示和回看。 |
+| 正课四站按钮居底栏左侧，上一页、下一页和练习操作居右。地图的站点与工具沿用同样的底栏。分隔线到按钮、按钮到底边使用相同的留白，窄窗放不下时在底栏内换行。 | `app.ts` 把相关控件放进同一条底栏，`style.css` 的 `.bottom-rail` 统一分隔线、上下内边距和对齐。`run entry`、`run controls`、`run narration` 和 `run recap` 核对正课、地图、窄窗和回看。 |
 | 画面中的点选入口用圆点定位，通过无障碍名称描述对象。翻合、拨动、拖放、拆看等操作由场景对象直接回应。 | `markScenePoint` 负责圆点。`course_cli.py run single_screen` 验入口，`verify-exploration-prototypes.py` 实走物件操作与回看。 |
 | 导览在课堂开头。会议桌保留手动观察、查证和材料状态。 | 开场与桌景各有入口，`verify-course-media.py` 验导览首尾帧，`run opening` 验播放和续播，`verify-desk-live.py` 验桌景定格与手动查证。 |
 | 画面、边缘布局、讲述依次进场。圆点说明共用左下框，点空白可补完当前段或推进下一段。 | `page-entry.ts` 在布局后启动 `scene-lesson.ts` 的首段。后者按访问轮次同步。界面检查拦截旧圆点框。`Test/course_cli.py run entry` 和 `run narration` 实测。 |

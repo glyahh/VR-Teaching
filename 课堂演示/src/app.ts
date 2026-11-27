@@ -246,7 +246,7 @@ document.addEventListener('keydown', event => {
 });
 
 function chapterNav(current: number, jump: (index: number) => void) {
-  const nav = element('nav','chapter-nav chapter-rail');
+  const nav = element('nav','chapter-nav chapter-rail chapter-rail--tabs');
   nav.setAttribute('aria-label','章节导航');
   events.forEach((event, index) => {
     const button = lessonControl('chapter-'+index,event.name, () => jump(index),'chapter-link');
@@ -422,7 +422,7 @@ function renderMap(restoreFocus = false) {
   setIconButton(resetView,'重置地图视角（快捷键 0）','reset');
   zoomTools.append(zoomOut,zoomReadout,zoomIn,view,resetView);
   tools.append(zoomTools);
-  const timeline = element('nav','timeline chapter-rail');
+  const timeline = element('nav','timeline chapter-rail chapter-rail--tabs');
   timeline.setAttribute('aria-label','时间轴');
   const times = events.map((e,i) => {
     const node = lessonControl('time-'+i,'',()=>select(i,'timeline'),'time-button chapter-link');
@@ -430,7 +430,7 @@ function renderMap(restoreFocus = false) {
     timeline.append(node);
     return node;
   });
-  const mapFooter = element('div','map-footer');
+  const mapFooter = element('div','map-footer bottom-rail');
   mapFooter.append(timeline,tools);
   map.append(mapFooter);
   shell.append(header,map);
@@ -1087,10 +1087,11 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     bottom.append(currentPractice.panel);
     navigation.insertBefore(currentPractice.entry,next);
   }
-  bottom.append(navigation);
+  const rail = element('div','bottom-rail lesson-bottom-rail');
+  if (variant === 'lesson') rail.append(chapterNav(chapter,jump));
+  rail.append(navigation);
   if (tour) footer.append(tour.caption);
-  footer.append(bottom);
-  if (variant === 'lesson') footer.append(chapterNav(chapter,jump));
+  footer.append(bottom,rail);
   scene.append(stage, heading, footer);
   app.replaceChildren(scene);
   syncCinemagraphReading();

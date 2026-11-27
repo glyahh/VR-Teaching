@@ -32,13 +32,9 @@
     linear-gradient(180deg, #202821a8, transparent 26%, transparent 77%, #121713ae);
 }
 .scene[data-exploration] .scene-stage > :not(.lesson-exploration) { pointer-events: none; }
-.scene[data-exploration] .slide-caption {
-  grid-template-columns: 1fr;
-}
-.scene[data-exploration] .scene-navigation { justify-content: flex-end; }
 .scene[data-exploration="yudu-river"] .scene-navigation { pointer-events: none; }
 .scene[data-exploration="yudu-river"] .scene-navigation button { pointer-events: auto; }
-.scene[data-exploration] :is(.caption-copy, .practice, .practice-entry) { display: none; }
+.scene[data-exploration] :is(.slide-caption, .practice-entry) { display: none; }
 .scene-tour {
   position: absolute;
   z-index: 1;
@@ -59,20 +55,22 @@
 .scene:is([data-scene-tour="playing"],[data-scene-tour="paused"],[data-scene-tour="finished"]):not([data-exploration],[data-practicing="true"]) {
   height: 100dvh;
   & > .scene-stage > .scene-media { visibility: hidden; }
-  & :is(.scene-date,.chapter-nav,.caption-copy,.slide-caption) { display: none; }
+  & :is(.scene-date,.chapter-nav,.slide-caption,.lesson-bottom-rail) { display: none; }
   & > .lesson-footer {
     bottom: var(--film-subtitle-inset);
     display: flex;
     justify-content: center;
   }
-  &:is([data-scene-tour="finished"],[data-activity="crossing"]) .slide-caption {
-    display: block;
+  &:is([data-scene-tour="finished"],[data-activity="crossing"]) .lesson-bottom-rail {
+    display: flex;
     position: absolute;
     inset-inline-end: 0;
     bottom: 0;
+    padding: 0;
+    border: 0;
   }
   @media (max-width: 1100px) {
-    &:is([data-scene-tour="finished"],[data-activity="crossing"]) .slide-caption { bottom: calc(100% + 8px); }
+    &:is([data-scene-tour="finished"],[data-activity="crossing"]) .lesson-bottom-rail { bottom: calc(100% + 8px); }
   }
 }
 @media (max-aspect-ratio: 4/3) {

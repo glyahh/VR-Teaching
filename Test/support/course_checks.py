@@ -3,7 +3,7 @@ from io import BytesIO
 from PIL import Image, ImageChops, ImageStat
 from playwright.sync_api import expect
 from course_cli import EXPLORATION_LOAD_TIMEOUT, SCREENSHOT_TIMEOUT, VIDEO_COMPLETION_TIMEOUT
-from .lesson_rule_checks import narration, disclosures, journeys, controls
+from .lesson_rule_checks import assert_bottom_rail, narration, disclosures, journeys, controls
 
 
 DESK = '.desk-live-frame'
@@ -221,6 +221,7 @@ def entry(room, url):
     enter_lesson(page, url)
     slide = page.locator('.classroom-slide')
     expect(slide).to_have_attribute('data-entry-phase','ready',timeout=18000)
+    assert_bottom_rail(slide.locator('.lesson-bottom-rail'), same_row=page.viewport_size['width'] >= 480)
     assert_copy_panel(slide.locator('.slide-line'))
     if room.reduced:
         button(page,'下一页').click()
@@ -479,6 +480,7 @@ def recap(room, url):
     station.press('Enter')
     button(page, '回看现场').click()
     expect(page.locator('.scene-head h1')).to_have_text('湘江河谷')
+    assert_bottom_rail(page.locator('.lesson-bottom-rail'), same_row=False)
     button(page, '返回回顾').click()
     expect(card.get_by_role('heading', name='湘江战役')).to_be_visible()
     button(page, '返回地图').click()
