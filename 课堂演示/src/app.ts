@@ -1143,6 +1143,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
 
   function addHotspot(label: string, key: string, [x,y]: Point, cue: Pick<SceneCue,'text'|'enter'>, className = 'hotspot') {
     const spot = explorationStage.markScenePoint(control('',()=>lesson.explain(key),className),label);
+    spot.dataset.lessonCue = key;
     lesson.addCue(key,{
       text: cue.text,
       enter(animate) {
@@ -1221,7 +1222,7 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
       video.addEventListener('error', done, { once: true });
     });
   }
-  const play = background ? undefined : control('',()=>{
+  const play = background ? undefined : lessonControl('video-playback','',()=>{
     const playing = !(intent.mode === 'playing' && !video.ended);
     const time = intent.mode === 'static' || video.hidden || video.ended ? 0 : video.currentTime;
     const state: VideoState = playing ? {mode:'playing',time,at:sceneNow()} : {mode:'paused',time};
@@ -1301,7 +1302,7 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
       if (request === generation && video.isConnected) showPoster();
     }
   }
-  const still = clip.mode === 'transition' ? control('',()=>{
+  const still = clip.mode === 'transition' ? lessonControl('video-still','',()=>{
     const state:VideoState = {mode:'static',time:0};
     void setVideo(state);
   }) : undefined;

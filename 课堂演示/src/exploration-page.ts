@@ -74,12 +74,12 @@ function mountSceneTour({ id, scene, stage, tools, signal, onEnded }: {
   stage.append(film);
   let state: TourState = 'ready';
   let playback = 0;
-  const controlButton = control('', () => {
+  const controlButton = lessonControl('tour-playback','', () => {
     if (state === 'playing') pause();
     else void play();
   });
   controlButton.dataset.sceneTourControl = '';
-  const stillButton = isYudu ? control('', () => {
+  const stillButton = isYudu ? lessonControl('tour-still','', () => {
     render('ready');
     controlButton.focus({preventScroll:true});
   }) : undefined;

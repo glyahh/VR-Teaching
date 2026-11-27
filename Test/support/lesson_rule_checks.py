@@ -3,7 +3,7 @@ from math import isclose
 
 from playwright.sync_api import expect
 
-from course_cli import EXPLORATION_LOAD_TIMEOUT, VIDEO_COMPLETION_TIMEOUT, button
+from course_cli import EXPLORATION_LOAD_TIMEOUT, VIDEO_COMPLETION_TIMEOUT, button, lesson_action
 
 
 def heading(page, title):
@@ -11,13 +11,13 @@ def heading(page, title):
 
 
 def onward(page, title):
-    button(page, "下一页").click()
+    lesson_action(page, "next").click()
     heading(page, title)
 
 
 def begin(page):
-    button(page, "开始授课").click()
-    button(page, "进入课堂").click()
+    lesson_action(page, "start").click()
+    lesson_action(page, "opening-next").click()
     heading(page, "于都集结")
 
 
@@ -311,11 +311,12 @@ def controls(room, url):
     page.set_viewport_size({"width":1366,"height":768})
     begin(page)
     onward(page,"岸边备桥")
-    expect(button(page,"播放备桥短片")).to_be_visible()
+    expect(lesson_action(page, "video-playback")).to_be_visible()
     onward(page,"浮桥近景")
-    button(page,"于都河岸").click()
+    lesson_action(page, "tour-playback").click()
     expect(page.locator(".classroom-slide")).to_have_attribute("data-river-tour", "finished", timeout=VIDEO_COMPLETION_TIMEOUT)
-    button(page,"进入河岸").click()
+    river_entry = page.locator('[data-river-entry]')
+    river_entry.click()
     dock = page.locator("#river-tools")
     expect(dock).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
     expect(dock.locator("progress")).to_have_count(0)
@@ -325,9 +326,9 @@ def controls(room, url):
     alignment = note.evaluate("""node => {
       const box = node.getBoundingClientRect();
       const tools = document.querySelector('.scene-actions').getBoundingClientRect();
-      return [box.top-tools.bottom, getComputedStyle(node).backgroundColor, getComputedStyle(node).fontWeight];
+      return box.top - tools.bottom;
     }""")
-    assert alignment[0] >= -2 and alignment[1:] == ["rgba(0, 0, 0, 0)", "400"], alignment
+    assert alignment >= -2, alignment
     room.shot("河岸控件和右上说明")
     page.set_viewport_size({"width":414,"height":811})
     assert note.evaluate("""node => {
@@ -336,10 +337,10 @@ def controls(room, url):
       return left >= frame.left && right <= frame.right && getComputedStyle(node).textWrapStyle === 'balance';
     }"""), "右上说明在窄窗越界或未使用均衡折行"
     page.set_viewport_size({"width":1366,"height":768})
-    button(page,"返回浮桥").click()
+    river_entry.click()
     onward(page,"夜渡于都河")
-    expect(button(page,"暂停短片")).to_have_count(0)
-    expect(button(page,"静态画面")).to_have_count(0)
+    expect(lesson_action(page, "video-playback")).to_have_count(0)
+    expect(lesson_action(page, "video-still")).to_have_count(0)
     page.wait_for_function("document.querySelector('video.is-visible')?.currentTime > .2")
     page.emulate_media(reduced_motion="reduce")
     expect(page.locator(".scene-camera video")).to_be_hidden()

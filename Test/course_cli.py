@@ -5,6 +5,7 @@ from contextlib import contextmanager, suppress
 from datetime import datetime
 from hashlib import file_digest
 import json
+from os import environ
 from pathlib import Path
 from shutil import copyfile
 from tempfile import TemporaryDirectory
@@ -34,6 +35,10 @@ def button(page, name):
     return page.get_by_role('button', name=name, exact=True)
 
 
+def lesson_action(page, action):
+    return page.locator(f'button[data-lesson-action="{action}"]')
+
+
 class Classroom:
     def __init__(self, page, output, reduced=False):
         self.page = page
@@ -55,10 +60,15 @@ def launch(html, viewport, reduced='no-preference', video_dir=None):
     with TemporaryDirectory(prefix='long-march-edge-') as directory, sync_playwright() as playwright:
         standalone = Path(directory) / 'lesson.html'
         copyfile(html, standalone)
-        with playwright.chromium.launch(channel='msedge', headless=True, args=['--enable-unsafe-swiftshader']) as browser:
+        scale = environ.get('COURSE_EDGE_RENDER_SCALE')
+        options = {'device_scale_factor': float(scale)} if scale else {}
+        flags = ['--enable-unsafe-swiftshader']
+        if scale:
+            flags += ['--use-gl=angle', '--use-angle=swiftshader']
+        with playwright.chromium.launch(channel='msedge', headless=True, args=flags) as browser:
             video = {'record_video_dir': video_dir, 'record_video_size': viewport} if video_dir else {}
             with browser.new_context(offline=True, service_workers='block', viewport=viewport,
-                    reduced_motion=reduced, **video) as context:
+                    reduced_motion=reduced, **options, **video) as context:
                 errors = []
                 context.on('weberror', lambda event: errors.append(str(event.error)))
                 yield context, standalone.as_uri(), browser.version, errors

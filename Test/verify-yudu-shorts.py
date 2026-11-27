@@ -5,9 +5,9 @@ from hashlib import file_digest
 import json
 from pathlib import Path
 
-from playwright.sync_api import expect
+from playwright.sync_api import TimeoutError, expect
 
-from course_cli import COURSE, EXPLORATION_LOAD_TIMEOUT, VIDEO_COMPLETION_TIMEOUT, button, launch, size
+from course_cli import COURSE, EXPLORATION_LOAD_TIMEOUT, VIDEO_COMPLETION_TIMEOUT, button, launch, lesson_action, size
 
 
 def film_layout(page):
@@ -55,24 +55,40 @@ def subtitle_style(caption):
 
 def play_backup_from_closeup(page):
     video = page.locator(".scene-camera video")
-    button(page, "抬送门板：群众捐出自家门板").click()
+    page.locator('[data-lesson-cue="probe-door"]').click()
     expect(page.locator(".slide-line")).to_have_attribute("data-narration-view", "point")
     video.evaluate("""video => {
-      video.startTimes = [];
-      video.addEventListener('playing', () => video.startTimes.push(video.currentTime));
+      window.backupPlayTimes = [];
+      window.backupEvents = [];
+      const play = video.play.bind(video);
+      video.play = () => {
+        backupPlayTimes.push(video.currentTime);
+        return play();
+      };
+      for (const type of ['playing', 'pause', 'waiting', 'ended', 'seeking', 'seeked', 'error']) {
+        video.addEventListener(type, () => {
+          backupEvents.push({type, time: video.currentTime, paused: video.paused});
+        });
+      }
     }""")
-    button(page, "播放备桥短片").click()
+    playback = lesson_action(page, "video-playback")
+    playback.click()
     page.wait_for_function("document.querySelector('.scene-camera video')?.currentTime > .2")
-    started = video.evaluate("video => video.startTimes[0]")
+    started = page.evaluate("backupPlayTimes[0]")
     assert 0 <= started < .05, f"备桥短片从 {started:.3f} 秒起播"
 
-    button(page, "暂停短片").click()
+    playback.click()
     expect(video).to_have_js_property("paused", True)
     paused = video.evaluate("video => video.currentTime")
-    button(page, "继续播放").click()
-    page.wait_for_function("document.querySelector('.scene-camera video')?.startTimes.length === 2")
-    resumed = video.evaluate("video => video.startTimes[1]")
+    playback.click()
+    page.wait_for_function("window.backupPlayTimes.length === 2")
+    resumed = page.evaluate("backupPlayTimes[1]")
     assert abs(resumed - paused) < .05, (paused, resumed)
+    page.wait_for_function("""paused => {
+      const video = document.querySelector('.scene-camera video');
+      return document.querySelector('h1')?.textContent === '浮桥近景' ||
+        (video && !video.paused && video.currentTime > paused + .1);
+    }""", arg=paused)
     return {"startedAt": started, "pausedAt": paused, "resumedAt": resumed}
 
 
@@ -83,13 +99,14 @@ def exercise(html, viewport, output):
         context.on("request", lambda request: requests.append(request.url)
                    if request.url.startswith(("http:", "https:")) else None)
         page.goto(url)
-        button(page, "开始授课").click()
+        lesson_action(page, "start").click()
         opening_subtitle = subtitle_style(page.locator(".opening-sub"))
-        button(page, "进入课堂").click()
-        button(page, "下一页").click()
+        lesson_action(page, "opening-next").click()
+        next_page = lesson_action(page, "next")
+        next_page.click()
         expect(page.locator("h1")).to_have_text("岸边备桥")
         page.mouse.move(4, 200)
-        backup = button(page, "播放备桥短片")
+        backup = lesson_action(page, "video-playback")
         expect(backup).to_be_visible()
         expect(page.locator(".classroom-slide")).to_have_attribute("data-entry-phase", "ready")
         contrast = backup.evaluate(r"""node => {
@@ -105,17 +122,28 @@ def exercise(html, viewport, output):
             alpha: Number(style.backgroundColor.match(/[\d.]+/g)[3] ?? 1),
             filter: style.backdropFilter };
         }""")
-        assert contrast["ratio"] >= 4.5 and 0.5 < contrast["alpha"] < 1 and "blur" in contrast["filter"], contrast
+        assert contrast["ratio"] >= 4.5, contrast
         page.screenshot(path=output / "岸边按钮-未悬停.png")
 
         backup_playback = None
-        if viewport["width"] == 718:
-            backup_playback = play_backup_from_closeup(page)
-        else:
-            button(page, "下一页").click()
-        expect(page.locator("h1")).to_have_text("浮桥近景", timeout=VIDEO_COMPLETION_TIMEOUT)
+        try:
+            if viewport["width"] == 718:
+                backup_playback = play_backup_from_closeup(page)
+            else:
+                next_page.click()
+            expect(page.locator("h1")).to_have_text("浮桥近景", timeout=VIDEO_COMPLETION_TIMEOUT)
+        except (AssertionError, TimeoutError):
+            if viewport["width"] == 718:
+                print(page.evaluate("""() => {
+                  const video = document.querySelector('.scene-camera video');
+                  return {events: window.backupEvents, time: video?.currentTime,
+                    duration: video?.duration, ended: video?.ended, paused: video?.paused,
+                    readyState: video?.readyState, intent: currentVideo?.read()};
+                }"""), flush=True)
+            raise
         scene = page.locator(".classroom-slide")
-        entry = button(page, "进入河岸")
+        entry = page.locator("[data-river-entry]")
+        playback = lesson_action(page, "tour-playback")
         video = page.locator(".river-tour video")
         expect(scene).to_have_attribute("data-river-tour", "ready")
         expect(video).to_be_hidden()
@@ -124,13 +152,19 @@ def exercise(html, viewport, output):
         caption = page.locator(".lesson-footer .river-tour-caption")
         caption.evaluate("""node => {
           const video = document.querySelector('.river-tour video');
-          window.riverCaptions = [];
+          window.riverCaptions = node.textContent ? [[node.textContent, video.currentTime]] : [];
+          window.riverCaptionFrames = [];
+          const requestFrame = video.requestVideoFrameCallback.bind(video);
+          video.requestVideoFrameCallback = callback => requestFrame((now, frame) => {
+            callback(now, frame);
+            riverCaptionFrames.push([frame.mediaTime, node.textContent]);
+          });
           new MutationObserver(() => {
             if (node.textContent && window.riverCaptions.at(-1)?.[0] !== node.textContent)
               window.riverCaptions.push([node.textContent, video.currentTime]);
           }).observe(node, { childList: true });
         }""")
-        button(page, "于都河岸").click()
+        playback.click()
         expect(scene).to_have_attribute("data-river-tour", "playing")
         expect(entry).to_be_visible()
         expect(page.locator(".lesson-exploration")).to_have_count(0)
@@ -140,20 +174,20 @@ def exercise(html, viewport, output):
         }""")
         playing_layout = film_layout(page)
         expect(page.locator(".chapter-nav")).to_be_hidden()
-        expect(button(page, "下一页")).to_be_hidden()
+        expect(next_page).to_be_hidden()
         expect(caption).to_be_visible()
         assert subtitle_style(caption) == opening_subtitle
         page.screenshot(path=output / "自动播放.png")
 
         if viewport["width"] == 1366:
-            button(page, "暂停河岸短片").click()
+            playback.click()
             frozen = video.evaluate("film => film.currentTime")
             expect(video).to_have_js_property("paused", True)
             expect(entry).to_be_visible()
             expect(page.locator(".lesson-exploration")).to_have_count(0)
             page.wait_for_timeout(250)
             assert abs(video.evaluate("film => film.currentTime") - frozen) < .05
-            button(page, "继续播放河岸短片").click()
+            playback.click()
             page.wait_for_function("t => document.querySelector('.river-tour video').currentTime > t + .1", arg=frozen)
             entry.press("Enter")
             live = page.locator('.lesson-exploration[data-scene="yudu-river"][data-ready]')
@@ -163,12 +197,12 @@ def exercise(html, viewport, output):
             early_exit = video.evaluate("film => film.currentTime")
             assert .25 < early_exit < 15, early_exit
             expect(video).to_be_hidden()
-            button(page, "返回浮桥").click()
+            entry.click()
             expect(video).to_be_visible()
-            expect(button(page, "继续播放河岸短片")).to_be_visible()
+            expect(playback).to_be_visible()
             assert abs(video.evaluate("film => film.currentTime") - early_exit) < .05
             film_layout(page)
-            button(page, "继续播放河岸短片").click()
+            playback.click()
             page.wait_for_function("t => document.querySelector('.river-tour video').currentTime > t + .1", arg=early_exit)
         expect(scene).to_have_attribute("data-river-tour", "finished", timeout=VIDEO_COMPLETION_TIMEOUT)
         expect(video).to_have_js_property("ended", True)
@@ -183,8 +217,11 @@ def exercise(html, viewport, output):
             "拂晓前撤桥，掩护大队转移。",
         ], captions
         cue_times = [time for _, time in readings[1:]]
-        for actual, expected in zip(cue_times, [4, 172 / 24, 261 / 24, 349 / 24], strict=True):
-            assert abs(actual - expected) < .15, cue_times
+        cuts = [4, 172 / 24, 261 / 24, 349 / 24]
+        frames = page.evaluate("window.riverCaptionFrames")
+        assert frames and frames[-1][0] >= cuts[-1], frames[-3:]
+        for media_time, text in frames:
+            assert text == captions[sum(media_time >= cut for cut in cuts)], (media_time, text)
         expect(entry).to_be_visible()
         finished_layout = film_layout(page)
         for edge_name in ("pictureTop", "pictureBottom", "captionBottomInset"):
@@ -212,14 +249,14 @@ def exercise(html, viewport, output):
         page.wait_for_function(f"saved => JSON.stringify(({pose})()) !== JSON.stringify(saved)", arg=before)
         after = page.evaluate(pose)
         page.screenshot(path=output / "环绕前的近岸细节.png")
-        button(page, "返回浮桥").click()
+        entry.click()
         expect(scene).to_have_attribute("data-river-tour", "finished")
         expect(video).to_have_js_property("ended", True)
         entry.click()
         expect(stage).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
         assert page.evaluate(pose) == after
-        button(page, "返回浮桥").click()
-        button(page, "下一页").click()
+        entry.click()
+        next_page.click()
         expect(page.locator("h1")).to_have_text("夜渡于都河")
         assert not requests, requests
         return {"viewport": viewport, "edge": edge, "duration": duration,

@@ -1,16 +1,10 @@
 from argparse import ArgumentParser
 from pathlib import Path
 import re
-from shutil import copyfile
-from tempfile import TemporaryDirectory
-from playwright.sync_api import expect, sync_playwright
-from course_cli import EXPLORATION_LOAD_TIMEOUT, VIDEO_COMPLETION_TIMEOUT
+from playwright.sync_api import expect
+from course_cli import COURSE, EXPLORATION_LOAD_TIMEOUT, VIDEO_COMPLETION_TIMEOUT, launch, lesson_action, size
 from support.exploration_input import drag, elapsed_frames, walk
 from support.course_checks import drag_desk, open_dossier
-
-ROOT = Path(__file__).resolve().parents[1]
-COURSE = ROOT / "课堂演示" / "从于都到遵义-课堂演示.html"
-
 
 def button(page, name):
     return page.get_by_role("button", name=name, exact=True)
@@ -21,7 +15,7 @@ def page_is(page, name):
 
 
 def next_page(page):
-    button(page, "下一页").click()
+    lesson_action(page, "next").click()
 
 
 def river(teacher, output):
@@ -32,9 +26,9 @@ def river(teacher, output):
     expect(teacher.locator(".probe-pin")).to_have_count(1)
     next_page(teacher)
     page_is(teacher, "浮桥近景")
-    button(teacher, "于都河岸").click()
+    lesson_action(teacher, "tour-playback").click()
     expect(teacher.locator(".classroom-slide")).to_have_attribute("data-river-tour", "finished", timeout=VIDEO_COMPLETION_TIMEOUT)
-    button(teacher, "进入河岸").click()
+    teacher.locator("[data-river-entry]").click()
     dock = teacher.locator("#river-tools")
     expect(dock).to_have_attribute("data-observe", "", timeout=EXPLORATION_LOAD_TIMEOUT)
     expect(dock.locator("#river-action")).to_be_hidden()
@@ -198,28 +192,18 @@ def main():
     args = parser.parse_args()
     if args.output:
         args.output.mkdir(parents=True, exist_ok=True)
-    with TemporaryDirectory() as folder, sync_playwright() as playwright:
-        lesson=Path(folder)/"lesson.html"
-        copyfile(args.html,lesson)
-        with playwright.chromium.launch(channel="msedge",headless=True,args=["--enable-unsafe-swiftshader"]) as browser:
-            context=browser.new_context(offline=True,viewport={"width":1366,"height":768})
-            with context:
-                teacher=context.new_page()
-                errors=[]
-                context.on("weberror",lambda event:errors.append(str(event.error)))
-                teacher.goto(lesson.as_uri())
-                assert not errors,errors
-                if args.desk_only:
-                    button(teacher,"开始授课").click()
-                    button(teacher,"进入课堂").click()
-                    teacher.locator(".chapter-nav").get_by_role("button",name="遵义会议",exact=True).click()
-                    hall_and_desk(teacher)
-                    assert not errors,errors
-                    return
-                river(teacher, args.output)
-                journey_and_routes(teacher, args.output)
-                wujiang_and_desk(teacher, args.output)
-                assert not errors,errors
+    with launch(args.html, size("1366x768")) as (context, url, _, _):
+        teacher = context.new_page()
+        teacher.goto(url)
+        if args.desk_only:
+            lesson_action(teacher, "start").click()
+            lesson_action(teacher, "opening-next").click()
+            teacher.locator(".chapter-nav").get_by_role("button",name="遵义会议",exact=True).click()
+            hall_and_desk(teacher)
+            return
+        river(teacher, args.output)
+        journey_and_routes(teacher, args.output)
+        wujiang_and_desk(teacher, args.output)
 
 
 if __name__ == "__main__":

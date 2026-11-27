@@ -9,7 +9,7 @@ from traceback import format_exc
 
 from playwright.sync_api import expect
 
-from course_cli import COURSE, button, launch, size
+from course_cli import COURSE, launch, lesson_action, size
 from support.course_media import MAX_JOIN_RGB_ERROR, video_frame_errors
 
 
@@ -24,10 +24,10 @@ CAPTIONS = (
 def open_crossing(page, url):
     page.goto(url)
     page.get_by_role("navigation", name="时间轴").get_by_role("button", name="湘江战役").click()
-    button(page, "进入「湘江战役」场景").click()
+    lesson_action(page, "enter-scene").click()
     expect(page.locator(".scene-head h1")).to_have_text("湘江河谷")
     entry = page.locator(".scene-camera > img").first.element_handle()
-    button(page, "下一页").click()
+    lesson_action(page, "next").click()
     expect(page.locator(".scene-head h1")).to_have_text("湘江渡口")
     return entry
 
@@ -123,7 +123,7 @@ def exercise_joins(html, output):
     with crossing_page(html, {"width": 1920, "height": 1080}, output) as (page, url, _):
         entry = open_crossing(page, url)
         video = page.locator(".xiang-tour video").element_handle()
-        button(page, "下一页").click()
+        lesson_action(page, "next").click()
         return check_page_join(page, video, entry)
 
 
@@ -147,7 +147,7 @@ def exercise(html, viewport, output):
         scene = page.locator('.scene[data-activity="crossing"]')
         video = scene.locator(".xiang-tour video")
         caption = scene.locator(".scene-tour-caption")
-        play = button(page, "播放渡江短片")
+        play = lesson_action(page, "tour-playback")
         expect(play).to_be_visible()
         expect(video).to_have_count(1)
         expect(video).to_be_hidden()
@@ -166,11 +166,11 @@ def exercise(html, viewport, output):
         wait_for_playing(video, 0.25)
         expect(caption).to_have_text(CAPTIONS[0])
         layout = check_layout(video, caption, viewport)
-        button(page, "暂停渡江短片").click()
+        play.click()
         expect(video).to_have_js_property("paused", True)
         paused_at = video.evaluate("video => video.currentTime")
         expect(caption).to_have_text(CAPTIONS[0])
-        button(page, "继续播放渡江短片").click()
+        play.click()
         wait_for_playing(video, paused_at + 0.2)
         for text in CAPTIONS[1:]:
             expect(caption).to_have_text(text, timeout=8000)
@@ -180,7 +180,7 @@ def exercise(html, viewport, output):
         assert all(abs(actual - expected) < 0.75 for actual, expected in zip(cue_times, (4, 9, 13), strict=True)), cue_times
         assert video.evaluate("video => video.duration") == 17
         expect(scene.locator(".lesson-exploration, .crossing-inscene, .scene-point")).to_have_count(0)
-        expect(button(page, "进入渡口")).to_have_count(0)
+        expect(scene.locator("[data-scene-tour-entry]")).to_have_count(0)
         expect(page.locator(".scene-head h1")).to_have_text("湘江留下的启示", timeout=8000)
         expect(page.locator(".outgoing-image")).to_have_count(0)
         handoff = page.evaluate("window.xiangHandoff")
@@ -193,16 +193,16 @@ def exercise(html, viewport, output):
         page.screenshot(path=output / "片尾自动接入下一页.png")
         page_join = check_page_join(page, source, entry)
 
-        button(page, "上一页").click()
+        lesson_action(page, "previous").click()
         expect(page.locator(".scene-head h1")).to_have_text("湘江渡口")
         play.click()
         wait_for_playing(video, 0.2)
         expect(caption).to_have_text(CAPTIONS[0])
-        button(page, "下一页").click()
+        lesson_action(page, "next").click()
         expect(page.locator(".scene-head h1")).to_have_text("湘江留下的启示")
-        button(page, "上一页").click()
+        lesson_action(page, "previous").click()
         expect(page.locator(".scene-head h1")).to_have_text("湘江渡口")
-        expect(button(page, "播放渡江短片")).to_be_visible()
+        expect(play).to_be_visible()
         assert not requests and not errors, (requests, errors)
         return {"edge": edge, "viewport": viewport, "pausedAt": paused_at,
                 "captionCuts": cue_times, "layout": layout, "handoff": handoff, "pageJoin": page_join,
