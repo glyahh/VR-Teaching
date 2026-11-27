@@ -1,6 +1,4 @@
 let mapCardOffset: Point = [0,0];
-let releaseMapCard: (() => void) | undefined;
-let resetMapCard: (() => void) | undefined;
 
 function mountMapCard(map: HTMLElement, card: HTMLElement, footer: HTMLElement) {
   const life = new AbortController();
@@ -93,7 +91,6 @@ function mountMapCard(map: HTMLElement, card: HTMLElement, footer: HTMLElement) 
     measure();
     place(0,0);
   }
-  resetMapCard = reset;
   card.addEventListener('dblclick', event => {
     if (event.target instanceof Element && event.target.closest('button,a,input,select,label')) return;
     reset();
@@ -105,10 +102,12 @@ function mountMapCard(map: HTMLElement, card: HTMLElement, footer: HTMLElement) 
   const resize = new ResizeObserver(measure);
   for (const node of [map,card,footer]) resize.observe(node);
   measure();
-  return () => {
-    if (resetMapCard === reset) resetMapCard = undefined;
-    life.abort();
-    resize.disconnect();
-    cancelAnimationFrame(frame);
+  return {
+    reset,
+    dispose() {
+      life.abort();
+      resize.disconnect();
+      cancelAnimationFrame(frame);
+    },
   };
 }

@@ -34,9 +34,10 @@ CHECKS = (
     "controls", "desk", "recap", "reduced-motion", *SPECIAL,
 )
 QUICK_RULES = (
-    ((ASSETS + "opening*", SRC + "opening-overlay.ts", MEDIA_SOURCE + "opening-*",
+    ((ASSETS + "opening*", SRC + "opening-overlay.ts", SRC + "scene-video.ts", MEDIA_SOURCE + "opening-*",
       MEDIA_SOURCE + "make-opening.py"), "opening"),
-    ((SRC + "app.ts", SRC + "lesson-session.ts", SRC + "page-entry.ts"), "entry"),
+    ((SRC + "app.ts", SRC + "lesson-map.ts", SRC + "lesson-page.ts",
+      SRC + "lesson-session.ts", SRC + "page-entry.ts"), "entry"),
     ((SRC + "story-scenes*",), "disclosures"),
     ((SRC + "recap-*", ASSETS + "recap-*"), "recap"),
 )

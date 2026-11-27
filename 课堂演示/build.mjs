@@ -1,9 +1,9 @@
 import { mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises';
 import { stripTypeScriptTypes } from 'node:module';
 import { randomUUID } from 'node:crypto';
-import { gzipSync } from 'node:zlib';
+import { readCourseAssets } from './course-assets.mjs';
 import { assertDemoTemplate, assertPresentationDirectory } from './page-policy.mjs';
-import { buildExplorationStage, readExplorationStyle, readExplorationAssets, readLessonRailStyle } from './自由探索实验/exploration-assets.mjs';
+import { buildExplorationStage, readExplorationStyle, readLessonRailStyle } from './自由探索实验/exploration-assets.mjs';
 
 const read = (path, encoding) => readFile(new URL(path, import.meta.url), encoding);
 const args = process.argv.slice(2);
@@ -13,88 +13,18 @@ if (args.length > 1 || (mode && mode !== '--preview' && mode !== '--check')) {
 }
 const normalize = text => text.replace(/\r\n/g, '\n');
 await assertPresentationDirectory(new URL('./src/',import.meta.url));
-const assets = await readExplorationAssets({ riverExplorationOnly: true });
-assets.elevation = 'data:image/png;base64,' + (await read('./assets/elevation.png')).toString('base64');
-for (const name of ['yudu','xiang','zunyi']) {
-  assets[name] = 'data:image/png;base64,' + (await read('./assets/'+name+'.png')).toString('base64');
-  assets[name+'-video'] = 'data:video/mp4;base64,' + (await read('./assets/'+name+'.mp4')).toString('base64');
-}
-const riverShortCaptions = JSON.parse(await read('./media-source/yudu-voice-captions.json','utf8'));
-const riverShots = JSON.parse(await read('./media-source/yudu-shorts-qa.json','utf8'));
-const riverTourOrder = JSON.parse(await read('./media-source/yudu-river-tour-order.json','utf8'));
-let riverFrames = 0;
-assets['river-tour-cues'] = JSON.stringify(riverTourOrder.map(key => {
-  const shot = riverShots.find(item => item.key === key);
-  const text = riverShortCaptions[key];
-  if (shot?.fps !== 24 || !text) throw new Error(`于都河岸分镜缺少字幕或帧率不一致：${key}`);
-  riverFrames += shot.source_out_exclusive - shot.source_in;
-  return { until: riverFrames / 24, text };
+const assets = await readCourseAssets();
+// The standalone HTML runs these classic scripts in order. lesson-session starts the course.
+const scriptNames = [
+  'soundscape', 'content', 'terrain', 'cinemagraph', 'desk-state', 'desk-live-session',
+  'desk-reader', 'desk-player', 'practice', 'exploration-page', 'page-entry', 'narration',
+  'scene-lesson', 'story-scenes', 'map-card', 'recap-stage', 'opening-overlay',
+  'lesson-map', 'lesson-page', 'scene-video', 'app', 'route-scenes', 'lesson-session',
+];
+const scripts = await Promise.all(scriptNames.map(async name => {
+  const source = await read(`./src/${name}.ts`, 'utf8');
+  return stripTypeScriptTypes(source).replace(/[^\S\r\n]+$/gm, '');
 }));
-assets['river-tour-video'] = 'data:video/mp4;base64,' +
-  (await read('./assets/yudu-river/shorts/river-tour.mp4')).toString('base64');
-assets['river-tour-poster'] = 'data:image/jpeg;base64,' +
-  (await read(`./assets/yudu-river/shorts/${riverTourOrder[0]}-start.jpg`)).toString('base64');
-assets['river-tour-end-poster'] = 'data:image/jpeg;base64,' +
-  (await read(`./assets/yudu-river/shorts/${riverTourOrder.at(-1)}-end.jpg`)).toString('base64');
-let xiangSeconds = 0;
-const xiangShots = JSON.parse(await read('./media-source/xiang-crossing-tour.json', 'utf8'));
-assets['xiang-tour-cues'] = JSON.stringify(xiangShots.map(({ seconds, text }) => {
-  xiangSeconds += seconds;
-  return { until: xiangSeconds, text };
-}));
-for (const [key, file, mime] of [
-  ['video', 'tour.mp4', 'video/mp4'],
-  ['poster', 'start.jpg', 'image/jpeg'],
-  ['end-poster', 'end.jpg', 'image/jpeg'],
-]) {
-  assets[`xiang-tour-${key}`] = `data:${mime};base64,` +
-    (await read('./assets/xiang-crossing/' + file)).toString('base64');
-}
-assets['yudu-preparation-video'] = 'data:video/mp4;base64,' + (await read('./assets/yudu-preparation.mp4')).toString('base64');
-for (const name of ['yudu-bank','yudu-bridge','xiang-ford','liping-street','liping-table','yudu-assembly','xiang-aftermath','wujiang','zunyi-dawn']) {
-  assets[name] = 'data:image/jpeg;base64,' + (await read('./assets/'+name+'.jpg')).toString('base64');
-}
-for (const [key, filename, mime] of [
-  ['desk-front','desk-front.jpg','image/jpeg'],
-  ['desk-world-front','desk-world-front.jpg','image/jpeg'],
-  ['desk-world-left','desk-world-left.jpg','image/jpeg'],
-  ['desk-world-right','desk-world-right.jpg','image/jpeg'],
-  ['desk-world-top','desk-world-top.jpg','image/jpeg'],
-  ['opening-video','opening.mp4','video/mp4'],
-  ['ambient-river','ambient-river.mp3','audio/mpeg'],
-  ['recap-cello','recap-cello.mp3','audio/mpeg'],
-]) {
-  assets[key] = 'data:'+mime+';base64,'+(await read('./assets/'+filename)).toString('base64');
-}
-assets['desk-world'] = 'data:application/gzip;base64,'+gzipSync(await read('./assets/desk-world.glb')).toString('base64');
-assets['desk-props'] = 'data:application/gzip;base64,'+gzipSync(await read('./assets/desk-props.glb')).toString('base64');
-const deskManifest = JSON.parse(await read('./assets/desk-space.json','utf8'));
-if (!['left','right'].every(side => deskManifest.anchorUV?.[side]?.length === 2 &&
-  deskManifest.anchorUV[side].every(value => Number.isFinite(value) && value >= 0 && value <= 1))) {
-  throw new Error('精修场景缺少两册材料的机位坐标');
-}
-assets['desk-manifest'] = JSON.stringify(deskManifest);
-const readScript = async path => stripTypeScriptTypes(await read(path,'utf8')).replace(/[^\S\r\n]+$/gm,'');
-const soundscapeScript = await readScript('./src/soundscape.ts');
-const content = await readScript('./src/content.ts');
-const terrain = await readScript('./src/terrain.ts');
-const cinemagraph = await readScript('./src/cinemagraph.ts');
-const deskState = await readScript('./src/desk-state.ts');
-const deskSession = await readScript('./src/desk-live-session.ts');
-const deskReader = await readScript('./src/desk-reader.ts');
-const deskPlayer = await readScript('./src/desk-player.ts');
-const practice = await readScript('./src/practice.ts');
-const explorationPage = await readScript('./src/exploration-page.ts');
-const pageEntry = await readScript('./src/page-entry.ts');
-const narration = await readScript('./src/narration.ts');
-const sceneLesson = await readScript('./src/scene-lesson.ts');
-const storyScenes = await readScript('./src/story-scenes.ts');
-const mapCard = await readScript('./src/map-card.ts');
-const recapStage = await readScript('./src/recap-stage.ts');
-const openingOverlay = await readScript('./src/opening-overlay.ts');
-const script = await readScript('./src/app.ts');
-const routeScenes = await readScript('./src/route-scenes.ts');
-const lessonSession = await readScript('./src/lesson-session.ts');
 const [exploration, explorationCss, pageCss] = await Promise.all([
   buildExplorationStage(), readExplorationStyle(), read('./src/exploration-page.css', 'utf8'),
 ]);
@@ -104,10 +34,7 @@ const template = await read('./src/index.html','utf8');
 assertDemoTemplate(template);
 const html = normalize(template
   .replace('/* COURSE_STYLES */',()=>css)
-  .replace('/* COURSE_SCRIPT */',()=>'const mediaAssets = '+JSON.stringify(assets)+';\n'+[
-    exploration,soundscapeScript,content,terrain,cinemagraph,deskState,deskSession,deskReader,deskPlayer,practice,explorationPage,
-    pageEntry,narration,sceneLesson,storyScenes,mapCard,recapStage,openingOverlay,script,routeScenes,lessonSession,
-  ].join('\n')));
+  .replace('/* COURSE_SCRIPT */',()=>'const mediaAssets = '+JSON.stringify(assets)+';\n'+[exploration,...scripts].join('\n')));
 async function writeArtifact(destination, content) {
   const staging = new URL('./.course-'+randomUUID()+'.tmp',destination);
   try {

@@ -5,7 +5,10 @@ import { build } from 'esbuild';
 import { assertDemoTemplate, assertPresentationDirectory } from '../page-policy.mjs';
 
 const assetsRoot = new URL('../assets/', import.meta.url);
-const mimeTypes = { glb: 'application/gzip', jpg: 'image/jpeg', png: 'image/png' };
+const mimeTypes = {
+  glb: 'application/gzip', jpg: 'image/jpeg', png: 'image/png',
+  mp4: 'video/mp4', mp3: 'audio/mpeg',
+};
 const riverFiles = [
   'river-boat.glb', 'river-crowd.glb',
   'river-tree.glb', 'river-tree-far.glb', 'river-grass.glb', 'river-rock.glb',
@@ -19,16 +22,23 @@ const hallFiles = [
 const notebook = JSON.parse(await readFile(new URL('notebook.json', import.meta.url), 'utf8'));
 for (let page = 2; page <= notebook.length; page++) hallFiles.push('folio-page-' + page + '.jpg');
 
+export async function readEmbeddedAsset(path) {
+  const extension = path.split('.').at(-1);
+  const mime = mimeTypes[extension];
+  if (!mime) throw new Error(`无法内嵌未知格式的资源：${path}`);
+  const bytes = await readFile(new URL(path, assetsRoot));
+  const data = extension === 'glb' ? gzipSync(bytes) : bytes;
+  return `data:${mime};base64,${data.toString('base64')}`;
+}
+
 export async function readExplorationAssets({ riverExplorationOnly = false } = {}) {
   const riverExtras = riverExplorationOnly
     ? ['river-meadow.jpg', 'river-meadow-normal.jpg', 'river-reflections.jpg', 'river-calm-normal.png'] : ['river-people.glb'];
   const paths = ['terrain.jpg', ...[...riverFiles, ...riverExtras].map(file => 'yudu-river/' + file),
     ...hallFiles.map(file => 'zunyi-hall/' + file)];
   const entries = await Promise.all(paths.map(async path => {
-    const [name, extension] = path.split('/').at(-1).split('.');
-    const bytes = await readFile(new URL(path, assetsRoot));
-    const data = extension === 'glb' ? gzipSync(bytes) : bytes;
-    return [name, 'data:' + mimeTypes[extension] + ';base64,' + data.toString('base64')];
+    const [name] = path.split('/').at(-1).split('.');
+    return [name, await readEmbeddedAsset(path)];
   }));
   return Object.fromEntries(entries);
 }
@@ -52,9 +62,9 @@ export async function readExplorationStyle() {
   const [css, rails, grain] = await Promise.all([
     readFile(new URL('exploration-stage.css', import.meta.url), 'utf8'),
     readLessonRailStyle(),
-    readFile(new URL('yudu-river/frost-grain.jpg', assetsRoot)),
+    readEmbeddedAsset('yudu-river/frost-grain.jpg'),
   ]);
-  return css.replace('/* FROST_GRAIN */', 'data:image/jpeg;base64,' + grain.toString('base64')) + '\n' + rails;
+  return css.replace('/* FROST_GRAIN */', grain) + '\n' + rails;
 }
 
 export async function buildExplorationStage() {

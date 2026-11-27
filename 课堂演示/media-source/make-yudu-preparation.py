@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "课堂演示" / "assets"
-APP = ROOT / "课堂演示" / "src" / "app.ts"
+LESSON_PAGE = ROOT / "课堂演示" / "src" / "lesson-page.ts"
 WIDTH, HEIGHT = 1280, 720
 SIZE = WIDTH, HEIGHT
 FPS = 24
@@ -32,7 +32,7 @@ def ramp(value, start, end):
 
 
 def course_outline(key):
-    content = APP.read_text(encoding="utf-8")
+    content = LESSON_PAGE.read_text(encoding="utf-8")
     match = re.search(rf"'{key}',\[[^\]]+\],'(M [^']+)'", content)
     if not match:
         raise ValueError(f"Could not find {key} in the course bridge activity")

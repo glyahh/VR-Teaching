@@ -186,10 +186,16 @@ def single_screen(room, url):
         expect(button(page, name)).to_have_count(0)
     expect(page.locator('#presenter')).to_have_count(0)
     expect(button(page, '课堂回顾')).to_be_visible()
+    map_sound = page.locator('.sound-toggle').element_handle()
     room.shot('单屏首页')
     page.locator('.timeline button').filter(has_text='遵义会议').click()
     button(page, '进入「遵义会议」场景').click()
     expect(page.locator('.scene-head h1')).to_have_text('遵义会议室')
+    scene_sound = page.locator('.sound-toggle').first
+    scene_sound.click()
+    expect(scene_sound).to_have_attribute('aria-pressed', 'true')
+    assert map_sound.get_attribute('aria-pressed') == 'false', '离开的地图仍在响应静音状态'
+    scene_sound.click()
     button(page, '下一页').click()
     expect(page.locator(DESK)).to_have_attribute('data-space', 'ready', timeout=20000)
     expect(button(page, '双屏授课')).to_have_count(0)
