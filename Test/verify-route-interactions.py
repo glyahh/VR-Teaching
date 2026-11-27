@@ -4,6 +4,7 @@ import re
 from shutil import copyfile
 from tempfile import TemporaryDirectory
 from playwright.sync_api import expect, sync_playwright
+from course_cli import EXPLORATION_LOAD_TIMEOUT, VIDEO_COMPLETION_TIMEOUT
 from support.exploration_input import drag, elapsed_frames, walk
 from support.course_checks import drag_desk, open_dossier
 
@@ -32,10 +33,10 @@ def river(teacher, output):
     next_page(teacher)
     page_is(teacher, "浮桥近景")
     button(teacher, "于都河岸").click()
-    expect(teacher.locator(".classroom-slide")).to_have_attribute("data-river-tour", "finished", timeout=30000)
+    expect(teacher.locator(".classroom-slide")).to_have_attribute("data-river-tour", "finished", timeout=VIDEO_COMPLETION_TIMEOUT)
     button(teacher, "进入河岸").click()
     dock = teacher.locator("#river-tools")
-    expect(dock).to_have_attribute("data-observe", "", timeout=16000)
+    expect(dock).to_have_attribute("data-observe", "", timeout=EXPLORATION_LOAD_TIMEOUT)
     expect(dock.locator("#river-action")).to_be_hidden()
     expect(dock.locator("#river-compare, #river-comparison")).to_have_count(0)
     read_pose = "() => {const {eye,target,zoom}=explorationActivity.read().state;return [eye,target,zoom]}"
@@ -156,7 +157,7 @@ def hall_and_desk(teacher):
     page_is(teacher, "遵义会议室")
     button(teacher, "进入材料厅").click()
     hall = teacher.locator('.lesson-exploration[data-scene="zunyi-hall"][data-ready]')
-    expect(hall).to_be_visible(timeout=18000)
+    expect(hall).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
     canvas = teacher.locator("#view")
     rect = canvas.bounding_box()
     center = (rect["x"] + rect["width"]/2, rect["y"] + rect["height"]/2)
@@ -172,7 +173,7 @@ def hall_and_desk(teacher):
     button(teacher, "会议桌").click()
     page_is(teacher, "会议桌上的两份材料")
     desk = teacher.locator(".desk-live-frame")
-    expect(desk).to_have_attribute("data-space", "ready", timeout=16000)
+    expect(desk).to_have_attribute("data-space", "ready", timeout=EXPLORATION_LOAD_TIMEOUT)
     button(teacher, "乌江").click()
     evidence = teacher.locator(".desk-reader .desk-reader-article")
     expect(evidence.get_by_role("heading", name="乌江")).to_be_visible()

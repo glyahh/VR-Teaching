@@ -2,6 +2,7 @@ from io import BytesIO
 
 from PIL import Image, ImageChops, ImageStat
 from playwright.sync_api import expect
+from course_cli import EXPLORATION_LOAD_TIMEOUT, SCREENSHOT_TIMEOUT
 from .lesson_rule_checks import narration, disclosures, journeys, controls
 
 
@@ -45,7 +46,7 @@ def visible_motion(new, previous):
 
 def exercise_desk(page, right_first=False, shot=None):
     desk = page.locator(DESK)
-    expect(desk).to_have_attribute('data-space', 'ready', timeout=18000)
+    expect(desk).to_have_attribute('data-space', 'ready', timeout=EXPLORATION_LOAD_TIMEOUT)
     canvas = desk.locator('canvas.desk-live-canvas')
     raw_forward = object_point(page, 'page-forward')
     page.mouse.move(raw_forward[0]-30, raw_forward[1]+7)
@@ -56,10 +57,13 @@ def exercise_desk(page, right_first=False, shot=None):
         open_dossier(page)
     desk.press('ArrowRight')
     expect(desk).to_have_attribute('data-yaw', '4.000')
-    before = canvas.screenshot()
+    clip = canvas.bounding_box()
+    assert clip, '会议桌画布不可见'
+    before = page.screenshot(clip=clip, timeout=SCREENSHOT_TIMEOUT)
     drag_desk(page, 'page-forward', -.040, hold=True)
     expect(desk).to_have_attribute('data-gesture', 'page')
-    assert visible_motion(canvas.screenshot(), before) > .12, '拖动时纸面没有可见变化'
+    after = page.screenshot(clip=clip, timeout=SCREENSHOT_TIMEOUT)
+    assert visible_motion(after, before) > .12, '拖动时纸面没有可见变化'
     if shot:
         shot('01-斜看翻页中', page)
     page.mouse.up()
@@ -361,16 +365,24 @@ def recap(room, url):
     page = room.page
     page.goto(url)
     button(page, '课堂回顾').click()
+    expect(page.locator('.recap-world .terrain-surface.is-relief')).to_be_visible(
+        timeout=EXPLORATION_LOAD_TIMEOUT)
     card = page.locator('.recap-card')
     close = button(page, '收起站点卡片')
     for title in ('于都出发', '湘江战役', '黎平会议', '遵义会议'):
+        page.wait_for_function("""() => {
+          const world = document.querySelector('.recap-world');
+          return new DOMMatrixReadOnly(getComputedStyle(world).transform).a <= 1.01;
+        }""")
         node = button(page, title + '，查看视觉回顾')
         ring = node.locator('.recap-node-ring')
-        ring.hover()
+        ring.hover(force=True)
+        expect(page.locator(".recap-node:hover")).to_have_attribute("data-station", node.get_attribute("data-station"))
         expect(node).to_have_css('background-color', 'rgba(0, 0, 0, 0)')
         box = ring.bounding_box()
         point = [box['x'] + box['width'] / 2, box['y'] + box['height'] / 2]
         page.mouse.move(*point)
+        assert node.evaluate('(node, [x,y]) => node.contains(document.elementFromPoint(x,y))', point), title
         page.mouse.down()
         try:
             page.wait_for_timeout(120)

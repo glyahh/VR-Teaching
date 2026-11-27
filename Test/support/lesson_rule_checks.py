@@ -1,8 +1,9 @@
+from contextlib import contextmanager
 from math import isclose
 
 from playwright.sync_api import expect
 
-from course_cli import button
+from course_cli import EXPLORATION_LOAD_TIMEOUT, VIDEO_COMPLETION_TIMEOUT, button
 
 
 def heading(page, title):
@@ -35,8 +36,18 @@ def blank(page):
     return bounds["x"] + bounds["width"] * .56, bounds["y"] + bounds["height"] * .30
 
 
+@contextmanager
+def paused_clock(page):
+    page.clock.pause_at(page.evaluate("new Date(Date.now() + 2000).toISOString()"))
+    try:
+        yield page.clock
+    finally:
+        page.clock.resume()
+
+
 def narration(room, url):
     page = room.page
+    page.clock.install()
     page.goto(url)
     page.evaluate("""() => {
       function finishWhileTyping() {
@@ -119,7 +130,9 @@ def narration(room, url):
       }
       requestAnimationFrame(sample);
     }""")
-    button(page, "回望渡口").click()
+    with paused_clock(page) as clock:
+        button(page, "回望渡口").click()
+        clock.run_for(5500)
     narrated(page, "有人留在险处，把过江的时间让给战友。渡江以后，红军要带着这些教训继续往前走。", "point")
     frames = page.evaluate("captionFrames")
     fading = [frame for frame in frames if 0 < frame["opacity"] < .99]
@@ -206,7 +219,9 @@ def disclosures(room, url):
 
 def journeys(room, url):
     page = room.page
+    page.clock.install()
     page.goto(url)
+    expect(page.locator(".map .terrain-surface.is-relief")).to_be_visible(timeout=20000)
     begin(page)
     for title in ("岸边备桥", "浮桥近景", "夜渡于都河"):
         onward(page, title)
@@ -217,30 +232,33 @@ def journeys(room, url):
         ("渡过乌江", ["猴场", "乌江"], ()),
         ("遵义会议室", ["乌江", "遵义"], ()),
     )):
-        onward(page, title)
         layer = page.locator(".spatial-journey")
-        expect(layer).to_have_attribute("data-phase", "near")
-        expect(layer).to_have_attribute("data-terrain", "relief")
-        expect(caption(page)).to_have_attribute("data-narration-count", "0")
-        page.wait_for_function("""names => {
-          const nodes = [...document.querySelectorAll('.spatial-journey[data-phase=near] .spatial-station')];
-          return names.every(name => nodes.some(node => node.textContent === name && Number(getComputedStyle(node).opacity) > .5));
-        }""", arg=places, timeout=2500)
-        assert layer.locator('.journey-route .past').evaluate(
-            "line => getComputedStyle(line).strokeDasharray === 'none'")
-        if title == "猴场会议":
-            expect(layer.locator(".spatial-abandoned")).to_have_count(1)
-        close_width = layer.locator(".journey-world").evaluate("world => world.clientWidth")
-        if index < 3:
-            room.shot(f"路段{index+1}近景")
-        overview = page.locator(".spatial-journey")
-        expect(overview).to_have_attribute("data-phase", "overview")
-        expect(layer).to_have_attribute("data-route-progress", "1.000")
-        assert layer.locator(".journey-world").evaluate("world => world.clientWidth") < close_width
-        expect(caption(page)).to_have_attribute("data-narration-count", "0")
-        expect(overview.locator(".spatial-station").filter(has_text="遵义")).not_to_have_css("opacity","0")
-        if index < 3:
-            room.shot(f"路段{index+1}总览")
+        with paused_clock(page) as clock:
+            onward(page, title)
+            clock.fast_forward(650)
+            expect(layer).to_have_attribute("data-phase", "near")
+            expect(layer).to_have_attribute("data-terrain", "relief")
+            expect(caption(page)).to_have_attribute("data-narration-count", "0")
+            assert layer.evaluate("""(layer, names) => {
+              const visible = [...layer.querySelectorAll('.spatial-station')].filter(node =>
+                Number(getComputedStyle(node).opacity) > .5).map(node => node.textContent);
+              return names.every(name => visible.includes(name));
+            }""", places), places
+            expect(layer.locator(".journey-route .past")).to_have_css("stroke-dasharray", "none")
+            if title == "猴场会议":
+                expect(layer.locator(".spatial-abandoned")).to_have_count(1)
+            close_width = layer.locator(".journey-world").evaluate("world => world.clientWidth")
+            if index < 3:
+                room.shot(f"路段{index+1}近景")
+            clock.fast_forward(2150)
+            expect(layer).to_have_attribute("data-phase", "overview")
+            expect(layer).to_have_attribute("data-route-progress", "1.000")
+            assert layer.locator(".journey-world").evaluate("world => world.clientWidth") < close_width
+            expect(caption(page)).to_have_attribute("data-narration-count", "0")
+            expect(layer.locator(".spatial-station").filter(has_text="遵义")).not_to_have_css("opacity", "0")
+            if index < 3:
+                room.shot(f"路段{index+1}总览")
+            clock.fast_forward(1000)
         expect(caption(page)).to_have_attribute("data-narration-count", "1", timeout=10000)
         assert layer.count() == 0, f"{title} 已开始讲述，过场仍在"
         for page_title in after_titles:
@@ -296,10 +314,10 @@ def controls(room, url):
     expect(button(page,"播放备桥短片")).to_be_visible()
     onward(page,"浮桥近景")
     button(page,"于都河岸").click()
-    expect(page.locator(".classroom-slide")).to_have_attribute("data-river-tour", "finished", timeout=30000)
+    expect(page.locator(".classroom-slide")).to_have_attribute("data-river-tour", "finished", timeout=VIDEO_COMPLETION_TIMEOUT)
     button(page,"进入河岸").click()
     dock = page.locator("#river-tools")
-    expect(dock).to_be_visible(timeout=16000)
+    expect(dock).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
     expect(dock.locator("progress")).to_have_count(0)
     expect(dock.locator("#river-action")).to_be_hidden()
     expect(button(page,"看构件")).to_be_visible()

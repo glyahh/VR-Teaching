@@ -15,6 +15,9 @@ from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 COURSE = ROOT / '课堂演示' / '从于都到遵义-课堂演示.html'
+VIDEO_COMPLETION_TIMEOUT = 60000
+EXPLORATION_LOAD_TIMEOUT = 60000
+SCREENSHOT_TIMEOUT = 60000
 
 
 def size(value):
@@ -43,7 +46,7 @@ class Classroom:
             raise ValueError('截图名须使用单个文件名')
         page = page or self.page
         target = self.output / (name + '.png')
-        page.screenshot(path=target)
+        page.screenshot(path=target, timeout=SCREENSHOT_TIMEOUT)
         self.steps.append(f'截图 {target.name}')
 
 

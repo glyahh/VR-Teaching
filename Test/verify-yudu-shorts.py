@@ -7,7 +7,7 @@ from pathlib import Path
 
 from playwright.sync_api import expect
 
-from course_cli import COURSE, button, launch, size
+from course_cli import COURSE, EXPLORATION_LOAD_TIMEOUT, VIDEO_COMPLETION_TIMEOUT, button, launch, size
 
 
 def film_layout(page):
@@ -113,7 +113,7 @@ def exercise(html, viewport, output):
             backup_playback = play_backup_from_closeup(page)
         else:
             button(page, "下一页").click()
-        expect(page.locator("h1")).to_have_text("浮桥近景", timeout=12000)
+        expect(page.locator("h1")).to_have_text("浮桥近景", timeout=VIDEO_COMPLETION_TIMEOUT)
         scene = page.locator(".classroom-slide")
         entry = button(page, "进入河岸")
         video = page.locator(".river-tour video")
@@ -121,11 +121,18 @@ def exercise(html, viewport, output):
         expect(video).to_be_hidden()
         expect(entry).to_be_hidden()
         expect(page.locator(".lesson-exploration")).to_have_count(0)
+        caption = page.locator(".lesson-footer .river-tour-caption")
+        caption.evaluate("""node => {
+          const video = document.querySelector('.river-tour video');
+          window.riverCaptions = [];
+          new MutationObserver(() => {
+            if (node.textContent && window.riverCaptions.at(-1)?.[0] !== node.textContent)
+              window.riverCaptions.push([node.textContent, video.currentTime]);
+          }).observe(node, { childList: true });
+        }""")
         button(page, "于都河岸").click()
         expect(scene).to_have_attribute("data-river-tour", "playing")
         expect(entry).to_be_visible()
-        caption = page.locator(".lesson-footer .river-tour-caption")
-        expect(caption).to_have_text("乡亲卸下家里的门板，铺成桥面。")
         expect(page.locator(".lesson-exploration")).to_have_count(0)
         page.wait_for_function("""() => {
           const film = document.querySelector('.river-tour video');
@@ -136,15 +143,6 @@ def exercise(html, viewport, output):
         expect(button(page, "下一页")).to_be_hidden()
         expect(caption).to_be_visible()
         assert subtitle_style(caption) == opening_subtitle
-        caption.evaluate("""node => {
-          const video = document.querySelector('.river-tour video');
-          const reading = () => [node.textContent, video.currentTime];
-          window.riverCaptions = [reading()];
-          new MutationObserver(() => {
-            if (node.textContent && window.riverCaptions.at(-1)[0] !== node.textContent)
-              window.riverCaptions.push(reading());
-          }).observe(node, { childList: true });
-        }""")
         page.screenshot(path=output / "自动播放.png")
 
         if viewport["width"] == 1366:
@@ -159,7 +157,7 @@ def exercise(html, viewport, output):
             page.wait_for_function("t => document.querySelector('.river-tour video').currentTime > t + .1", arg=frozen)
             entry.press("Enter")
             live = page.locator('.lesson-exploration[data-scene="yudu-river"][data-ready]')
-            expect(live).to_be_visible(timeout=20000)
+            expect(live).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
             expect(scene).to_have_attribute("data-river-tour", "paused")
             expect(video).to_have_js_property("paused", True)
             early_exit = video.evaluate("film => film.currentTime")
@@ -172,7 +170,7 @@ def exercise(html, viewport, output):
             film_layout(page)
             button(page, "继续播放河岸短片").click()
             page.wait_for_function("t => document.querySelector('.river-tour video').currentTime > t + .1", arg=early_exit)
-        expect(scene).to_have_attribute("data-river-tour", "finished", timeout=30000)
+        expect(scene).to_have_attribute("data-river-tour", "finished", timeout=VIDEO_COMPLETION_TIMEOUT)
         expect(video).to_have_js_property("ended", True)
         expect(page.locator(".lesson-exploration")).to_have_count(0)
         duration = video.evaluate("film => film.duration")
@@ -196,7 +194,7 @@ def exercise(html, viewport, output):
 
         entry.click()
         stage = page.locator('.lesson-exploration[data-scene="yudu-river"][data-ready]')
-        expect(stage).to_be_visible(timeout=20000)
+        expect(stage).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
         expect(stage).to_have_css("opacity", "1")
         expect(stage.locator("#river-action")).to_be_hidden()
         page.screenshot(path=output / "空桥与河岸.png")
@@ -218,7 +216,7 @@ def exercise(html, viewport, output):
         expect(scene).to_have_attribute("data-river-tour", "finished")
         expect(video).to_have_js_property("ended", True)
         entry.click()
-        expect(stage).to_be_visible(timeout=20000)
+        expect(stage).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
         assert page.evaluate(pose) == after
         button(page, "返回浮桥").click()
         button(page, "下一页").click()

@@ -73,9 +73,25 @@ def observe_handoff(video):
       const ctx = canvas.getContext('2d', {willReadFrequently:true});
       ctx.drawImage(video,0,0);
       const pixels = ctx.getImageData(0,0,canvas.width,canvas.height).data;
-      const observation = window.xiangHandoff = {widths:[], tailError:null};
+      const observation = window.xiangHandoff = {widths:[], tailError:null, cropIntermediateWidth:null};
+      const frameSelector = '.scene-stage > .scene-tour.outgoing-image canvas';
+      const mounted = new MutationObserver(() => {
+        const frame = document.querySelector(frameSelector);
+        if (!frame) return;
+        mounted.disconnect();
+        const animate = frame.animate.bind(frame);
+        frame.animate = (keyframes, options) => {
+          const animation = animate(keyframes, options);
+          // Read the real animation between its endpoints even if Edge skips a paint.
+          animation.currentTime = animation.effect.getComputedTiming().duration / 4;
+          observation.cropIntermediateWidth = frame.getBoundingClientRect().width;
+          animation.currentTime = 0;
+          return animation;
+        };
+      });
+      mounted.observe(document.querySelector('main'), {childList:true, subtree:true});
       function sample() {
-        const frame = document.querySelector('.scene-stage > .scene-tour.outgoing-image canvas');
+        const frame = document.querySelector(frameSelector);
         if (!frame) return;
         observation.widths.push(frame.getBoundingClientRect().width);
         if (observation.tailError === null) {
@@ -172,7 +188,8 @@ def exercise(html, viewport, output):
         if layout["fit"] == "contain":
             cover_width = viewport["height"] * 16 / 9
             assert max(handoff["widths"]) >= cover_width * .95, handoff
-            assert any(viewport["width"] * 1.05 < width < cover_width * .95 for width in handoff["widths"]), handoff
+            middle = handoff["cropIntermediateWidth"]
+            assert middle and viewport["width"] * 1.05 < middle < cover_width * .95, handoff
         page.screenshot(path=output / "片尾自动接入下一页.png")
         page_join = check_page_join(page, source, entry)
 
