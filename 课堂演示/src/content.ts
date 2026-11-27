@@ -162,11 +162,11 @@ const events: {
         notes: '先让学员看河谷，交代战役发生在 11 月 27 日至 12 月 1 日。把“渡过湘江”和“遭受重大损失”作为接下来要解释的两个事实。'
       },
       {
-        image: 'xiang-ford', title: '湘江渡口',
+        image: 'xiang-tour-poster', title: '湘江渡口',
         narration: ['中央红军在广西全州、兴安之间渡过湘江。', '红军突破了第四道封锁线。接下来，看看队伍付出了多大代价。'],
         question: '渡过湘江意味着突破了第几道封锁线？',
-        seconds: [45, 45, 45, 45], activity: 'crossing', exploration: 'xiang-crossing',
-        notes: '点开渡江区域标绘，指出全州、兴安之间的渡江范围，说明灌阳也受战役波及。可打开「湘江渡口」三维现场，换全景、涉水与西岸阻击视角，看队伍如何相互掩护、付出什么代价。'
+        seconds: [45, 45, 45, 45], activity: 'crossing',
+        notes: '点「播放渡江短片」，看队伍接近渡口、过江和离岸。可在涉水一镜暂停，请学员观察负重的队伍怎样找落脚处，再接着看渡江的结果。'
       },
       {
         image: 'xiang-aftermath', title: '湘江留下的启示',

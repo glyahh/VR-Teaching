@@ -15,31 +15,36 @@ jobs:
       PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - uses: actions/setup-node@v4
         with:
           node-version: "22.21.0"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: 记录课件哈希和回归清单
+        env:
+          COURSE_CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          $base = $env:COURSE_CI_BASE
+          if ($base -match '^(?!0{40}$)[0-9a-f]{40}$') {
+            git cat-file -e "$base^{commit}" 2>$null
+            if ($LASTEXITCODE -ne 0) {
+              git fetch --no-tags --depth=1 origin $base
+            }
+          }
+          python -B "Test/run-course-ci.py" plan "--base=$base"
       - run: npm --prefix "课堂演示/自由探索实验" ci
       - run: npm --prefix "课堂演示/自由探索实验" run check:course
       - run: node "Test/verify-presentation-policy.mjs"
-      - run: node "课堂演示/build.mjs" --check
+      - name: 校验离线产物
+        run: |
+          node "课堂演示/build.mjs" --check 2>&1 | Tee-Object -FilePath ".march-build/ci/build.log"
+          exit $LASTEXITCODE
       - run: python -m pip install playwright==1.63.0 Pillow==12.2.0
       - name: 断网 Edge 回归
-        run: |
-          $failed = @()
-          foreach ($feature in @('single_screen','opening','entry','narration','disclosures','journeys','controls','desk','reduced-motion')) {
-            $options = @('--output', ".march-build/ci/$feature")
-            $check = $feature
-            if ($feature -eq 'reduced-motion') {
-              $options += '--reduced-motion'
-              $check = 'entry'
-            }
-            python -B "Test/course_cli.py" @options run $check
-            if ($LASTEXITCODE -ne 0) { $failed += $feature }
-          }
-          if ($failed.Count) { throw "回归失败 $($failed -join ', ')" }
+        run: python -B "Test/run-course-ci.py" run
       - uses: actions/upload-artifact@v4
         if: always()
         with:

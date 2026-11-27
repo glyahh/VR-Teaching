@@ -58,7 +58,7 @@ export async function readExplorationStyle() {
 }
 
 export async function buildExplorationStage() {
-  for (const file of ['walk-controls.html', 'river-controls.html', 'xiang-controls.html', 'exploration-reading.html']) {
+  for (const file of ['walk-controls.html', 'river-controls.html', 'exploration-reading.html']) {
     assertDemoTemplate(await readFile(new URL(file, import.meta.url), 'utf8'));
   }
   const [bundle, notice] = await Promise.all([

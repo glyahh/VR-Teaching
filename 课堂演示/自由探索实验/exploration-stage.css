@@ -235,37 +235,3 @@ button.scene-point:hover:not(:disabled) { background: transparent; }
   border: 1px solid rgb(var(--silver) / 0.21); border-radius: 9px;
   background: #353631; color: #f6f5f1; font: inherit;
 }
-
-/* 湘江渡口三维互动场景控件 */
-.xiang-dock {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  width: max-content;
-  color: #f6f2e8;
-}
-.xiang-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 10px;
-}
-.xiang-scrubber {
-  width: clamp(110px, 16vw, 220px);
-  accent-color: #e8c485;
-  cursor: pointer;
-}
-.xiang-cams {
-  display: inline-flex;
-  gap: 6px;
-}
-.exploration-stage .xiang-cams button[aria-pressed="true"],
-.exploration-stage .xiang-cams button[aria-pressed="true"]:hover {
-  background-color: #e8c485;
-  border-color: #f6dca6;
-  color: #202418;
-  font-weight: 700;
-}
-.projection-mode .xiang-bar { display: none; }

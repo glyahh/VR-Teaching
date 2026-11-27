@@ -2,15 +2,12 @@ import { createExplorationOverlay } from './exploration-overlay.js';
 import { createStageViewport } from './viewport.js';
 import { isRiverView, startRiver } from './river.js';
 import { describeHallClue, describeHallClues, isHallView, startWalk } from './walk.js';
-import { isXiangView, startXiang } from './xiang-crossing.js';
 import riverControls from './river-controls.html';
 import walkControls from './walk-controls.html';
-import xiangControls from './xiang-controls.html';
 import reading from './exploration-reading.html';
 
 const scenes = {
   'yudu-river': { title: '于都河岸', start: startRiver },
-  'xiang-crossing': { title: '湘江渡口', start: startXiang },
   'zunyi-hall': { title: '遵义材料厅', start: startWalk },
 };
 
@@ -30,8 +27,6 @@ export function markScenePoint(node, label) {
  * @typedef {{
  *   id: 'yudu-river', state: import('./river.js').RiverView
  * } | {
- *   id: 'xiang-crossing', state: import('./xiang-crossing.js').XiangView
- * } | {
  *   id: 'zunyi-hall', state: import('./walk.js').HallView
  * }} ExplorationView
  */
@@ -39,7 +34,6 @@ export function markScenePoint(node, label) {
 /** @returns {view is ExplorationView} */
 export function isExplorationView(view) {
   return view != null && (view.id === 'yudu-river' && isRiverView(view.state) ||
-    view.id === 'xiang-crossing' && isXiangView(view.state) ||
     view.id === 'zunyi-hall' && isHallView(view.state));
 }
 
@@ -62,7 +56,7 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
   if (!sampleStage) {
     stage.className = 'lesson-exploration exploration-stage';
     stage.innerHTML = '<canvas id="view" tabindex="0"></canvas><div id="markers"></div>' +
-      walkControls + riverControls + xiangControls + reading;
+      walkControls + riverControls + reading;
     if (riverExplorationOnly) {
       stage.querySelector('#river-compare').remove();
       stage.querySelector('#river-comparison').remove();
@@ -76,7 +70,7 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
   const overlay = createExplorationOverlay({
     stage, canvas, reduced, projection,
     header: stage.querySelector('.hud'),
-    docks: [stage.querySelector('#inspect'), stage.querySelector('#river-tools'), stage.querySelector('#xiang-tools')].filter(Boolean),
+    docks: [stage.querySelector('#inspect'), stage.querySelector('#river-tools')].filter(Boolean),
   });
   const closeButton = overlay.reading.querySelector('#close');
   const cache = new Map();

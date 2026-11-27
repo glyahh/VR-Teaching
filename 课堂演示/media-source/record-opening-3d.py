@@ -22,7 +22,7 @@ FPS = 24
 HIDE_HUD_CSS = """
 .scene-head, .scene-bottom, .chapter-rail, .scene-actions, .scene-note,
 .exploration-hud, .exploration-load-status, .exploration-return,
-#markers, #inspect, #river-tools, #xiang-tools, #reading, .hud,
+#markers, #inspect, #river-tools, #reading, .hud,
 .desk-live-pins, .desk-live-evidence, .desk-inquiry-cue, .desk-live-transport,
 .lesson-caption, .narration-bar, .narration-box, .scene-progress,
 .scene-footer, footer, header, nav, aside {
@@ -206,48 +206,6 @@ def record_yudu_river(page, force: bool) -> None:
     capture_frames(page, dst_night, round(5.0 * FPS), step_night)
 
 
-def record_xiang_crossing(page, force: bool) -> None:
-    dst = OUT_DIR / "3d-xiang-crossing.mp4"
-    if not force and dst.exists():
-        print("[SKIP] 3d-xiang-crossing.mp4 已存在")
-        return
-
-    clear_hide_hud(page)
-    page.evaluate("""() => {
-      const idx = chapterPages.findIndex(x => x.page.activity === 'crossing');
-      openScene(idx, 'lesson');
-    }""")
-    page.wait_for_selector("button:has-text('湘江渡口现场')", timeout=15000)
-    page.click("button:has-text('湘江渡口现场')")
-    wait_scene_canvas(page, "#view")
-    page.wait_for_function("() => explorationActivity && explorationActivity.read()?.id === 'xiang-crossing'", timeout=25000)
-
-    # 7.20 秒 = 173 帧：从两岸高空俯冲至低机位寒江涉水，全程红军渡河与红弧合围实时演进
-    def step_xiang(i: int, t: float) -> None:
-        if t < 0.62:
-            s = smoother(t / 0.62)
-            eye = lerp3([21.0, 18.5, 31.0], [-12.5, 4.2, 13.8], s)
-            target = lerp3([-1.0, 1.0, -4.0], [2.4, 0.9, -4.2], s)
-            preset = "overview" if t < 0.35 else "wade"
-        else:
-            s = smoother((t - 0.62) / 0.38)
-            eye = lerp3([-12.5, 4.2, 13.8], [-19.5, 7.6, -2.5], s)
-            target = lerp3([2.4, 0.9, -4.2], [1.8, 0.6, -1.5], s)
-            preset = "ridge"
-        progress = lerp(0.14, 0.94, t)
-        apply_exploration(page, "xiang-crossing", {
-            "eye": eye,
-            "target": target,
-            "progress": round(progress, 4),
-            "playing": False,
-            "preset": preset,
-            "spot": None,
-            "reading": False,
-        })
-
-    capture_frames(page, dst, round(7.2 * FPS), step_xiang)
-
-
 def record_zunyi_hall(page, force: bool) -> None:
     dst = OUT_DIR / "3d-zunyi-hall.mp4"
     if not force and dst.exists():
@@ -397,7 +355,7 @@ def record_zunyi_desk(page, force: bool) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="录制四套本课三维场景电影级运镜素材")
     parser.add_argument("--force", action="store_true", help="强制重录已存在片段")
-    parser.add_argument("--only", choices=["yudu", "xiang", "hall", "desk"], help="仅录制单个场景")
+    parser.add_argument("--only", choices=["yudu", "hall", "desk"], help="仅录制单个场景")
     args = parser.parse_args()
 
     if not COURSE_HTML.exists():
@@ -416,8 +374,6 @@ def main() -> int:
 
         if args.only in (None, "yudu"):
             record_yudu_river(page, args.force)
-        if args.only in (None, "xiang"):
-            record_xiang_crossing(page, args.force)
         if args.only in (None, "hall"):
             record_zunyi_hall(page, args.force)
         if args.only in (None, "desk"):

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Generate Video"
+  short_description: "查找有授权的外部片源，或用 SRAPI 生成并下载镜头"
+  default_prompt: "用 $generate-video 为指定场景找可用片源，或按参考图生成视频。"

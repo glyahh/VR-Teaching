@@ -219,10 +219,9 @@ function buildRecapStations(): RecapStationVisual[] {
       imageKey: 'xiang-aftermath',
       point: position(route[4]),
       badgeCount: () => ({
-        lit: Number(revealed.has('crossing')) +
-          Number(visitedExplorations.has('xiang-crossing')) +
+        lit: Number(revealed.has('xiang-tour')) +
           Number(completedPractices.has('troop-dates') || completedPractices.has('crossing-evidence')),
-        total: 3,
+        total: 2,
       }),
     },
     {

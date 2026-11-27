@@ -101,6 +101,8 @@ def narration(room, url):
     page.set_viewport_size({"width": 414, "height": 811})
     onward(page, "湘江渡口")
     narrated(page, "中央红军在广西全州、兴安之间渡过湘江。")
+    onward(page, "湘江留下的启示")
+    narrated(page, "有人守在江边，为后面的队伍争取过江时间。")
     page.evaluate("""() => {
       const box = document.querySelector('.slide-line');
       window.captionFrames = [];
@@ -117,8 +119,8 @@ def narration(room, url):
       }
       requestAnimationFrame(sample);
     }""")
-    button(page, "标绘渡江区域").click()
-    narrated(page, "中央红军在全州、兴安之间抢渡湘江。灌阳也在战役涉及范围内。红军在这里突破了第四道封锁线。", "point")
+    button(page, "回望渡口").click()
+    narrated(page, "有人留在险处，把过江的时间让给战友。渡江以后，红军要带着这些教训继续往前走。", "point")
     frames = page.evaluate("captionFrames")
     fading = [frame for frame in frames if 0 < frame["opacity"] < .99]
     assert fading and 190 < fading[-1]["at"] - fading[0]["at"] < 340, fading
@@ -126,12 +128,12 @@ def narration(room, url):
     assert fading[-1]["offset"] < fading[0]["offset"] < 0, fading
     full = next(frame for frame in frames if frame["text"] == fading[0]["text"])
     assert fading[0]["at"] - full["at"] >= 800, (full, fading[0])
-    expect(caption(page).locator(".narration-row:visible").last).to_contain_text("封锁线。")
+    expect(caption(page).locator(".narration-row:visible").last).to_contain_text("走。")
     assert caption(page).locator(".narration-row:visible").evaluate_all(
         "rows => rows.every(row => row.scrollWidth <= row.clientWidth + 1)")
     room.shot("窄窗两行与尾字")
     page.keyboard.press("Escape")
-    narrated(page, "中央红军在广西全州、兴安之间渡过湘江。")
+    narrated(page, "有人守在江边，为后面的队伍争取过江时间。")
     room.steps.append("主讲连点、圆点、空白推进、宽窗一行和窄窗淡出已验证")
 
 
@@ -239,8 +241,8 @@ def journeys(room, url):
         expect(overview.locator(".spatial-station").filter(has_text="遵义")).not_to_have_css("opacity","0")
         if index < 3:
             room.shot(f"路段{index+1}总览")
-        expect(layer).to_have_count(0)
-        expect(caption(page)).to_have_attribute("data-narration-count", "1")
+        expect(caption(page)).to_have_attribute("data-narration-count", "1", timeout=10000)
+        assert layer.count() == 0, f"{title} 已开始讲述，过场仍在"
         for page_title in after_titles:
             onward(page, page_title)
     button(page,"湘江战役").click()

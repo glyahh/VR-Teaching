@@ -5,7 +5,6 @@ type ExplorationId = ExplorationView['id'];
 type HallClue = NonNullable<ReturnType<typeof explorationStage.hallClue>>;
 const explorationLabels = {
   'yudu-river': { enter: '进入河岸', leave: '返回浮桥', name: '于都河岸', reset: '回全景' },
-  'xiang-crossing': { enter: '湘江渡口现场', leave: '返回渡口', name: '湘江渡口', reset: '回全景' },
   'zunyi-hall': { enter: '进入材料厅', leave: '返回会场', name: '遵义材料厅', reset: '重新开始' },
 } satisfies Record<ExplorationId, { enter: string; leave: string; name: string; reset: string }>;
 
@@ -44,19 +43,33 @@ function releaseExplorationPage() {
   releaseCurrentExploration = undefined;
 }
 
-function mountRiverTour({ scene, stage, tools, signal }: {
-  scene: HTMLElement; stage: HTMLElement; tools: HTMLElement; signal: AbortSignal;
+type TourCue = { until: number; text: string };
+type SceneTourEnd = {
+  layer: HTMLElement;
+  frame: HTMLCanvasElement | HTMLVideoElement;
+  aspect: number;
+};
+const sceneTours = {
+  'yudu-river': { key: 'river-tour', start: '于都河岸', short: '河岸短片' },
+  xiang: { key: 'xiang-tour', start: '播放渡江短片', short: '渡江短片' },
+};
+
+function mountSceneTour({ id, scene, stage, tools, signal, onEnded }: {
+  id: keyof typeof sceneTours; scene: HTMLElement; stage: HTMLElement; tools: HTMLElement; signal: AbortSignal;
+  onEnded?: (end: SceneTourEnd) => void;
 }) {
   type TourState = 'ready' | 'playing' | 'paused' | 'finished' | 'unavailable';
-  const cues: { until: number; text: string }[] = JSON.parse(mediaAssets['river-tour-cues']);
-  const film = element('div', 'river-tour');
+  const config = sceneTours[id];
+  const isYudu = id === 'yudu-river';
+  const cues: TourCue[] = JSON.parse(mediaAssets[config.key + '-cues']);
+  const film = element('div', 'scene-tour ' + config.key);
   const video = element('video');
-  video.src = mediaAssets['river-tour-video'];
-  video.poster = mediaAssets['river-tour-poster'];
+  video.src = mediaAssets[config.key + '-video'];
+  video.poster = mediaAssets[config.key + '-poster'];
   video.preload = 'auto';
   video.playsInline = true;
   video.muted = soundscape.isMuted();
-  const caption = element('p', 'film-subtitle river-tour-caption');
+  const caption = element('p', 'film-subtitle scene-tour-caption' + (isYudu ? ' river-tour-caption' : ''));
   film.append(video);
   stage.append(film);
   let state: TourState = 'ready';
@@ -65,36 +78,40 @@ function mountRiverTour({ scene, stage, tools, signal }: {
     if (state === 'playing') pause();
     else void play();
   });
-  controlButton.dataset.riverTourControl = '';
-  const stillButton = control('', () => {
+  controlButton.dataset.sceneTourControl = '';
+  const stillButton = isYudu ? control('', () => {
     render('ready');
     controlButton.focus({preventScroll:true});
-  });
-  setIconButton(stillButton, '查看浮桥图', 'image');
-  stillButton.dataset.riverTourControl = '';
-  tools.append(controlButton, stillButton);
+  }) : undefined;
+  tools.append(controlButton);
+  if (stillButton) {
+    setIconButton(stillButton, '查看浮桥图', 'image');
+    stillButton.dataset.sceneTourControl = '';
+    tools.append(stillButton);
+  }
   render('ready');
 
   function render(next: TourState) {
     if (next === 'playing' || next === 'finished') {
-      const still = next === 'finished' ? mediaAssets['river-tour-end-poster'] : video.poster;
-      film.style.setProperty('--river-tour-still', `url("${still}")`);
+      const still = next === 'finished' ? mediaAssets[config.key + '-end-poster'] : video.poster;
+      film.style.setProperty('--scene-tour-still', `url("${still}")`);
     }
     state = next;
-    scene.dataset.riverTour = next;
+    scene.dataset.sceneTour = next;
+    if (isYudu) scene.dataset.riverTour = next;
     film.hidden = next === 'ready' || next === 'unavailable';
     tools.classList.toggle('film-controls', !film.hidden);
     caption.hidden = film.hidden;
     controlButton.classList.toggle('primary', next === 'ready');
-    stillButton.hidden = next !== 'finished';
+    if (stillButton) stillButton.hidden = next !== 'finished';
     if (next === 'ready') {
       controlButton.classList.remove('icon-button');
       controlButton.removeAttribute('aria-label');
       controlButton.removeAttribute('title');
-      setButtonContent(controlButton, '于都河岸', 'play');
+      setButtonContent(controlButton, config.start, 'play');
     } else {
-      const label = next === 'playing' ? '暂停河岸短片' : next === 'paused' ? '继续播放河岸短片'
-        : next === 'finished' ? '重播河岸短片' : '重试河岸短片';
+      const action = next === 'playing' ? '暂停' : next === 'paused' ? '继续播放' : next === 'finished' ? '重播' : '重试';
+      const label = action + config.short;
       setIconButton(controlButton, label, next === 'playing' ? 'pause' : next === 'finished' ? 'reset' : 'play');
     }
     soundscape.setVideoDuck(next === 'playing' && !video.muted && !video.paused);
@@ -144,7 +161,24 @@ function mountRiverTour({ scene, stage, tools, signal }: {
   } else {
     video.addEventListener('timeupdate', () => updateCaption(video.currentTime), { signal });
   }
-  video.addEventListener('ended', () => render('finished'), { signal });
+  video.addEventListener('ended', () => {
+    if (state !== 'playing' || !video.ended) return;
+    render('finished');
+    if (!onEnded) return;
+    let frame: SceneTourEnd['frame'] = video;
+    if (!reducedMotion.matches && video.videoWidth && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      const still = element('canvas');
+      still.width = video.videoWidth;
+      still.height = video.videoHeight;
+      const brush = still.getContext('2d');
+      if (brush) {
+        brush.drawImage(video,0,0);
+        film.replaceChildren(still);
+        frame = still;
+      }
+    }
+    onEnded({layer: film, frame, aspect: video.videoWidth / video.videoHeight});
+  }, { signal });
   video.addEventListener('error', () => {
     if (state !== 'ready') render('unavailable');
   }, { signal });
@@ -160,6 +194,38 @@ function mountRiverTour({ scene, stage, tools, signal }: {
   return { pause, caption };
 }
 
+async function playSceneTourExit({layer, frame, aspect}: SceneTourEnd,
+  stage: HTMLElement, destination: HTMLImageElement, signal: AbortSignal) {
+  if (reducedMotion.matches) return;
+  layer.classList.add('outgoing-image');
+  layer.setAttribute('aria-hidden','true');
+  stage.append(layer);
+  const box = layer.getBoundingClientRect();
+  const scale = getComputedStyle(frame).objectFit === 'contain' && box.width && aspect
+    ? Math.max(1, aspect * box.height / box.width) : 1;
+  let crop: Animation | undefined;
+  const cancelCrop = () => crop?.cancel();
+  signal.addEventListener('abort',cancelCrop,{once:true});
+  try {
+    await destination.decode().catch(() => {});
+    if (scale > 1 && !signal.aborted) {
+      frame.style.willChange = 'transform';
+      await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+      if (signal.aborted) return;
+      crop = frame.animate(
+        [{transform:'scale(1)'},{transform:`scale(${scale})`}],
+        {duration:360,easing:motionEasing,fill:'forwards'},
+      );
+      await crop.finished.catch(() => {});
+    }
+    if (!signal.aborted) await animatePart(layer,[{opacity:1},{opacity:0}],180)?.finished.catch(() => {});
+  } finally {
+    cancelCrop();
+    signal.removeEventListener('abort',cancelCrop);
+    layer.remove();
+  }
+}
+
 function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, backdrop, openDesk }: {
   id: ExplorationId; scene: HTMLElement; stage: HTMLElement;
   tools: HTMLElement; bottom: HTMLElement; pauseMedia: () => void;
@@ -167,6 +233,7 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
   openDesk?: () => void;
 }) {
   const labels = explorationLabels[id];
+  const withTour = id === 'yudu-river';
   const activity = () => explorationActivity ??= explorationStage.createExploration({
     assets: mediaAssets, riverExplorationOnly: true,
   });
@@ -175,7 +242,7 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
   const status = element('p', 'exploration-load-status');
   status.setAttribute('role', 'status');
   status.hidden = true;
-  (id === 'yudu-river' ? bottom : scene).append(status);
+  (withTour ? bottom : scene).append(status);
 
   const header = scene.querySelector<HTMLElement>('.scene-head');
   const identity = header?.querySelector<HTMLElement>('.scene-identity');
@@ -225,10 +292,11 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
       close();
       toggle?.focus({preventScroll: true});
     }
-  }, id === 'yudu-river' ? 'primary' : '', 'compass');
+  }, withTour ? 'primary' : '', 'compass');
+  if (withTour) toggle.dataset.sceneTourEntry = '';
   if (id === 'yudu-river') toggle.dataset.riverEntry = '';
   const reset = control(labels.reset, () => {
-    if (id === 'yudu-river' || id === 'xiang-crossing') explorationActivity?.home();
+    if (id === 'yudu-river') explorationActivity?.home();
     else explorationActivity?.restart();
   }, '', 'reset');
   const desk = openDesk ? lessonControl('hall-desk','会议桌',() => {
@@ -240,7 +308,7 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
   }
   if (toggle && reset) {
     reset.hidden = true;
-    const playback = id === 'yudu-river' ? tools.querySelector('[data-river-tour-control]') : null;
+    const playback = withTour ? tools.querySelector('[data-scene-tour-control]') : null;
     if (playback) playback.after(toggle, reset);
     else tools.prepend(toggle, reset);
   }
@@ -255,7 +323,7 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
       toggle.removeAttribute('title');
       setButtonContent(toggle,labels.enter,'compass');
     } else setIconButton(toggle,labels.leave,'arrowLeft');
-    if (id === 'yudu-river') {
+    if (withTour) {
       toggle.disabled = surface === 'loading';
       toggle.classList.toggle('primary', surface === 'static');
     }
@@ -273,7 +341,7 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
     try {
       const opened = await opening;
       if (loading !== request || !opened) return;
-      if (id === 'yudu-river') pauseMedia();
+      if (withTour) pauseMedia();
       stopCinemagraphs();
       surface = 'exploration';
       visitedExplorations.add(id);
@@ -283,7 +351,6 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
       positionDock();
       {
         if (id === 'yudu-river') soundscape.setScene('yudu', 0.6);
-        else if (id === 'xiang-crossing') soundscape.setScene('xiang', 0.6);
         else if (id === 'zunyi-hall') soundscape.setScene('zunyi-yard', 0.6);
       }
     } catch {

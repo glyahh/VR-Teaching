@@ -36,29 +36,27 @@
   grid-template-columns: 1fr;
 }
 .scene[data-exploration] .scene-navigation { justify-content: flex-end; }
-.scene[data-exploration="yudu-river"] .scene-navigation,
-.scene[data-exploration="xiang-crossing"] .scene-navigation { pointer-events: none; }
-.scene[data-exploration="yudu-river"] .scene-navigation button,
-.scene[data-exploration="xiang-crossing"] .scene-navigation button { pointer-events: auto; }
+.scene[data-exploration="yudu-river"] .scene-navigation { pointer-events: none; }
+.scene[data-exploration="yudu-river"] .scene-navigation button { pointer-events: auto; }
 .scene[data-exploration] :is(.caption-copy, .practice, .practice-entry) { display: none; }
-.river-tour {
+.scene-tour {
   position: absolute;
   z-index: 1;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
 }
-.river-tour video { position: relative; display: block; width: 100%; height: 100%; object-fit: cover; }
-.river-tour::after {
+.scene-tour :is(video,canvas) { position: relative; display: block; width: 100%; height: 100%; object-fit: cover; }
+.scene-tour::after {
   content: '';
   position: absolute;
   inset: 0;
   background: var(--film-top-shade), linear-gradient(0deg,#11130fc9,transparent 23%);
 }
-.river-tour-caption {
+.scene-tour-caption {
   text-wrap: pretty;
 }
-.scene:is([data-river-tour="playing"],[data-river-tour="paused"],[data-river-tour="finished"]):not([data-exploration],[data-practicing="true"]) {
+.scene:is([data-scene-tour="playing"],[data-scene-tour="paused"],[data-scene-tour="finished"]):not([data-exploration],[data-practicing="true"]) {
   height: 100dvh;
   & > .scene-stage > .scene-media { visibility: hidden; }
   & :is(.scene-date,.chapter-nav,.caption-copy,.slide-caption) { display: none; }
@@ -67,33 +65,33 @@
     display: flex;
     justify-content: center;
   }
-  &[data-river-tour="finished"] .slide-caption {
+  &:is([data-scene-tour="finished"],[data-activity="crossing"]) .slide-caption {
     display: block;
     position: absolute;
     inset-inline-end: 0;
     bottom: 0;
   }
   @media (max-width: 1100px) {
-    &[data-river-tour="finished"] .slide-caption { bottom: calc(100% + 8px); }
+    &:is([data-scene-tour="finished"],[data-activity="crossing"]) .slide-caption { bottom: calc(100% + 8px); }
   }
 }
 @media (max-aspect-ratio: 4/3) {
-  .river-tour::before {
+  .scene-tour::before {
     content: '';
     position: absolute;
     inset: -24px;
-    background: var(--river-tour-still) center / cover;
+    background: var(--scene-tour-still) center / cover;
     filter: blur(18px) brightness(.50);
   }
-  .river-tour video { object-fit: contain; }
+  .scene-tour :is(video,canvas) { object-fit: contain; }
 }
-.scene[data-river-tour] [data-river-entry] { white-space: nowrap; }
-.scene:is([data-exploration],[data-practicing="true"]) .river-tour,
-.scene:is([data-exploration],[data-practicing="true"]) .river-tour-caption,
-.scene[data-exploration] [data-river-tour-control],
-.scene[data-river-tour="ready"] [data-river-entry],
-.scene:is([data-river-tour="playing"],[data-river-tour="paused"]) .practice-entry,
-.scene:is([data-river-tour="playing"],[data-river-tour="paused"],[data-river-tour="finished"]):not([data-practicing="true"]) .scene-media .scene-point {
+.scene[data-scene-tour] [data-scene-tour-entry] { white-space: nowrap; }
+.scene:is([data-exploration],[data-practicing="true"]) .scene-tour,
+.scene:is([data-exploration],[data-practicing="true"]) .scene-tour-caption,
+.scene[data-exploration] [data-scene-tour-control],
+.scene[data-scene-tour="ready"] [data-scene-tour-entry],
+.scene:is([data-scene-tour="playing"],[data-scene-tour="paused"]) .practice-entry,
+.scene:is([data-scene-tour="playing"],[data-scene-tour="paused"],[data-scene-tour="finished"]):not([data-practicing="true"]) .scene-media .scene-point {
   display: none;
 }
 .exploration-load-status {
@@ -110,7 +108,7 @@
   background: var(--glass-caption);
   backdrop-filter: var(--glass-filter);
 }
-.scene[data-river-tour] .exploration-load-status {
+.scene[data-scene-tour] .exploration-load-status {
   bottom: calc(100% + 8px);
 }
 
@@ -133,7 +131,7 @@
 .lesson-exploration .scene-note { position: fixed; }
 .lesson-exploration:has(#reading:not([hidden])) #river-instruction { visibility: hidden; }
 .lesson-exploration #reading h2 { font-family: var(--font-serif); }
-.lesson-exploration :is(#inspect,#river-tools,#xiang-tools) {
+.lesson-exploration :is(#inspect,#river-tools) {
   inset-inline: 0;
   margin-inline: auto;
   transform: none;

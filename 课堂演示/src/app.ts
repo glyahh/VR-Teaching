@@ -695,7 +695,9 @@ function renderOpening(autoplay = true) {
 }
 
 function openScene(position: number, variant: LessonMode = 'lesson', returnToReview?: () => void,
-  matchedFrame?: HTMLImageElement) {
+  handoff?: HTMLImageElement | SceneTourEnd) {
+  const matchedFrame = handoff instanceof HTMLImageElement ? handoff : undefined;
+  const filmEnd = handoff instanceof HTMLImageElement ? undefined : handoff;
   const departingPage = currentView.kind === 'scene' ? chapterPages[currentView.position]?.page : null;
   const arriving = chapterPages[position].page;
   const spatial = departingPage ? findSpatialJourney(departingPage.title, arriving.title) : undefined;
@@ -725,6 +727,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   soundscape.setScene(sceneSoundOf(event.id, page), 0.85);
 
   const liveDesk = page.activity === 'materials';
+  const xiangTour = page.activity === 'crossing';
   const scene = element('section','scene classroom-slide');
   if (liveDesk) scene.classList.add('desk-live-page');
   scene.dataset.chapter = String(chapter);
@@ -741,7 +744,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   const lesson = currentSceneLesson = mountSceneLesson(scene,captionText,page);
   if (!liveDesk) {
     camera.append(picture,spotlight);
-    if (page.video?.mode !== 'loop') attachCinemagraph(page.image, picture);
+    if (page.video?.mode !== 'loop' && !xiangTour) attachCinemagraph(page.image, picture);
     media.append(camera,shade);
   }
 
@@ -755,10 +758,15 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   };
   let pauseVideo = () => {};
   const tools = element('div','scene-actions');
-  const riverTour = page.exploration === 'yudu-river'
-    ? mountRiverTour({scene, stage, tools, signal: lesson.signal})
-    : undefined;
-  if (riverTour) pauseVideo = riverTour.pause;
+  const tour = xiangTour ? mountSceneTour({id: 'xiang', scene, stage, tools, signal: lesson.signal,
+    onEnded: end => {
+      revealed.add('xiang-tour');
+      turn(1,end);
+    }})
+    : page.exploration === 'yudu-river'
+      ? mountSceneTour({id: 'yudu-river', scene, stage, tools, signal: lesson.signal})
+      : undefined;
+  if (tour) pauseVideo = tour.pause;
   if (page.video) {
     let movieAdvance: HTMLButtonElement | undefined;
     if (page.video.mode === 'transition') {
@@ -852,36 +860,6 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
           if (animate) drawLine(outline,0,450);
         },
       });
-    });
-  }
-
-  // ---- 3. Xiang River Crossing In-Scene Overlay (湘江渡口) ----
-  if (page.activity === 'crossing') {
-    const overlay = element('div','crossing-inscene');
-    const svg = document.createElementNS(svgNamespace,'svg');
-    svg.setAttribute('viewBox','0 0 100 100');
-    svg.setAttribute('preserveAspectRatio','none');
-    svg.setAttribute('aria-hidden','true');
-    const riverZone = diagramPath('M 18 65 Q 48 56 88 53 L 94 74 Q 52 78 16 86 Z','river-zone');
-    const crossingPath = diagramPath('M 14 70 Q 44 59 69 49 L 64 46 M 69 49 L 66 54','crossing-inscene-line');
-    svg.append(riverZone, crossingPath);
-    overlay.append(
-      svg,
-      element('span','map-tag tag-xingan','兴安方向'),
-      element('span','map-tag tag-quanzhou','全州方向'),
-      element('span','map-tag tag-zone','全州—兴安渡江区域 · 突破第四道封锁线'),
-      element('span','map-tag tag-guanyang','灌阳方向（战役波及）'),
-    );
-    const active = revealed.has('crossing');
-    overlay.classList.toggle('is-active', active);
-    camera.append(overlay);
-    addHotspot('标绘渡江区域','crossing',[56,57],{
-      text: '中央红军在全州、兴安之间抢渡湘江。灌阳也在战役涉及范围内。红军在这里突破了第四道封锁线。',
-      enter(animate) {
-        overlay.classList.add('is-active');
-        setCamera(54, 58, 1.15, true);
-        if (animate) drawLine(crossingPath, 0, 520);
-      },
     });
   }
 
@@ -1102,7 +1080,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     navigation.insertBefore(currentPractice.entry,next);
   }
   bottom.append(navigation);
-  if (riverTour) footer.append(riverTour.caption);
+  if (tour) footer.append(tour.caption);
   footer.append(bottom);
   if (variant === 'lesson') footer.append(chapterNav(chapter,jump));
   scene.append(stage, heading, footer);
@@ -1131,8 +1109,9 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   }
   pageButtons = {previous,next};
   title.focus({preventScroll:true});
+  const filmExit = filmEnd && playSceneTourExit(filmEnd,stage,picture,lesson.signal);
   if (riverHandoff) playRiverExit(scene,riverHandoff);
-  else if (!spatial && !matchedFrame && !liveDesk && priorImage?.complete && priorImage.naturalWidth && priorImage.getAttribute('src') !== picture.getAttribute('src') && !reducedMotion.matches) {
+  else if (!filmEnd && !spatial && !matchedFrame && !liveDesk && priorImage?.complete && priorImage.naturalWidth && priorImage.getAttribute('src') !== picture.getAttribute('src') && !reducedMotion.matches) {
     const old = element('img','outgoing-image');
     old.src = priorImage.src;
     old.alt = '';
@@ -1142,7 +1121,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     const remove = ()=>old.remove();
     if (fade) fade.finished.then(remove,remove);
     else remove();
-  } else if (!spatial && !matchedFrame && !liveDesk && priorImage?.getAttribute('src') !== picture.getAttribute('src')) {
+  } else if (!filmEnd && !spatial && !matchedFrame && !liveDesk && priorImage?.getAttribute('src') !== picture.getAttribute('src')) {
     animatePart(picture,[{opacity:.62},{opacity:1}],340);
   }
   if (!liveDesk) {
@@ -1156,7 +1135,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   lesson.enter(journey => {
     const finished = journey && playSpatialJourney(scene, journey, lesson.signal);
     startPageEntry(scene, [[identity,'left'],[tools,'right'],[footer,'bottom']],entranceImage,
-      {after: finished, onLayoutReady: () => {
+      {after: filmExit ?? finished, onLayoutReady: () => {
         lesson.start();
         if (page.video?.key === 'zunyi') prewarmDesk(stage,position+1);
       }});
@@ -1187,7 +1166,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     camera.append(spot);
   }
 
-  function turn(direction: number, frame?: HTMLImageElement) {
+  function turn(direction: number, frame?: HTMLImageElement | SceneTourEnd) {
     if (direction < 0 && previous.disabled) return;
     pauseVideo();
     if (position+direction < 0 || (direction > 0 && variant === 'revisit' && lastInChapter)) leave();

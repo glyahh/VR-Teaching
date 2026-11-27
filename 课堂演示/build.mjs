@@ -36,6 +36,20 @@ assets['river-tour-poster'] = 'data:image/jpeg;base64,' +
   (await read(`./assets/yudu-river/shorts/${riverTourOrder[0]}-start.jpg`)).toString('base64');
 assets['river-tour-end-poster'] = 'data:image/jpeg;base64,' +
   (await read(`./assets/yudu-river/shorts/${riverTourOrder.at(-1)}-end.jpg`)).toString('base64');
+let xiangSeconds = 0;
+const xiangShots = JSON.parse(await read('./media-source/xiang-crossing-tour.json', 'utf8'));
+assets['xiang-tour-cues'] = JSON.stringify(xiangShots.map(({ seconds, text }) => {
+  xiangSeconds += seconds;
+  return { until: xiangSeconds, text };
+}));
+for (const [key, file, mime] of [
+  ['video', 'tour.mp4', 'video/mp4'],
+  ['poster', 'start.jpg', 'image/jpeg'],
+  ['end-poster', 'end.jpg', 'image/jpeg'],
+]) {
+  assets[`xiang-tour-${key}`] = `data:${mime};base64,` +
+    (await read('./assets/xiang-crossing/' + file)).toString('base64');
+}
 assets['yudu-preparation-video'] = 'data:video/mp4;base64,' + (await read('./assets/yudu-preparation.mp4')).toString('base64');
 for (const name of ['yudu-bank','yudu-bridge','xiang-ford','liping-street','liping-table','yudu-assembly','xiang-aftermath','wujiang','zunyi-dawn']) {
   assets[name] = 'data:image/jpeg;base64,' + (await read('./assets/'+name+'.jpg')).toString('base64');
