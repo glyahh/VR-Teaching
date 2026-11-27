@@ -1,0 +1,7 @@
+{
+  "baseUrl": "https://model-api.example/v1",
+  "model": "deepseek-v4.1-flash",
+  "apiKey": "",
+  "port": 4318,
+  "disableThinking": false
+}

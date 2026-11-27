@@ -164,7 +164,7 @@ function mountSceneLesson(scene: HTMLElement, host: HTMLElement, page: LessonPag
 
     function selectItem(id: string) {
       openItem = openItem === id ? null : id;
-      if (openItem) lessonItemsSeen.add(openItem);
+      if (openItem) recordLessonProgress(lessonItemsSeen,openItem);
       soundscape.playSfx('point');
       drawItems?.();
     }

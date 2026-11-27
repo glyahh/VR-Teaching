@@ -1,8 +1,13 @@
 type EntryEdge = 'left' | 'right' | 'bottom' | 'top';
 
-const shortNarration = '#instruction, #river-instruction, [data-short-narration]';
+type EntryNarrationRun = { letters: HTMLSpanElement[]; count: number; start?: number };
+type EntryNarration = { line: HTMLElement; observer: MutationObserver; run?: EntryNarrationRun };
 
-let currentPageEntry: { settle: () => void; dispose: () => void } | undefined;
+let currentPageEntry: {
+  settle: () => void;
+  dispose: () => void;
+  watchNarration: (line: HTMLElement) => (() => void) | undefined;
+} | undefined;
 
 function settlePageEntry() {
   currentPageEntry?.settle();
@@ -13,37 +18,42 @@ function disposePageEntry() {
   currentPageEntry = undefined;
 }
 
+function watchPageEntryNarration(line: HTMLElement | null) {
+  if (line) return currentPageEntry?.watchNarration(line);
+}
+
 function startPageEntry(root: HTMLElement, edges: readonly (readonly [HTMLElement, EntryEdge])[], picture?: HTMLImageElement,
   { after, onLayoutReady }: { after?: Promise<void>; onLayoutReady?: () => void } = {}) {
   disposePageEntry();
   const life = new AbortController();
   const entrance = new AbortController();
-  const writing = new Map<HTMLElement, {
-    letters: HTMLSpanElement[];
-    count: number;
-    start?: number;
-  }>();
   const shown = new WeakMap<HTMLElement, string>();
   const chrome: Animation[] = [];
   const phases = { picture: 'picture', layout: 'layout', narration: 'narration', ready: 'ready' };
+  let narration: EntryNarration | undefined;
   let pendingFrame = 0;
   let awaitingScene = !!after;
   let layoutReady = false;
 
   for (const [node, side] of edges) node.dataset.entryEdge = side;
 
-  function lines() {
-    return root.querySelectorAll<HTMLElement>(shortNarration);
+  function finishNarration() {
+    if (!narration) return;
+    for (const letter of narration.run?.letters ?? []) letter.dataset.typed = 'true';
+    narration.run = undefined;
+    shown.set(narration.line, narration.line.textContent ?? '');
+  }
+
+  function unwatchNarration() {
+    narration?.observer.disconnect();
+    finishNarration();
+    narration = undefined;
   }
 
   function settle() {
     if (awaitingScene && !reducedMotion.matches) return;
     stop();
-    for (const run of writing.values()) {
-      for (const letter of run.letters) letter.dataset.typed = 'true';
-    }
-    writing.clear();
-    for (const line of lines()) shown.set(line, line.textContent ?? '');
+    finishNarration();
     root.dataset.entryPhase = phases.ready;
     announceLayout();
   }
@@ -62,12 +72,12 @@ function startPageEntry(root: HTMLElement, edges: readonly (readonly [HTMLElemen
     onLayoutReady?.();
   }
 
-  const observer = new MutationObserver(prepareNarration);
   currentPageEntry = {
     settle,
+    watchNarration,
     dispose() {
       life.abort();
-      observer.disconnect();
+      unwatchNarration();
       stop();
     },
   };
@@ -86,61 +96,72 @@ function startPageEntry(root: HTMLElement, edges: readonly (readonly [HTMLElemen
     settle();
   } else {
     root.dataset.entryPhase = phases.picture;
-    prepareNarration();
     void revealLayout();
   }
-  observer.observe(root, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden'] });
 
-  function prepareNarration() {
-    if (life.signal.aborted || !root.isConnected || reducedMotion.matches) return;
-    for (const line of lines()) {
-      if (line.hidden || !line.getClientRects().length) continue;
-      const text = line.textContent ?? '';
-      if (shown.get(line) === text) continue;
-      const characters = Array.from(text);
-      if (!text.trim() || characters.length > 96 ||
-        Array.from(line.children).some(child => !child.hasAttribute('data-narration-line'))) {
-        writing.delete(line);
-        continue;
-      }
-      const letters = characters.map(character => {
-        const span = document.createElement('span');
-        span.dataset.typed = 'false';
-        span.textContent = character;
-        return span;
-      });
-      const textLine = document.createElement('span');
-      textLine.dataset.narrationLine = '';
-      textLine.append(...letters);
-      shown.set(line, text);
-      line.replaceChildren(textLine);
-      writing.set(line, { letters, count: 0 });
+  function watchNarration(line: HTMLElement) {
+    if (!root.contains(line)) return;
+    unwatchNarration();
+    const observer = new MutationObserver(() => prepareNarration(watch));
+    const watch: EntryNarration = { line, observer };
+    narration = watch;
+    observer.observe(line, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden'] });
+    prepareNarration(watch);
+    return () => {
+      if (narration === watch) unwatchNarration();
+    };
+  }
+
+  function prepareNarration(watch: EntryNarration) {
+    const { line, observer } = watch;
+    if (narration !== watch || !line.isConnected || reducedMotion.matches) return;
+    const text = line.textContent ?? '';
+    if (shown.get(line) === text || line.hidden || !line.getClientRects().length) return;
+    const characters = Array.from(text);
+    if (!text.trim() || characters.length > 96 ||
+      Array.from(line.children).some(child => !child.hasAttribute('data-narration-line'))) {
+      watch.run = undefined;
+      return;
     }
+    const letters = characters.map(character => {
+      const span = document.createElement('span');
+      span.dataset.typed = 'false';
+      span.textContent = character;
+      return span;
+    });
+    const textLine = document.createElement('span');
+    textLine.dataset.narrationLine = '';
+    textLine.append(...letters);
+    shown.set(line, text);
+    line.replaceChildren(textLine);
+    observer.takeRecords();
+    watch.run = { letters, count: 0 };
     requestWriting();
   }
 
   function requestWriting() {
     const phase = root.dataset.entryPhase;
     if (phase !== phases.narration && phase !== phases.ready) return;
-    if (writing.size || phase === phases.narration) {
+    if (narration?.run || phase === phases.narration) {
       if (!pendingFrame) pendingFrame = requestAnimationFrame(write);
     }
   }
 
   function write(now: number) {
     pendingFrame = 0;
-    for (const [line, run] of writing) {
-      if (!root.contains(line) || !line.contains(run.letters[0])) {
-        writing.delete(line);
-        continue;
+    const run = narration?.run;
+    if (narration && run) {
+      const { line } = narration;
+      if (!root.contains(line) || !line.contains(run.letters[0])) narration.run = undefined;
+      else {
+        run.start ??= now;
+        const step = Math.min(26, 880 / run.letters.length);
+        const count = Math.min(run.letters.length, 1 + Math.floor((now - run.start) / step));
+        while (run.count < count) run.letters[run.count++].dataset.typed = 'true';
+        if (run.count === run.letters.length) narration.run = undefined;
       }
-      run.start ??= now;
-      const step = Math.min(26, 880 / run.letters.length);
-      const count = Math.min(run.letters.length, 1 + Math.floor((now - run.start) / step));
-      while (run.count < count) run.letters[run.count++].dataset.typed = 'true';
-      if (run.count === run.letters.length) writing.delete(line);
     }
-    if (!writing.size) root.dataset.entryPhase = phases.ready;
+    if (!narration?.run) root.dataset.entryPhase = phases.ready;
     else requestWriting();
   }
 
@@ -172,7 +193,7 @@ function startPageEntry(root: HTMLElement, edges: readonly (readonly [HTMLElemen
     awaitingScene = false;
     if (entering.aborted || !root.isConnected) return;
 
-    prepareNarration();
+    if (narration) prepareNarration(narration);
     root.dataset.entryPhase = phases.layout;
     const offset: Record<EntryEdge, string> = { left: '-16px 0', right: '16px 0', bottom: '0 12px', top: '0 -9px' };
     for (const [node, side] of edges) {

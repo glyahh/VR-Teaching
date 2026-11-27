@@ -33,13 +33,13 @@ jobs:
       COURSE_CI_FULL: ${{ github.event_name == 'workflow_dispatch' && inputs.check == '' }}
       COURSE_CI_CHECK: ${{ inputs.check }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22.21.0"
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: npm --prefix "课堂演示/自由探索实验" ci
@@ -89,7 +89,7 @@ jobs:
             python -B "Test/run-course-ci.py" run
           }
           exit $LASTEXITCODE
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: 长征课 Edge 验收 ${{ matrix.shard }}

@@ -430,6 +430,7 @@ function attachCinemagraph(imageKey: string, img: HTMLImageElement, extraClass =
   const zones = sceneCinemagraphs[imageKey];
   if (!zones?.length) return undefined;
 
+  const life = new AbortController();
   let canvas: HTMLCanvasElement | null = null;
   let disposed = false;
   let started = false;
@@ -448,6 +449,7 @@ function attachCinemagraph(imageKey: string, img: HTMLImageElement, extraClass =
   let lastNow = 0;
   let currentIntensity = cinemagraphTargetIntensity;
   let targetIntensity = cinemagraphTargetIntensity;
+  const canAnimate = () => !disposed && !paused && !reducedMotion.matches && !document.hidden;
 
   const stopLoop = () => {
     if (rafId) {
@@ -460,6 +462,7 @@ function attachCinemagraph(imageKey: string, img: HTMLImageElement, extraClass =
   const cleanup = () => {
     if (disposed) return;
     disposed = true;
+    life.abort();
     stopLoop();
     if (gl) {
       if (texture) gl.deleteTexture(texture);
@@ -478,37 +481,34 @@ function attachCinemagraph(imageKey: string, img: HTMLImageElement, extraClass =
       cleanup();
       return;
     }
-    if (paused || reducedMotion.matches) {
+    if (!canAnimate()) {
       lastNow = 0;
       return;
     }
-    if (!document.hidden) {
-      const dt = lastNow ? Math.min((now - lastNow) * 0.001, 0.1) : 0;
-      lastNow = now;
-      currentIntensity += (targetIntensity - currentIntensity) * Math.min(1, dt * 6);
-      simTime += dt * (0.25 + 0.75 * currentIntensity);
-      gl.viewport(0, 0, width, height);
-      gl.uniform1f(timeLoc, simTime);
-      gl.uniform1f(intensityLoc, currentIntensity);
-      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-      if (!shown) {
-        shown = true;
-        canvas.classList.add('is-ready');
-      }
-    } else {
-      lastNow = 0;
+    const dt = lastNow ? Math.min((now - lastNow) * 0.001, 0.1) : 0;
+    lastNow = now;
+    currentIntensity += (targetIntensity - currentIntensity) * Math.min(1, dt * 6);
+    simTime += dt * (0.25 + 0.75 * currentIntensity);
+    gl.viewport(0, 0, width, height);
+    gl.uniform1f(timeLoc, simTime);
+    gl.uniform1f(intensityLoc, currentIntensity);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    if (!shown) {
+      shown = true;
+      canvas.classList.add('is-ready');
     }
     rafId = requestAnimationFrame(draw);
   };
 
   const startLoop = () => {
-    if (disposed || paused || reducedMotion.matches || !gl || rafId) return;
+    if (!canAnimate() || !gl || rafId) return;
     lastNow = 0;
     rafId = requestAnimationFrame(draw);
   };
 
   const init = () => {
-    if (disposed || started || paused || reducedMotion.matches || !img.isConnected || !img.naturalWidth) return;
+    rafId = 0;
+    if (!canAnimate() || started || !img.isConnected || !img.naturalWidth) return;
     started = true;
     canvas = element('canvas', 'scene-motion' + (extraClass ? ' ' + extraClass : ''));
     canvas.setAttribute('aria-hidden', 'true');
@@ -585,8 +585,10 @@ function attachCinemagraph(imageKey: string, img: HTMLImageElement, extraClass =
     startLoop();
   };
 
-  const scheduleStart = () => {
-    if (!disposed && !paused && !reducedMotion.matches) requestAnimationFrame(init);
+  const syncLoop = () => {
+    if (!canAnimate()) stopLoop();
+    else if (canvas) startLoop();
+    else if (!started && !rafId && img.complete && img.naturalWidth) rafId = requestAnimationFrame(init);
   };
 
   const controller: CinemagraphController = {
@@ -596,23 +598,16 @@ function attachCinemagraph(imageKey: string, img: HTMLImageElement, extraClass =
     },
     setPaused(next) {
       paused = next;
-      if (paused) {
-        stopLoop();
-        if (canvas) canvas.hidden = true;
-      } else {
-        if (canvas) {
-          canvas.hidden = false;
-          startLoop();
-        } else if (img.complete && img.naturalWidth > 0) {
-          scheduleStart();
-        }
-      }
+      if (canvas) canvas.hidden = paused;
+      syncLoop();
     },
   };
   activeCinemagraphs.push(controller);
 
-  if (img.complete && img.naturalWidth > 0) scheduleStart();
-  else img.addEventListener('load', scheduleStart, { once: true });
+  const { signal } = life;
+  document.addEventListener('visibilitychange', syncLoop, { signal });
+  if (img.complete && img.naturalWidth > 0) syncLoop();
+  else img.addEventListener('load', syncLoop, { once: true, signal });
 
   return controller;
 }

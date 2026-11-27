@@ -1,5 +1,10 @@
 import { readFile } from 'node:fs/promises';
-import { readEmbeddedAsset, readExplorationAssets } from './自由探索实验/exploration-assets.mjs';
+import { courseExplorationGroups, readEmbeddedAsset, readExplorationAssets } from './自由探索实验/exploration-assets.mjs';
+
+export const courseAssetGroups = {
+  ...courseExplorationGroups(),
+  desk: ['desk-world', 'desk-props', 'desk-world-front', 'desk-world-left', 'desk-world-right', 'desk-world-top'],
+};
 
 async function readJson(path) {
   return JSON.parse(await readFile(new URL(path, import.meta.url), 'utf8'));
@@ -9,7 +14,7 @@ export async function readCourseAssets() {
   const assets = await readExplorationAssets({riverExplorationOnly: true});
   assets.elevation = await readEmbeddedAsset('elevation.png');
   for (const name of ['yudu', 'xiang', 'zunyi']) {
-    assets[name] = await readEmbeddedAsset(name + '.png');
+    assets[name] = await readEmbeddedAsset(name + (name === 'xiang' ? '.png' : '.jpg'));
     assets[name + '-video'] = await readEmbeddedAsset(name + '.mp4');
   }
 

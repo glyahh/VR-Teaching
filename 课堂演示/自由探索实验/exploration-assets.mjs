@@ -31,14 +31,32 @@ export async function readEmbeddedAsset(path) {
   return `data:${mime};base64,${data.toString('base64')}`;
 }
 
-export async function readExplorationAssets({ riverExplorationOnly = false } = {}) {
+function explorationFiles(riverExplorationOnly) {
   const riverExtras = riverExplorationOnly
     ? ['river-meadow.jpg', 'river-meadow-normal.jpg', 'river-reflections.jpg', 'river-calm-normal.png'] : ['river-people.glb'];
-  const paths = ['terrain.jpg', ...[...riverFiles, ...riverExtras].map(file => 'yudu-river/' + file),
-    ...hallFiles.map(file => 'zunyi-hall/' + file)];
+  return {
+    river: [...riverFiles, ...riverExtras].map(file => 'yudu-river/' + file),
+    hall: hallFiles.map(file => 'zunyi-hall/' + file),
+  };
+}
+
+function assetKey(path) {
+  return path.split('/').at(-1).split('.')[0];
+}
+
+export function courseExplorationGroups() {
+  const {river, hall} = explorationFiles(true);
+  return {
+    'yudu-river': river.map(assetKey).filter(key => key !== 'river-crowd'),
+    'zunyi-hall': [...hall.map(assetKey), 'river-tree-far', 'river-grass'],
+  };
+}
+
+export async function readExplorationAssets({ riverExplorationOnly = false } = {}) {
+  const {river, hall} = explorationFiles(riverExplorationOnly);
+  const paths = ['terrain.jpg', ...river, ...hall];
   const entries = await Promise.all(paths.map(async path => {
-    const [name] = path.split('/').at(-1).split('.');
-    return [name, await readEmbeddedAsset(path)];
+    return [assetKey(path), await readEmbeddedAsset(path)];
   }));
   return Object.fromEntries(entries);
 }

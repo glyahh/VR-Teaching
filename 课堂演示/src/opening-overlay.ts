@@ -43,10 +43,10 @@ const openingBadges: readonly OpeningBadgeCue[] = [
 ];
 
 const openingTimelineStops = [
-  { date: '1934.10', label: '于都 · 集结', frac: 0.00 },
-  { date: '1934.11', label: '湘江 · 血战', frac: 0.44 },
-  { date: '1934.12', label: '黎平 · 改向', frac: 0.64 },
-  { date: '1935.01', label: '遵义 · 转折', frac: 1.00 },
+  { date: '1934.10', name: '于都', label: '于都 · 集结', frac: 0.00, start: 0 },
+  { date: '1934.11', name: '湘江', label: '湘江 · 血战', frac: 0.44, start: 30.1152 },
+  { date: '1934.12', name: '黎平', label: '黎平 · 改向', frac: 0.64, start: 66.2 },
+  { date: '1935.01', name: '遵义', label: '遵义 · 转折', frac: 1.00, start: 99.1 },
 ] as const;
 
 let currentOpeningOverlayDispose: (() => void) | undefined;
@@ -63,8 +63,32 @@ function mountOpeningProgress(scene: HTMLElement, video: HTMLVideoElement, seek:
   range.min = '0';
   range.step = '0.1';
   range.setAttribute('aria-label', '片头播放进度');
-  dock.append(range);
+  const preview = element('span', 'opening-progress-preview');
+  preview.setAttribute('aria-hidden', 'true');
+  dock.append(range, preview);
   scene.append(dock);
+  let hoverTime: number | undefined;
+
+  function timeText(seconds: number) {
+    const time = Math.floor(seconds);
+    return [Math.floor(time / 60), time % 60].map(part => String(part).padStart(2, '0')).join(':');
+  }
+
+  function describe(time: number) {
+    let station: string = openingTimelineStops[0].name;
+    for (const stop of openingTimelineStops) {
+      if (stop.start > time) break;
+      station = stop.name;
+    }
+    return `${timeText(time)} / ${timeText(video.duration)} · ${station}`;
+  }
+
+  function syncPreview() {
+    if (range.disabled) return;
+    const time = hoverTime ?? range.valueAsNumber;
+    preview.textContent = describe(time);
+    preview.style.setProperty('--preview-position', `${time / video.duration * 100}%`);
+  }
 
   function sync() {
     const available = !video.error && !video.hidden && Number.isFinite(video.duration) && video.duration > 0;
@@ -73,8 +97,18 @@ function mountOpeningProgress(scene: HTMLElement, video: HTMLVideoElement, seek:
     range.max = String(video.duration);
     range.valueAsNumber = video.currentTime;
     range.style.setProperty('--opening-progress-value', `${range.valueAsNumber / video.duration * 100}%`);
+    range.setAttribute('aria-valuetext', describe(range.valueAsNumber));
+    syncPreview();
   }
 
+  range.addEventListener('pointermove', event => {
+    if (range.disabled) return;
+    const bounds = range.getBoundingClientRect();
+    hoverTime = clamp01((event.clientX - bounds.left) / bounds.width) * video.duration;
+    syncPreview();
+  });
+  range.addEventListener('pointerleave', () => { hoverTime = undefined; syncPreview(); });
+  range.addEventListener('keydown', () => { hoverTime = undefined; syncPreview(); });
   range.addEventListener('input', () => {
     if (range.valueAsNumber !== video.currentTime) seek(range.valueAsNumber);
     sync();

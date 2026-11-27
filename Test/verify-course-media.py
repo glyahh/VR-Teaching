@@ -10,12 +10,13 @@ def verify_asset_join(html, clip, entry, exit):
         page = context.new_page()
         page.goto(lesson_url)
         video_key = clip + "-video"
-        missing = page.evaluate("""keys => keys.filter(key => !mediaAssets[key])""", [video_key, entry, exit])
+        missing = page.evaluate("""keys => keys.filter(key => !mediaAssets[key] &&
+            (typeof courseMediaTypes === 'undefined' || !courseMediaTypes[key]))""", [video_key, entry, exit])
         if missing:
             raise SystemExit("成品中找不到资源 " + "、".join(missing))
         first, last = video_frame_errors(page, video_key, entry, exit)
         print(f"{clip} 与 {entry}、{exit} 平均 RGB 差 {first:.2f}、{last:.2f}/255", flush=True)
-        if max(first, last) > MAX_JOIN_RGB_ERROR:
+        if max(first, last) >= MAX_JOIN_RGB_ERROR:
             raise SystemExit("首尾帧有偏差。核对实际出入片画面的机位、裁切、亮度和物件状态。")
 
 

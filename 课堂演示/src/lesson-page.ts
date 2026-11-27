@@ -34,6 +34,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   const { event, chapter, page } = chapterPages[position];
   selectedChapter = chapter;
   lastViewed.set(chapter,position);
+  courseHarness.recordVisit(page.title);
   soundscape.setScene(sceneSoundOf(event.id, page), 0.85);
 
   const liveDesk = page.activity === 'materials';
@@ -70,7 +71,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   const tools = element('div','scene-actions');
   const tour = xiangTour ? mountSceneTour({id: 'xiang', scene, stage, tools, signal: lesson.signal,
     onEnded: end => {
-      revealed.add('xiang-tour');
+      recordLessonProgress(revealed,'xiang-tour');
       turn(1,end);
     }})
     : page.exploration === 'yudu-river'
@@ -123,10 +124,16 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   if (!returnToReview) setIconButton(back,'地图','map');
   tools.append(soundButton());
   tools.append(fullscreenButton(),back);
+  mountCourseDeveloperButton(tools);
   heading.append(identity,tools);
 
   let practiceFocus = '';
   let showPracticeReference: ((focus: PracticeQuestion['focus']) => void) | undefined;
+  let openTroopRecords: (() => void) | undefined;
+  let compareLipingRoutes: ((side: 'east' | 'west' | 'both') => void) | undefined;
+  let disposeSandbox: (() => void) | undefined;
+  const directorBanner = courseHarness.mountDirectorBanner(stage);
+  const disposeDirectorTrigger = courseHarness.mountDirectorTrigger(scene, tools);
 
   function setCamera(fx = 50, fy = 50, scale = 1, spot = false) {
     const tx = Math.min(0, Math.max(100 * (1 - scale), 50 - fx * scale));
@@ -211,6 +218,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
         element('p','xiang-record-source','出处：国防部《中国共产党领导红军主力开始长征》'));
     },'journey-control');
     tools.prepend(returnToBank, records);
+    openTroopRecords = () => records.click();
   }
 
   // ---- 5. Liping Tabletop Perspective Map (进军方向) ----
@@ -265,7 +273,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     const directionNote = (key: string) => lesson.explain(
       revealed.has('direction-west') && revealed.has('direction-east') ? 'directions-both' : key);
     const btnEast = lessonControl('direction-east','推演原计划 · 湘西北',()=>{
-      revealed.add('direction-east');
+      recordLessonProgress(revealed,'direction-east');
       updateMarch(100);
       paintRoutes();
       btnEast.setAttribute('aria-pressed','true');
@@ -275,7 +283,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
       directionNote('direction-east');
     },'deck-btn','compass');
     const btnWest = lessonControl('direction-west','推演新方向 · 贵州北部',()=>{
-      revealed.add('direction-west');
+      recordLessonProgress(revealed,'direction-west');
       updateMarch(-100);
       paintRoutes();
       btnWest.setAttribute('aria-pressed','true');
@@ -288,6 +296,26 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     btnWest.setAttribute('aria-pressed', String(routeOffset < 0));
     deck.append(btnEast,btnWest);
     stage.append(deck);
+    disposeSandbox = courseHarness.mountLipingSandbox({
+      stage,
+      paper,
+      svg,
+      deck,
+      onRestoreRealRoute: () => btnWest.click(),
+    });
+    compareLipingRoutes = side => {
+      if (side === 'east') { btnEast.click(); return; }
+      if (side === 'west') { btnWest.click(); return; }
+      recordLessonProgress(revealed, 'direction-east');
+      recordLessonProgress(revealed, 'direction-west');
+      comparing = true;
+      paintRoutes();
+      drawLine(eastLine, 0, 480);
+      drawLine(westLine, 120, 480);
+      appear(eastNode, 260, 240);
+      appear(westNode, 340, 240);
+      directionNote('directions-both');
+    };
 
     function updateMarch(progress: number, broadcast = false) {
       routeOffset = Math.round(Math.max(-100, Math.min(100,progress)));
@@ -295,7 +323,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
       const direction = east ? '原计划 · 湘西北' : '会议决定 · 黔北';
       marker.setAttribute('aria-valuenow',String(routeOffset));
       marker.setAttribute('aria-valuetext',routeOffset ? direction : '黎平');
-      if (routeOffset) revealed.add(east ? 'direction-east' : 'direction-west');
+      if (routeOffset) recordLessonProgress(revealed,east ? 'direction-east' : 'direction-west');
       paintRoutes();
       const guide = east ? guideEast : guideWest;
       const track = guide.getTotalLength();
@@ -355,7 +383,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
       text: step.detail,
       enter() {
         activeSceneCue = step.id;
-        revealed.add(step.id);
+        recordLessonProgress(revealed,step.id);
         showStop(step.id);
       },
       leave() {
@@ -400,6 +428,19 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
   footer.append(bottom,rail);
   scene.append(stage, heading, footer);
   app.replaceChildren(scene);
+  courseHarness.setActiveScene({
+    pageTitle: page.title,
+    focusHotspot: key => lesson.explain(key),
+    compareLiping: compareLipingRoutes,
+    openTroopRecords,
+    showDirectorBanner: (text, cites) => directorBanner.show(text, cites),
+  });
+  lesson.signal.addEventListener('abort', () => {
+    disposeDirectorTrigger();
+    directorBanner.dispose();
+    disposeSandbox?.();
+    courseHarness.setActiveScene(undefined);
+  }, { once: true });
   syncCinemagraphReading();
   if (page.exploration) {
     const backdrop = page.video?.mode === 'loop' ? undefined : {key: page.image, image: picture};
@@ -462,7 +503,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     lesson.addCue(key,{
       text: cue.text,
       enter(animate) {
-        revealed.add(key);
+        recordLessonProgress(revealed,key);
         spot.dataset.visited = 'true';
         spot.dataset.active = 'true';
         spot.dataset.dismissed = 'true';

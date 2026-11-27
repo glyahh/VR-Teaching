@@ -21,6 +21,7 @@ type DeskPointer = {
 
 function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:DeskSaved,
   onChange:(view:DeskView)=>void) {
+  const ambientLife=new AbortController();
   let saved=starting;
   let preview:DeskGesture|undefined;
   let reading:DeskReading|undefined;
@@ -33,37 +34,56 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
   let cameraFrame=0;
   let paintFrame=0;
   let ambientFrame=0;
-  let ambientStart=performance.now();
+  let ambientElapsed=0;
+  let ambientStart:number|undefined;
   let hovered:DeskTarget|null=null;
   let completeObject:(()=>void)|undefined;
   let disposed=false;
 
   const read=():DeskView=>({saved,preview,reading,camera:pose,focus});
+  function ambientSeconds(now:number) {
+    return (ambientElapsed+(ambientStart===undefined ? 0 : Math.max(0,now-ambientStart)))*.001;
+  }
   function redraw() {
     if (disposed) return;
     cancelAnimationFrame(paintFrame);
     paintFrame=0;
-    const now=performance.now();
     const view=read();
-    world?.draw(view,reducedMotion.matches ? 0 : (now-ambientStart)*.001);
+    world?.draw(view,reducedMotion.matches ? 0 : ambientSeconds(performance.now()));
     onChange(view);
   }
   function queueDraw() {
     if (!paintFrame) paintFrame=requestAnimationFrame(()=>redraw());
   }
   function startAmbientLoop() {
-    if (ambientFrame || disposed || reducedMotion.matches) return;
-    let lastDraw=0;
+    if (ambientFrame || disposed || !world || document.hidden || reducedMotion.matches) return;
+    ambientStart=performance.now();
+    let lastDraw=-Infinity;
     const step=(now:number)=>{
       ambientFrame=0;
-      if (disposed || !world || reducedMotion.matches) return;
-      if (!document.hidden && !reading && !objectFrame && !cameraFrame && !pointer && now-lastDraw>=65) {
+      if (disposed || !world || document.hidden || reducedMotion.matches) {
+        stopAmbientLoop();
+        return;
+      }
+      if (!reading && !objectFrame && !cameraFrame && !pointer && now-lastDraw>=65) {
         lastDraw=now;
-        world.draw(read(),(now-ambientStart)*.001);
+        world.draw(read(),ambientSeconds(now));
       }
       ambientFrame=requestAnimationFrame(step);
     };
     ambientFrame=requestAnimationFrame(step);
+  }
+  function stopAmbientLoop() {
+    if (ambientFrame) cancelAnimationFrame(ambientFrame);
+    ambientFrame=0;
+    if (ambientStart !== undefined) {
+      ambientElapsed+=performance.now()-ambientStart;
+      ambientStart=undefined;
+    }
+  }
+  function syncAmbientLoop() {
+    if (document.hidden || reducedMotion.matches) stopAmbientLoop();
+    else startAmbientLoop();
   }
 
   function clearObjectAnimation(commit=false) {
@@ -460,13 +480,17 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
   });
   const blur=()=>{if (pointer) dismiss();};
   window.addEventListener('blur',blur);
+  const {signal}=ambientLife;
+  document.addEventListener('visibilitychange',syncAmbientLoop,{signal});
+  reducedMotion.addEventListener('change',syncAmbientLoop,{signal});
 
   return {
     read, turn, beginLeaf, dragLeaf, releaseLeaf, openReading, openMap, chooseMap, dismiss,
     get world() {return world;},
     connect(next:DeskWorld) {
+      stopAmbientLoop();
+      ambientElapsed=0;
       world=next;
-      ambientStart=performance.now();
       if (reading) {
         const point=world.focusPoint(selectedKind(reading),read());
         travelCamera(saved.camera,{...point,amount:reading.kind==='compare' ? .45 : 1},375);
@@ -477,7 +501,8 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
     resize(width:number,height:number) {world?.resize(width,height);redraw();},
     leave() {
       window.removeEventListener('blur',blur);
-      cancelAnimationFrame(ambientFrame);
+      ambientLife.abort();
+      stopAmbientLoop();
       cancelAnimationFrame(cameraFrame);
       cancelAnimationFrame(paintFrame);
       clearPointer();
@@ -488,8 +513,7 @@ function mountDeskSession(frame:HTMLElement, canvas:HTMLCanvasElement, starting:
       return saved;
     },
     releaseWorld() {
-      cancelAnimationFrame(ambientFrame);
-      ambientFrame=0;
+      stopAmbientLoop();
       world?.dispose();
       world=undefined;
     },

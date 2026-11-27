@@ -1,16 +1,22 @@
 type VideoState = {mode:'static'|'paused'|'playing'; time:number; at?:number};
 
+function unloadVideo(video: HTMLVideoElement) {
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+}
+
 function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools: HTMLElement,
   {align, advance}: {align?: () => void; advance?: () => void} = {}) {
   const background = clip.mode === 'loop';
   const video = element('video');
-  video.src = mediaAssets[clip.key+'-video'];
   video.poster = mediaAssets[image];
   video.preload = 'auto';
   video.muted = clip.mode !== 'opening';
   video.playsInline = true;
   video.loop = background;
   video.hidden = true;
+  const source = mountCourseVideoSource(video,clip.key+'-video');
   media.querySelector('.scene-spotlight')!.before(video);
   let generation = 0;
   let intent: VideoState = {mode:'static',time:0};
@@ -46,12 +52,13 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
       video.addEventListener('error', done, { once: true });
     });
   }
-  const play = background ? undefined : lessonControl('video-playback','',()=>{
+  function togglePlayback() {
     const playing = !(intent.mode === 'playing' && !video.ended);
     const time = intent.mode === 'static' || video.hidden || video.ended ? 0 : video.currentTime;
     const state: VideoState = playing ? {mode:'playing',time,at:sceneNow()} : {mode:'paused',time};
     void setVideo(state);
-  });
+  }
+  const play = background ? undefined : lessonControl('video-playback','',togglePlayback);
   async function setVideo(state: VideoState) {
     if (background && reducedMotion.matches) state = {mode:'static',time:0};
     const request = ++generation;
@@ -74,12 +81,17 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
         setIconButton(play,state.mode === 'paused' ? '继续播放' : '暂停短片',state.mode === 'paused' ? 'play' : 'pause');
       }
     }
-    if (clip.mode === 'opening') soundscape.setVideoDuck(state.mode === 'playing');
+    if (clip.mode === 'opening') soundscape.setVideoDuck(state.mode === 'playing' && !video.muted);
     if (entering && clip.mode === 'transition') {
       align?.();
       getComputedStyle(media).transform;
       await Promise.allSettled(media.getAnimations().map(animation=>animation.finished));
       if (request !== generation || !video.isConnected) return;
+    }
+    if (!video.hasAttribute('src')) {
+      const available = await source.prepare();
+      if (request !== generation || !video.isConnected) return;
+      if (!available) { showPoster(); return; }
     }
     video.hidden = false;
     if (state.mode === 'paused') {
@@ -143,11 +155,11 @@ function attachVideo(clip: LessonClip, image: string, media: HTMLElement, tools:
       if (intent.mode !== 'playing') return;
       void setVideo({mode:'paused',time:video.currentTime});
     },
-    resumeBackground,
+    resumeBackground, togglePlayback,
     dispose() {
       generation++;
       posterFade?.cancel();
-      video.pause();
+      source.dispose();
     },
     applyMotionPreference() {
       if (!background || !video.isConnected) return;

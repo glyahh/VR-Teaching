@@ -49,9 +49,10 @@ export function hallClues(view) {
 
 /** @param {{
  *   assets: Readonly<Record<string, string>>, stage?: HTMLElement, projection?: boolean, riverExplorationOnly?: boolean,
+ *   loadScene?: <T>(id: string, start: (assets: Readonly<Record<string, string>>) => Promise<T>) => Promise<T>,
  *   onChange?: (immediate: boolean) => void, onSwitch?: (id: string, previous?: string) => void
  * }} options */
-export function createExploration({ assets, stage: sampleStage, onSwitch, projection = false, onChange, riverExplorationOnly = false }) {
+export function createExploration({ assets, stage: sampleStage, onSwitch, projection = false, onChange, riverExplorationOnly = false, loadScene }) {
   const stage = sampleStage ?? document.createElement('section');
   if (!sampleStage) {
     stage.className = 'lesson-exploration exploration-stage';
@@ -93,7 +94,7 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
     markerLayer.append(markers);
     const subscriptions = [];
     const entry = { id, markers, subscriptions, input: null, controller: null };
-    const loaded = scenes[id].start({
+    const start = sceneAssets => scenes[id].start({
       ...overlay, stage, canvas, reduced, viewport, projection, riverExplorationOnly,
       inspect: stage.querySelector('#inspect'),
       instruction: stage.querySelector('#instruction'),
@@ -116,7 +117,8 @@ export function createExploration({ assets, stage: sampleStage, onSwitch, projec
         if (!projection) subscriptions.push([target, type, listener,
           typeof options === 'boolean' ? {capture: options} : options]);
       },
-    }, assets).then(controller => {
+    }, sceneAssets);
+    const loaded = (loadScene ? loadScene(id, start) : start(assets)).then(controller => {
       entry.controller = controller;
       controllers.add(controller);
       return entry;

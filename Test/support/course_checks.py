@@ -1,4 +1,5 @@
 from io import BytesIO
+import re
 
 from PIL import Image, ImageChops, ImageStat
 from playwright.sync_api import expect
@@ -310,10 +311,29 @@ def opening(room, url):
         page.mouse.up()
         page.wait_for_function('t => { const video = document.querySelector(".opening-page video"); return !video.seeking && Math.abs(video.currentTime - t) < 1; }', arg=seconds)
 
+    seek_to(10)
+    page.locator('.opening-page h1').focus()
+    page.keyboard.press('ArrowRight')
+    expect(film).to_have_js_property('currentTime', 15)
+    page.keyboard.press('ArrowLeft')
+    expect(film).to_have_js_property('currentTime', 10)
+    page.keyboard.press('PageDown')
+    expect(film).to_be_visible()
+    page.keyboard.press('Space')
+    expect(film).to_have_js_property('paused', False)
+    page.keyboard.press('Space')
+    expect(film).to_have_js_property('paused', True)
+    button(page, '静音片头声音').click()
+    expect(film).to_have_js_property('muted', True)
+    button(page, '开启片头声音').click()
+    expect(film).to_have_js_property('muted', False)
+
     drag_to(44)
     expect(page.locator('.opening-troops')).to_have_count(0)
     expect(page.locator('.opening-sub')).to_contain_text('出发时八万六千余人')
     expect(film).to_have_js_property('paused', True)
+    expect(progress).to_have_attribute('aria-valuetext', re.compile(r'00:4[34] / 02:00 · 湘江'))
+    expect(page.locator('.opening-progress-preview')).to_be_visible()
     room.shot('拖动进度条与单行字幕')
     page.mouse.move(20, page.viewport_size['height'] // 2)
     expect(progress).to_have_css('opacity', '0')
@@ -431,8 +451,13 @@ def opening(room, url):
       const video = document.querySelector('.opening-page video');
       return video && !video.paused && video.currentTime > 2;
     }''')
+    departing = film.element_handle()
+    source = departing.evaluate('video => video.currentSrc')
+    assert source.startswith('blob:'), '片头没有使用按需加载的媒体源'
     button(page, '进入课堂').click()
     expect(page.locator('.scene-head h1')).to_have_text('于都集结')
+    assert departing.evaluate('video => video.paused && !video.hasAttribute("src")')
+    assert page.evaluate('url => fetch(url).then(() => false, () => true)', source), '片头退出后 Blob URL 仍可访问'
     room.steps.append(f'片头自然播完后 {delay:.0f} 毫秒自动入课，片尾返回地图、重播与手动进入通过')
 
 

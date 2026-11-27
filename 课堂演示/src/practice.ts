@@ -18,60 +18,60 @@ type Practice = {
 
 const practices: Record<PracticeId, Practice> = {
   'bridge-parts': {
-    title: '木板和船各做什么', from: 30,
-    teacher: '留 2 分钟。让学员指着浮桥选一个部件，先说作用，再为他点选、核对。随后换看另一件。',
+    title: '浮桥结构与应急协作', from: 30,
+    teacher: '留 2 分钟。让学员从工程制约角度分析门板与渔船的分工，并追问天亮前拆桥的战术原因。',
     source: '教学摘要 · 中央红军长征出发纪念园讲解词',
     questions: [
-      { prompt: '桥板在浮桥上起什么作用？', options: ['铺成通道','托住桥面'], answer: 0, focus: 'plank',
-        retry: '看亮起的上方铺面。部队从哪一层通过？', evidence: '木板铺在上面，拼成过河通道；不少桥板正是于都乡亲卸下的门板。' },
-      { prompt: '船体在浮桥上起什么作用？', options: ['铺成通道','托住桥面'], answer: 1, focus: 'boat',
-        retry: '看亮起的下方船身。桥板下面是什么？', evidence: '木船在桥板下，为浮桥提供承托。' },
+      { prompt: '河宽缺桥材，乡亲卸下的门板最先补上哪块工程短板？', options: ['连片桥面通道','水下抗流承托'], answer: 0, focus: 'plank',
+        retry: '看亮起的上方铺面。没有平整连续的桥面，夜行重装队伍无法通行。', evidence: '门板铺在纵梁上连成平整通道，解决了大部队夜间快速通过的桥面短板。' },
+      { prompt: '桥下排开的渔船，在力学与战术上起什么关键作用？', options: ['仅作岸边摆渡备船','承托纵梁并便于拂晓前拆撤'], answer: 1, focus: 'boat',
+        retry: '看亮起的下方船身。纵梁和桥板的全部重量压在谁身上，天亮前又怎么隐蔽？', evidence: '一排木船在下方托住纵梁与桥面，过河后还能在拂晓前迅速拆撤隐蔽。' },
     ],
   },
   'troop-dates': {
-    title: '两个数字能说明什么', from: 30,
-    teacher: '留 2 分钟。先让学员配对时点，再解释两数的差额覆盖哪段行程。误答时请他读出画面里的日期。',
-    source: '教学摘要 · 《中国共产党简史》',
+    title: '史料口径与归因辨析', from: 30,
+    teacher: '留 2 分钟。先核对两组数字的精确时点，再辨析“湘江一战牺牲五万多人”是否严谨。',
+    source: '教学摘要 · 《中国共产党简史》与国防部党史资料',
     questions: [
-      { prompt: '8.6 万余人对应哪个时点？', options: ['渡过湘江后','长征出发时'], answer: 1, focus: 'before',
-        retry: '比较两行的日期，找更早的一个时点。', evidence: '8.6 万余人对应长征出发时。' },
-      { prompt: '3 万余人对应哪个时点？', options: ['渡过湘江后','长征出发时'], answer: 0, focus: 'after',
-        retry: '比较两行的日期，找渡过湘江后的记录。', evidence: '3 万余人对应渡过湘江后。' },
-      { prompt: '这两组数字的差额涵盖哪个范围？', options: ['出发至渡过湘江之间','仅湘江战役期间'], answer: 0, focus: 'dates',
-        retry: '回看最早一组数字。它的时点早于湘江战役。', evidence: '少掉的人数是从出发到渡过湘江一路上累计的减员，不只发生在湘江一战。' },
+      { prompt: '史料中的「8.6 万余人」锚定在哪个时间点？', options: ['湘江开战前夕','1934 年 10 月长征出发时'], answer: 1, focus: 'before',
+        retry: '核对两行日期。8.6 万余人对应的是于都出发时的总兵力。', evidence: '8.6 万余人对应 1934 年 10 月长征出发时。' },
+      { prompt: '「3 万余人」对应哪一时点的兵力统计？', options: ['1934 年 12 月渡过湘江后','突破第一道封锁线后'], answer: 0, focus: 'after',
+        retry: '核对第二组时点标签，它记录的是渡过湘江之后的主力余部。', evidence: '3 万余人对应 1934 年 12 月渡过湘江后。' },
+      { prompt: '若有人说“湘江一战牺牲了五万多人”，这一说法严谨吗？', options: ['不严谨，差额覆盖出发至渡江后的全程累计减员','严谨，两数之差就是湘江单次战役伤亡'], answer: 0, focus: 'dates',
+        retry: '回看最早一组时间标签：10 月出发到 12 月渡江之间，还包含前三道封锁线沿途损耗。', evidence: '不严谨。从 8.6 万余人到 3 万余人是从出发到渡过湘江全程的累计减员，不只发生在湘江一战。' },
     ],
   },
   'crossing-evidence': {
-    title: '结果与代价怎样同时成立', from: 40,
-    teacher: '留 2 分钟。让两组分别选证据，回答时要求说清出处和时点。依次核对，两条证据都保留在画面上。',
+    title: '战术结果与战略代价', from: 40,
+    teacher: '留 2 分钟。两组分别挑出支撑“突围结果”与“战略代价”的依据，说明为什么不能只看单一指标。',
     source: '教学摘要 · 党史和文献研究院《红军长征过广西》及《中国共产党简史》',
     questions: [
-      { prompt: '哪条材料支持“渡过湘江”？', options: ['两个时点的兵力对照','全州、兴安一带的渡江记录'], answer: 1, column: '渡江结果',
-        retry: '找直接写明红军在哪里过江、有没有突破封锁线的材料。', evidence: '渡江记录表明，中央红军渡过湘江，突破第四道封锁线。' },
-      { prompt: '哪条材料能看出从出发到渡江后的兵力变化？', options: ['两个时点的兵力对照','全州、兴安一带的渡江记录'], answer: 0, column: '付出代价',
-        retry: '找一条同时记录出发时和渡江后人数的材料。', evidence: '兵力从长征出发时的 8.6 万余人减至渡过湘江后的 3 万余人。' },
+      { prompt: '哪条史料直接证明“主力完成了战术突围”？', options: ['两个时点的兵力对照','全州、兴安一带的渡江记录'], answer: 1, column: '渡江结果',
+        retry: '找直接写明红军在哪里过江、突破第四道封锁线的作战记录。', evidence: '全州、兴安一带渡江记录证明，中央红军拼死突破了第四道封锁线。' },
+      { prompt: '哪条史料能说明“战术过江后战略上已难以为继”？', options: ['两个时点的兵力对照','全州、兴安一带的渡江记录'], answer: 0, column: '付出代价',
+        retry: '仅看渡江地点看不出损耗，需找同时记录出发与渡江后人数的兵力对照。', evidence: '兵力由出发时 8.6 万余人减至渡江后 3 万余人，说明再按原打法硬拼已撑不住。' },
     ],
   },
   'turn-evidence': {
-    title: '哪条证据能解释改向', from: 40,
-    teacher: '留 2 分钟。请学员先指路线怎么改，再回想湘江站的材料，解释为何重新考虑方向。核对后请他用自己的话补上两者的关系。',
+    title: '逆境中的路线权衡', from: 40,
+    teacher: '留 2 分钟。对照原定路线与敌我态势，请学员说明为什么既定方案与现场实情冲突时必须及时转轨。',
     source: '教学摘要 · 党史和文献研究院《中央红军长征在贵州》及《中国共产党简史》',
     questions: [
-      { prompt: '黎平会议决定改向哪里？', options: ['贵州北部','湘西北'], answer: 0, focus: 'routes',
-        retry: '看舆图上的「原计划」和「会议决定」，找会议决定所指的方向。', evidence: '原计划赴湘西北会合，黎平会议决定改向贵州北部。' },
-      { prompt: '哪条材料能说明为什么必须重新讨论方向？', options: ['两条路线的终点','渡江后兵力和行军处境'], answer: 1,
-        retry: '找能说明部队当时面临什么困难的材料。', evidence: '渡江后兵力锐减，原定方向又有重兵堵截，继续硬闯代价太大，必须另选去路。' },
+      { prompt: '面对湘西北重兵堵截与减员过半，黎平会议决定转向哪里？', options: ['敌军防守薄弱的贵州北部','按原计划硬闯湘西北会合'], answer: 0, focus: 'routes',
+        retry: '看舆图上的「原计划」与「会议决定」，哪条方向避开了重兵口袋阵？', evidence: '黎平会议放弃北上湘西北，果断改向敌军力量薄弱的贵州北部。' },
+      { prompt: '在会议争论中，哪类依据最能说服多数同志放弃原定路线？', options: ['原定文件已写明会合目标','渡江后兵力锐减与前方重兵堵截的现实对比'], answer: 1,
+        retry: '脱离现场实情照本宣科代价太大，找能直接证明硬闯风险的现实依据。', evidence: '兵力锐减与前方重兵堵截的现实对比表明，必须立足实际及时转轨。' },
     ],
   },
   'zunyi-issues': {
-    title: '两类问题怎么分', from: 30,
-    teacher: '留 2 分钟。回想桌上两册材料，让学员从每条摘要里指出一个能判断类别的词，再归类。',
+    title: '治标纠偏与机制落地', from: 30,
+    teacher: '留 2 分钟。结合桌上两册材料，区分“怎么打”的军事纠偏与“由谁指挥”的组织保障。',
     source: '教学摘要 · 党史和文献研究院《遵义会议决议》解读',
     questions: [
-      { prompt: '总结第五次反“围剿”失败与长征初期受挫的教训，归入哪类？', options: ['军事','组织'], answer: 0,
-        retry: '找出摘要里的两段受挫经历，想想会议总结的是哪类指挥教训。', evidence: '属于军事问题。会议针对这两段受挫，集中总结了军事领导和作战指挥上的教训。' },
-      { prompt: '调整中央领导机构，归入哪类？', options: ['军事','组织'], answer: 1,
-        retry: '留意“中央领导机构”这几个字，它涉及的是哪一类调整？', evidence: '属于组织问题。会议调整了中央领导机构，选举毛泽东为中央政治局常委。' },
+      { prompt: '黎平已改对了方向，遵义仍集中追查此前受挫教训，归入哪类核心问题？', options: ['军事问题：不纠偏错误指挥原则，换了路还会吃亏','组织问题：只需更换行军路线图即可'], answer: 0,
+        retry: '看摘要里的两段受挫经历，会议追查的是脱离实际的军事领导与作战原则。', evidence: '属于军事问题。会议集中总结第五次反“围剿”和长征初期的军事指挥教训。' },
+      { prompt: '增选毛泽东为政治局常委并取消原“三人团”，解决的是哪类根本问题？', options: ['军事问题：仅调整单次战役的兵力编组','组织问题：用领导机制调整保障正确主张落地'], answer: 1,
+        retry: '留意“调整中央领导机构”，改组领导核心是为了让正确军事原则能真正执行。', evidence: '属于组织问题。会议调整中央领导机构，选举毛泽东为政治局常委，从机制上保障纠偏落地。' },
     ],
   },
 };
@@ -114,8 +114,9 @@ function mountPractice(id: PracticeId, scene: HTMLElement, caption: HTMLElement,
   entry.setAttribute('aria-expanded','false');
   const confirm = control('核对',()=>{
     if (!state || choice === undefined) return;
-    if (choice === practice.questions[state.question].answer) showAnswer();
-    else {
+    if (choice === practice.questions[state.question].answer) {
+      showAnswer();
+    } else {
       showPractice({...state,retry:true});
       options.querySelector('button')?.focus({preventScroll:true});
     }
@@ -125,7 +126,7 @@ function mountPractice(id: PracticeId, scene: HTMLElement, caption: HTMLElement,
     if (!state) return;
     const allDone = state.shown.length >= practice.questions.length;
     if (allDone) {
-      completedPractices.add(id);
+      recordLessonProgress(completedPractices,id);
       soundscape.playSfx('complete');
       showPractice(null);
       return;
@@ -150,7 +151,7 @@ function mountPractice(id: PracticeId, scene: HTMLElement, caption: HTMLElement,
     if (state && !state.shown.includes(state.question)) {
       const nextShown = [...state.shown,state.question];
       if (nextShown.length >= practice.questions.length) {
-        completedPractices.add(id);
+        recordLessonProgress(completedPractices,id);
         soundscape.playSfx('complete');
       } else {
         soundscape.playSfx('confirm');

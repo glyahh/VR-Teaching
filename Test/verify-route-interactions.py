@@ -148,21 +148,36 @@ def wujiang_and_desk(teacher, output):
 
 
 def hall_and_desk(teacher):
-    page_is(teacher, "遵义会议室")
-    button(teacher, "进入材料厅").click()
     hall = teacher.locator('.lesson-exploration[data-scene="zunyi-hall"][data-ready]')
-    expect(hall).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
-    hall.locator('[data-hall-spot="route"]').click()
-    expect(teacher.locator("#route-stops")).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
-    expect(teacher.locator("#instruction")).to_contain_text("拨动行军图")
-    teacher.locator("#route-stops").select_option("乌江")
-    expect(teacher.locator("#reading-title")).to_have_text("乌江")
-    button(teacher, "收起材料").click()
+
+    def open_hall():
+        page_is(teacher, "遵义会议室")
+        button(teacher, "进入材料厅").click()
+        expect(hall).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
+
+    def read_route():
+        hall.locator('[data-hall-spot="route"]').click()
+        expect(teacher.locator("#route-stops")).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
+        expect(teacher.locator("#instruction")).to_contain_text("拨动行军图")
+        teacher.locator("#route-stops").select_option("乌江")
+        expect(teacher.locator("#reading-title")).to_have_text("乌江")
+        button(teacher, "收起材料").click()
+
+    open_hall()
+    read_route()
+    button(teacher, "继续探索").click()
+    hall.locator('[data-hall-spot="record"]').click()
+    hall.locator('#book-next').click()
+    expect(hall.locator('#instruction')).to_have_text('第 1 页')
+    teacher.reload()
+    open_hall()
+    read_route()
     elapsed_frames(teacher,.25)
     button(teacher, "会议桌").click()
     page_is(teacher, "会议桌上的两份材料")
     desk = teacher.locator(".desk-live-frame")
     expect(desk).to_have_attribute("data-space", "ready", timeout=EXPLORATION_LOAD_TIMEOUT)
+    expect(teacher.locator('.desk-clue-pills .desk-live-clue')).to_have_text(['乌江', '会前形势'])
     button(teacher, "乌江").click()
     evidence = teacher.locator(".desk-reader .desk-reader-article")
     expect(evidence.get_by_role("heading", name="乌江")).to_be_visible()
@@ -177,7 +192,7 @@ def hall_and_desk(teacher):
     button(teacher,"对照两份材料").click()
     expect(teacher.locator(".desk-reader-pair .is-right h3")).to_have_text("会议讨论")
     expect(teacher.locator(".desk-reader-pair .is-left h3")).to_have_text("乌江")
-    print("遵义材料厅带入的乌江线索与会议讨论在会议桌阅读区并排可读", flush=True)
+    print("刷新后重读仍保留两条线索，乌江与会议讨论在会议桌阅读区并排可读", flush=True)
 
 
 def main():

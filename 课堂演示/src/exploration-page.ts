@@ -13,6 +13,16 @@ let releaseCurrentExploration: (()=>void) | undefined;
 let retainedHallClues: HallClue[] = [];
 const visitedExplorations = new Set<ExplorationId>();
 
+function rememberHallClues() {
+  const clues = explorationStage.hallClues(explorationActivity?.read() ?? null);
+  if (!clues.length) return;
+  const combined = [...clues, ...retainedHallClues.filter(saved => !clues.some(clue => clue.kind === saved.kind))];
+  if (JSON.stringify(combined) !== JSON.stringify(retainedHallClues)) {
+    retainedHallClues = combined;
+    saveLessonProgress();
+  }
+}
+
 function captureExplorationView(id: ExplorationId) {
   if (reducedMotion.matches || explorationActivity?.read()?.id !== id) return;
   const frame = document.createElement('canvas');
@@ -46,7 +56,7 @@ function releaseExplorationPage() {
 type TourCue = { until: number; text: string };
 type SceneTourEnd = {
   layer: HTMLElement;
-  frame: HTMLCanvasElement | HTMLVideoElement;
+  frame: HTMLCanvasElement;
   aspect: number;
 };
 const sceneTours = {
@@ -56,7 +66,7 @@ const sceneTours = {
 
 function mountSceneTour({ id, scene, stage, tools, signal, onEnded }: {
   id: keyof typeof sceneTours; scene: HTMLElement; stage: HTMLElement; tools: HTMLElement; signal: AbortSignal;
-  onEnded?: (end: SceneTourEnd) => void;
+  onEnded?: (end?: SceneTourEnd) => void;
 }) {
   type TourState = 'ready' | 'playing' | 'paused' | 'finished' | 'unavailable';
   const config = sceneTours[id];
@@ -64,11 +74,11 @@ function mountSceneTour({ id, scene, stage, tools, signal, onEnded }: {
   const cues: TourCue[] = JSON.parse(mediaAssets[config.key + '-cues']);
   const film = element('div', 'scene-tour ' + config.key);
   const video = element('video');
-  video.src = mediaAssets[config.key + '-video'];
   video.poster = mediaAssets[config.key + '-poster'];
   video.preload = 'auto';
   video.playsInline = true;
   video.muted = soundscape.isMuted();
+  const source = mountCourseVideoSource(video, config.key + '-video');
   const caption = element('p', 'film-subtitle scene-tour-caption' + (isYudu ? ' river-tour-caption' : ''));
   film.append(video);
   stage.append(film);
@@ -125,11 +135,17 @@ function mountSceneTour({ id, scene, stage, tools, signal, onEnded }: {
   async function play() {
     if (signal.aborted) return;
     const attempt = ++playback;
-    if (video.error) video.load();
-    if (state !== 'paused') video.currentTime = 0;
+    const resume = state === 'paused';
     render('playing');
-    updateCaption(video.currentTime);
     try {
+      if (!video.hasAttribute('src')) {
+        const available = await source.prepare();
+        if (signal.aborted || attempt !== playback) return;
+        if (!available) { render('unavailable'); return; }
+      }
+      if (video.error) video.load();
+      if (!resume) video.currentTime = 0;
+      updateCaption(video.currentTime);
       try {
         await video.play();
       } catch (error) {
@@ -167,7 +183,7 @@ function mountSceneTour({ id, scene, stage, tools, signal, onEnded }: {
     updateCaption(video.duration);
     render('finished');
     if (!onEnded) return;
-    let frame: SceneTourEnd['frame'] = video;
+    let end: SceneTourEnd | undefined;
     if (!reducedMotion.matches && video.videoWidth && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
       const still = element('canvas');
       still.width = video.videoWidth;
@@ -176,10 +192,10 @@ function mountSceneTour({ id, scene, stage, tools, signal, onEnded }: {
       if (brush) {
         brush.drawImage(video,0,0);
         film.replaceChildren(still);
-        frame = still;
+        end = {layer: film, frame: still, aspect: still.width / still.height};
       }
     }
-    onEnded({layer: film, frame, aspect: video.videoWidth / video.videoHeight});
+    onEnded(end);
   }, { signal });
   video.addEventListener('error', () => {
     if (state !== 'ready') render('unavailable');
@@ -189,7 +205,7 @@ function mountSceneTour({ id, scene, stage, tools, signal, onEnded }: {
     soundscape.setVideoDuck(state === 'playing' && !video.paused && !muted);
   });
   signal.addEventListener('abort', () => {
-    video.pause();
+    source.dispose();
     stopListening();
     soundscape.setVideoDuck(false);
   }, { once: true });
@@ -238,9 +254,12 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
   const withTour = id === 'yudu-river';
   const activity = () => explorationActivity ??= explorationStage.createExploration({
     assets: mediaAssets, riverExplorationOnly: true,
+    loadScene: (id, start) => withCourseAssetGroup(id === 'yudu-river' ? id : 'zunyi-hall', start),
+    onChange: immediate => { if (immediate) rememberHallClues(); },
   });
   let surface: 'static' | 'loading' | 'exploration' = 'static';
   let request = 0;
+  let unwatchNarration: (() => void) | undefined;
   const status = element('p', 'exploration-load-status');
   status.setAttribute('role', 'status');
   status.hidden = true;
@@ -270,12 +289,9 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
 
   function close(restoreBackdrop = true) {
     ++request;
-    if (id === 'zunyi-hall' && surface === 'exploration') {
-      const clues = explorationStage.hallClues(explorationActivity?.read() ?? null);
-      if (clues.length) {
-        retainedHallClues = clues;
-      }
-    }
+    unwatchNarration?.();
+    unwatchNarration = undefined;
+    if (id === 'zunyi-hall' && surface === 'exploration') rememberHallClues();
     explorationActivity?.close();
     const resume = restoreBackdrop && surface !== 'static';
     if (resume && surface === 'exploration' && backdrop) attachCinemagraph(backdrop.key, backdrop.image);
@@ -346,8 +362,9 @@ function mountExplorationPage({ id, scene, stage, tools, bottom, pauseMedia, bac
       if (withTour) pauseMedia();
       stopCinemagraphs();
       surface = 'exploration';
-      visitedExplorations.add(id);
+      recordLessonProgress(visitedExplorations,id);
       scene.dataset.exploration = id;
+      unwatchNarration = watchPageEntryNarration(stage.querySelector<HTMLElement>(withTour ? '#river-instruction' : '#instruction'));
       status.hidden = true;
       syncButtons();
       positionDock();

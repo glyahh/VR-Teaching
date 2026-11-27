@@ -12,6 +12,7 @@ type TerrainSurface = {
   onChange: () => void;
   orient: (angle: TerrainAngle) => void;
   project: (point: Point) => Point;
+  captureFrame: () => HTMLCanvasElement | undefined;
 };
 let terrainSurface: TerrainSurface | undefined;
 
@@ -30,6 +31,7 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
   let basis: [number,number,number,number] = [1,0,1,0];
   const terrain: TerrainSurface = {
     element:surface,ready:false,onChange,
+    captureFrame: () => terrain.ready && draw() ? canvas : undefined,
     project:([x,y])=>{
       if (!terrain.ready) return [x,y];
       const u = x/200+.25, v = y/200+.25;
@@ -59,7 +61,7 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
   }
 
   const canvas = document.createElement('canvas');
-  const gl = canvas.getContext('webgl', {alpha:true, antialias:true, preserveDrawingBuffer:true});
+  const gl = canvas.getContext('webgl', {alpha:true, antialias:true});
   if (!gl) return terrain;
   const vertexSource = `
     attribute vec3 point;
@@ -149,15 +151,15 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     gl.uniform2f(gl.getUniformLocation(program,'sampleStep'),1/elevation.width,1/elevation.height);
-    draw();
     return gl.getError() === gl.NO_ERROR;
   }
 
   function draw() {
-    if (!gl || gl.isContextLost() || !programLocation.orientation) return;
+    if (!gl || gl.isContextLost() || !programLocation.orientation) return false;
     gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     gl.uniform4fv(programLocation.orientation,basis);
     gl.drawElements(gl.TRIANGLES,cells*6,gl.UNSIGNED_SHORT,0);
+    return true;
   }
 
   canvas.addEventListener('webglcontextlost', event => {
@@ -178,6 +180,7 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
     surface.classList.add('is-relief');
     surface.style.backgroundImage = '';
     if (!terrainSurface) terrainSurface = terrain;
+    draw();
     terrain.onChange();
   });
   const elevation = new Image();
@@ -217,8 +220,16 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
     surface.classList.add('is-relief');
     surface.style.backgroundImage = '';
     surface.append(canvas);
+    draw();
     terrain.onChange();
   };
-  elevation.src = mediaAssets.elevation;
+  void acquireCourseAsset('elevation').then(async asset => {
+    try {
+      elevation.src = asset.url;
+      await elevation.decode();
+    } finally {
+      asset.release();
+    }
+  }).catch(() => {});
   return terrain;
 }

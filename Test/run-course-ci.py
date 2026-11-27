@@ -22,7 +22,6 @@ RELEASE_ARTIFACTS = (
     "展示材料/成果展示/沉浸式VR课程-从于都到遵义-成果展示包.zip",
 )
 SMOKE = "single_screen"
-EDGE_SHARDS = 4
 SPECIAL = {
     "xiang-crossing": ("verify-xiang-crossing.py", False),
     "yudu-shorts": ("verify-yudu-shorts.py", False),
@@ -32,6 +31,13 @@ SPECIAL = {
 CHECKS = (
     "single_screen", "opening", "entry", "narration", "disclosures", "journeys",
     "controls", "desk", "recap", "reduced-motion", *SPECIAL,
+)
+# Balance browser time across the four runners. See workflow run 45955978850.
+EDGE_SHARDS = (
+    ("desk-live", "recap"),
+    ("opening", "yudu-shorts"),
+    ("entry", "controls", "journeys", "desk"),
+    ("single_screen", "disclosures", "narration", "reduced-motion", "xiang-crossing", "route-interactions"),
 )
 QUICK_RULES = (
     ((ASSETS + "opening*", SRC + "opening-overlay.ts", SRC + "scene-video.ts", MEDIA_SOURCE + "opening-*",
@@ -97,6 +103,10 @@ def plan(output, base, full, check):
     mode = "targeted" if check else "full" if full else "quick"
     report = {"base": base, "sha256": html_sha256(), "changedPaths": paths,
               "mode": mode, "checks": checks, "reasons": reasons}
+    if full:
+        if sorted(check for group in EDGE_SHARDS for check in group) != sorted(checks):
+            raise SystemExit("全量分组须覆盖每项回归一次")
+        report["shards"] = EDGE_SHARDS
     output.mkdir(parents=True, exist_ok=True)
     write_report(output / "selection.json", report)
     print("断网 Edge 检查 " + ", ".join(checks), flush=True)
@@ -121,8 +131,8 @@ def run(output, shard):
         raise SystemExit("正式课件缺失或在选测后发生变化")
     checks = selection["checks"]
     if shard is not None:
-        checks = checks[shard - 1::EDGE_SHARDS]
-        print(f"Edge 回归第 {shard}/{EDGE_SHARDS} 组 " + ", ".join(checks), flush=True)
+        checks = [check for check in EDGE_SHARDS[shard - 1] if check in checks]
+        print(f"Edge 回归第 {shard}/{len(EDGE_SHARDS)} 组 " + ", ".join(checks), flush=True)
     failed = []
     for check in checks:
         evidence = output / check
@@ -152,7 +162,7 @@ def main():
     mode = planning.add_mutually_exclusive_group()
     mode.add_argument("--full", action="store_true")
     mode.add_argument("--check", choices=CHECKS)
-    modes.add_parser("run").add_argument("--shard", type=int, choices=range(1, EDGE_SHARDS + 1))
+    modes.add_parser("run").add_argument("--shard", type=int, choices=range(1, len(EDGE_SHARDS) + 1))
     args = parser.parse_args()
     output = args.output.resolve()
     if args.mode == "plan":

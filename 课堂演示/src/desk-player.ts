@@ -1,5 +1,6 @@
 type DeskPlayer = {
   transport:HTMLElement;
+  openObject:(object:DeskObject)=>void;
   dismiss:()=>void;
   dispose:()=>void;
 };
@@ -33,7 +34,10 @@ function prepareDesk(position:number, stage?:HTMLElement) {
   function start() {
     if (idle) window.cancelIdleCallback(idle);
     idle=0;
-    return pending ??= explorationStage.createDeskWorld(canvas,mediaAssets);
+    return pending ??= withCourseAssetGroup('desk', assets => explorationStage.createDeskWorld(canvas,assets)).catch(error => {
+      pending = undefined;
+      throw error;
+    });
   }
   if (stage) {
     idle=window.requestIdleCallback(()=>{
@@ -132,6 +136,20 @@ function mountDesk(stage:HTMLElement, position:number, outgoing?:HTMLCanvasEleme
   stage.append(frame);
   const session=mountDeskSession(frame,canvas,deskHistory.get(historyKey)??freshDesk(),paint);
   const reader=mountDeskReader(stage,session,dismiss);
+  const openObject=(object:DeskObject)=>object==='map' ? session.openMap() : session.openReading({kind:object});
+  const disposeDebate=courseHarness.mountZunyiDebate({
+    frame,
+    stage,
+    transport,
+    getSeenObjects:()=>session.read().saved.seen??[],
+    openObject,
+    highlightPin:obj=>{
+      for (const {object,pin} of pins) {
+        const hit=obj==='both' ? object==='journal'||object==='dossier' : obj===object;
+        pin.dataset.debateFocus=String(hit);
+      }
+    },
+  });
 
   function renderClues() {
     cluesGroup.hidden=!clues.length;
@@ -219,7 +237,7 @@ function mountDesk(stage:HTMLElement, position:number, outgoing?:HTMLCanvasEleme
     const left=seen.includes('journal') || saved.spread>0;
     const finished=left && right;
     frame.dataset.inquiry=finished?'done':'active';
-    if (finished) revealed.add('materials-compared');
+    if (finished) recordLessonProgress(revealed,'materials-compared');
 
     const moving=!!preview && preview.kind!=='inspect';
     for (const {object,target,pin} of pins) {
@@ -288,9 +306,11 @@ function mountDesk(stage:HTMLElement, position:number, outgoing?:HTMLCanvasEleme
   paint(session.read());
   return {
     transport,
+    openObject,
     dismiss,
     dispose() {
       disposed=true;
+      disposeDebate();
       observer.disconnect();
       reader.dispose();
       const saved=session.leave();

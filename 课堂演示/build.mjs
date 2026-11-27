@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, rename, rm } from 'node:fs/promises';
 import { stripTypeScriptTypes } from 'node:module';
 import { randomUUID } from 'node:crypto';
-import { readCourseAssets } from './course-assets.mjs';
+import { courseAssetGroups, readCourseAssets } from './course-assets.mjs';
 import { assertDemoTemplate, assertPresentationDirectory } from './page-policy.mjs';
 import { buildExplorationStage, readExplorationStyle, readLessonRailStyle } from './自由探索实验/exploration-assets.mjs';
 
@@ -16,8 +16,8 @@ await assertPresentationDirectory(new URL('./src/',import.meta.url));
 const assets = await readCourseAssets();
 // The standalone HTML runs these classic scripts in order. lesson-session starts the course.
 const scriptNames = [
-  'soundscape', 'content', 'terrain', 'cinemagraph', 'desk-state', 'desk-live-session',
-  'desk-reader', 'desk-player', 'practice', 'exploration-page', 'page-entry', 'narration',
+  'course-media', 'soundscape', 'content', 'terrain', 'cinemagraph', 'desk-state', 'desk-live-session',
+  'desk-reader', 'desk-player', 'harness-bridge', 'course-developer', 'practice', 'exploration-page', 'page-entry', 'narration',
   'scene-lesson', 'story-scenes', 'map-card', 'recap-stage', 'opening-overlay',
   'lesson-map', 'lesson-page', 'scene-video', 'app', 'route-scenes', 'lesson-session',
 ];
@@ -32,9 +32,32 @@ const css = [(await read('./src/style.css','utf8')), (await read('./src/recap-fi
   (await read('./src/story-scenes.css','utf8')), (await read('./src/desk-player.css','utf8')), explorationCss, pageCss].join('\n');
 const template = await read('./src/index.html','utf8');
 assertDemoTemplate(template);
+const onDemand = new Set(['elevation', 'opening-video', ...courseAssetGroups.desk,
+  ...Object.values(courseAssetGroups).flat(), 'river-crowd']);
+for (const [key, value] of Object.entries(assets)) {
+  if (value.startsWith('data:video/')) onDemand.add(key);
+}
+const mediaTypes = {};
+const chunks = [];
+for (const key of onDemand) {
+  const [header, data] = assets[key].split(',', 2);
+  mediaTypes[key] = header.slice('data:'.length, -';base64'.length);
+  const chunkSize = 256 * 1024;
+  for (let offset = 0; offset < data.length; offset += chunkSize) {
+    const id = offset === 0 ? ` id="course-data-${key}"` : '';
+    chunks.push(`<script type="application/x-course-asset"${id}>${data.slice(offset, offset + chunkSize)}</script>`);
+  }
+  chunks.push(`<span hidden id="course-end-${key}"></span>`);
+  delete assets[key];
+}
+const script = `const mediaAssets = ${JSON.stringify(assets)};\n` +
+  `const courseMediaTypes = ${JSON.stringify(mediaTypes)};\nconst courseAssetGroups = ${JSON.stringify(courseAssetGroups)};\n` +
+  [exploration, ...scripts].join('\n');
+if (Buffer.byteLength(script) >= 20 * 1024 ** 2) throw new Error('课件启动脚本须小于 20 MiB。');
 const html = normalize(template
   .replace('/* COURSE_STYLES */',()=>css)
-  .replace('/* COURSE_SCRIPT */',()=>'const mediaAssets = '+JSON.stringify(assets)+';\n'+[exploration,...scripts].join('\n')));
+  .replace('/* COURSE_SCRIPT */',()=>script)
+  .replace('<!-- COURSE_ASSETS -->',()=>chunks.join('\n')));
 async function writeArtifact(destination, content) {
   const staging = new URL('./.course-'+randomUUID()+'.tmp',destination);
   try {

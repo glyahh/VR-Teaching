@@ -76,8 +76,25 @@ button.scene-point:hover:not(:disabled) { background: transparent; }
   background: #efd29b;
   border: 2px solid #372c20;
   border-radius: 50%;
-  box-shadow: 0 0 0 1px #f7dfb5b8, 0 1px 6px #15130e;
+  box-shadow: 0 0 0 1px #f7dfb5d0, 0 1px 7px #0d0b08;
   transition: background-color 160ms ease, scale 160ms ease;
+}
+.scene-point:not([data-seen="true"]):not([data-visited="true"])::after {
+  content: "";
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px solid #f7dfb5b3;
+  pointer-events: none;
+  animation: scene-point-pulse 2.8s cubic-bezier(.22,1,.36,1) infinite;
+}
+@keyframes scene-point-pulse {
+  0% { opacity: .65; transform: scale(1); }
+  70%, 100% { opacity: 0; transform: scale(2.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene-point::after { animation: none; opacity: 0; }
 }
 .scene-point:is([data-seen="true"], [data-visited="true"])::before { background: #a7b79f; }
 .scene-point:is(:hover, :focus-visible, [aria-pressed="true"], [data-near="true"])::before {
@@ -85,7 +102,7 @@ button.scene-point:hover:not(:disabled) { background: transparent; }
   background: #ffe4b0;
 }
 .exploration-stage .marker.scene-point { transform: translate(-50%, -50%); }
-.exploration-stage .marker.scene-point::after { content: none; }
+.exploration-stage .marker.scene-point:is([data-seen="true"], [data-visited="true"])::after { content: none; }
 
 .exploration-stage .dock {
   position: absolute; z-index: 3; bottom: var(--dock-bottom); left: 50%;

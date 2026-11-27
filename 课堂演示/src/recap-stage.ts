@@ -103,6 +103,7 @@ function mountRecapFinale(stage: HTMLElement, onStart: () => void, paintRoute: (
     cancelAnimationFrame(frameRequest);
     soundscape.stopFinale();
     reviewAnswer = true;
+    saveLessonProgress();
     stage.dataset.finale = 'true';
     const restoreFocus = reducedMotion.matches && document.activeElement === transport;
     setPlayback({ kind: 'finished' });
@@ -353,6 +354,7 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
     placeNodes();
   }) : undefined;
   footer.append(previous);
+  const disposeRecapReport = courseHarness.mountRecapReportButton(footer);
   if (next) footer.append(next);
   if (finale) footer.append(finale.transport);
 
@@ -388,6 +390,7 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
       reviewSteps.add(index);
       soundscape.playSfx('point');
     }
+    saveLessonProgress();
     nodeElements.forEach((btn, i) => {
       btn.setAttribute('aria-pressed', String(i === index));
       btn.setAttribute('aria-expanded', String(i === index));
@@ -546,6 +549,7 @@ function mountRecapStage(shell: HTMLElement, conclusionPage: boolean, onOpenRevi
 
   currentRecapDispose = () => {
     disposed = true;
+    disposeRecapReport();
     cancelAnimationFrame(rafId);
     finale?.dispose();
     ro.disconnect();

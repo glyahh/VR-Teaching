@@ -6,10 +6,16 @@ MAX_JOIN_RGB_ERROR = 3
 
 def video_frame_errors(page, video, entry, exit):
     return page.evaluate("""async ({video,entry,exit}) => {
-      const url = source => typeof source === 'string' ? mediaAssets[source] : source.src;
+      const leases = [];
+      async function url(source) {
+        if (typeof source !== 'string') return source.src;
+        if (typeof acquireCourseAsset === 'undefined') return mediaAssets[source];
+        const lease = await acquireCourseAsset(source);
+        leases.push(lease);
+        return lease.url;
+      }
       const sample = document.createElement('video');
       sample.muted = true;
-      sample.src = url(video);
       sample.preload = 'auto';
       function waitFor(event) {
         return new Promise((resolve,reject) => {
@@ -27,10 +33,7 @@ def video_frame_errors(page, video, entry, exit):
           sample.addEventListener('error',failed,{once:true});
         });
       }
-      if (sample.readyState < 2) await waitFor('loadeddata');
       const canvas = document.createElement('canvas');
-      canvas.width = sample.videoWidth;
-      canvas.height = sample.videoHeight;
       const brush = canvas.getContext('2d',{willReadFrequently:true});
       function pixels(image) {
         brush.clearRect(0,0,canvas.width,canvas.height);
@@ -43,7 +46,7 @@ def video_frame_errors(page, video, entry, exit):
       }
       async function difference(anchor) {
         const still = new Image();
-        still.src = url(anchor);
+        still.src = await url(anchor);
         await still.decode();
         const image = pixels(still), frame = pixels(sample);
         if (frame[3] !== 255) throw new Error('视频还未完成解码');
@@ -56,9 +59,19 @@ def video_frame_errors(page, video, entry, exit):
         sample.currentTime = time;
         await seeked;
       }
-      await seek(.01);
-      const first = await difference(entry);
-      await seek(sample.duration-.01);
-      return [first,await difference(exit)];
+      try {
+        sample.src = await url(video);
+        if (sample.readyState < 2) await waitFor('loadeddata');
+        canvas.width = sample.videoWidth;
+        canvas.height = sample.videoHeight;
+        await seek(.01);
+        const first = await difference(entry);
+        await seek(sample.duration-.01);
+        return [first,await difference(exit)];
+      } finally {
+        sample.removeAttribute('src');
+        sample.load();
+        for (const lease of leases) lease.release();
+      }
     }""", {"video": video, "entry": entry, "exit": exit})
 

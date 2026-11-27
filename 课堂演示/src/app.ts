@@ -127,7 +127,6 @@ function syncCinemagraphReading() {
   setCinemagraphIntensity(reading ? 0.2 : 1);
 }
 window.addEventListener('lesson-reading', syncCinemagraphReading);
-createTerrainSurface(() => {});
 
 reducedMotion.addEventListener('change',event=>{
   if (event.matches) stopMotion();
@@ -164,13 +163,18 @@ dialog.addEventListener('close', () => {
   currentVideo?.resumeBackground();
 });
 
-function soundButton() {
+function soundButton(video?: HTMLVideoElement) {
   const button = control('', () => {
     soundscape.toggleMuted();
   }, 'sound-toggle');
   const update = (isMuted: boolean) => {
-    setIconButton(button, isMuted ? '开启环境声' : '静音环境声', isMuted ? 'soundOff' : 'soundOn');
+    const sound = video ? '片头声音' : '环境声';
+    setIconButton(button, (isMuted ? '开启' : '静音') + sound, isMuted ? 'soundOff' : 'soundOn');
     button.setAttribute('aria-pressed', String(isMuted));
+    if (video) {
+      video.muted = isMuted;
+      soundscape.setVideoDuck(!isMuted && !video.paused);
+    }
   };
   update(soundscape.isMuted());
   releasePageSound = soundscape.onMuteChange(update);
@@ -199,6 +203,7 @@ function position([lon,lat]: Point): Point {
   return [(lon-104.5)/14*100, (30.65-lat)/6.8*100];
 }
 let pageButtons: {previous?: HTMLButtonElement; next?: HTMLButtonElement} = {};
+let openingKeyAction: ((event: KeyboardEvent) => void) | undefined;
 document.addEventListener('keydown', event => {
   if (event.defaultPrevented || dialog.open || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
   if (event.key === 'Escape' && currentPractice?.close()) {
@@ -215,6 +220,10 @@ document.addEventListener('keydown', event => {
     return;
   }
   if (event.target instanceof Element && event.target.closest('input,select,textarea,[contenteditable]')) return;
+  if (currentView.kind === 'opening') {
+    openingKeyAction?.(event);
+    return;
+  }
   if ((event.key === 'ArrowLeft' || event.key === 'ArrowRight') && (
     (event.target instanceof Element && event.target.closest('.lesson-exploration[data-scene="zunyi-hall"]')) ||
     app.querySelector('.desk-live-page .desk-live-frame[data-inquiry="active"]')
@@ -228,12 +237,14 @@ document.addEventListener('keydown', event => {
 
 function openReview(conclusionPage = false) {
   releaseCurrentPage();
+  reviewConclusion = conclusionPage;
   soundscape.setScene('recap', 0.9);
   const shell = element('section','shell review recap-shell');
   const header = element('header','top recap-top');
   const actions = element('div','top-actions');
   actions.append(soundButton());
   actions.append(fullscreenButton(),lessonControl('map','返回地图',()=>renderMap(true),'','arrowLeft'));
+  mountCourseDeveloperButton(actions);
   const title = element('h1','course-title',conclusionPage ? '全课结论' : '课堂回顾');
   title.tabIndex = -1;
   header.append(title,actions);
@@ -260,12 +271,13 @@ function renderMap(restoreFocus = false) {
     root: app,
     chapter: selectedChapter,
     restoreFocus,
-    onSelect: index => { selectedChapter = index; },
+    onSelect: index => { selectedChapter = index; saveLessonProgress(); },
     onEnter: openChapter,
     onStart: beginLesson,
     onReview: () => openReview(),
   });
   releaseLessonMap = map.dispose;
+  captureLessonMap = map.capture;
   pageButtons = {next: map.start};
 }
 
@@ -275,8 +287,10 @@ function beginLesson() {
   lessonItemsSeen.clear();
   reviewSteps.clear();
   reviewAnswer = false;
+  reviewConclusion = false;
   recapFocusIndex = null;
   completedPractices.clear();
+  courseHarness.resetTrace();
   visitedExplorations.clear();
   lastViewed.clear();
   routeOffset = 0;
@@ -295,7 +309,7 @@ function openDeskPage() {
 }
 
 function renderOpening(autoplay = true) {
-  const mapExit = currentView.kind === 'map' ? captureMapExit(app) : undefined;
+  const mapExit = captureLessonMap?.();
   releaseCurrentPage();
   soundscape.setScene('silent', 0.35);
   const scene = element('section','scene opening-page');
@@ -327,14 +341,26 @@ function renderOpening(autoplay = true) {
     openScene(0,'lesson',undefined,landing.complete && landing.naturalWidth ? landing : undefined);
   }
   mountOpeningOverlay(scene, openingVideo);
-  mountOpeningProgress(scene, openingVideo, time => {
+  function seekOpening(time: number) {
     cancelAutoEntry();
     if (openingVideo.ended && time < openingVideo.duration) {
       void player.set({mode:'paused',time});
     } else {
       openingVideo.currentTime = time;
     }
-  });
+  }
+  mountOpeningProgress(scene, openingVideo, seekOpening);
+  openingKeyAction = event => {
+    if (event.key === ' ' && !(event.target instanceof Element && event.target.closest('button,a'))) {
+      event.preventDefault();
+      if (!event.repeat) player.togglePlayback();
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      if (!Number.isFinite(openingVideo.duration)) return;
+      const time = openingVideo.currentTime + (event.key === 'ArrowLeft' ? -5 : 5);
+      seekOpening(Math.min(openingVideo.duration, Math.max(0, time)));
+    }
+  };
   openingVideo.addEventListener('ended', () => {
     cancelAutoEntry();
     autoEntry = window.setTimeout(() => {
@@ -349,7 +375,7 @@ function renderOpening(autoplay = true) {
     renderMap(true);
   });
   setIconButton(backToMap,'地图','map');
-  actions.append(controls,fullscreenButton(),backToMap);
+  actions.append(controls,soundButton(openingVideo),fullscreenButton(),backToMap);
   heading.append(title,actions);
   const next = lessonControl('opening-next','进入课堂',enterClassroom,'primary','arrowRight',true);
   controls.append(next);
@@ -367,7 +393,7 @@ function renderOpening(autoplay = true) {
   pageResize = new ResizeObserver(sizeMedia);
   pageResize.observe(stage);
   sizeMedia();
-  pageButtons = {next};
+  pageButtons = {};
   displayView({kind:'opening'});
   {
     title.focus({preventScroll:true});

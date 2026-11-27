@@ -32,13 +32,22 @@ def open_crossing(page, url):
     return entry
 
 
-def check_page_join(page, video, entry):
+def assert_scene_source(video):
+    assert video.evaluate("""async video => {
+      if (typeof acquireCourseAsset === 'undefined') return video.src === mediaAssets['xiang-tour-video'];
+      const lease = await acquireCourseAsset('xiang-tour-video');
+      try { return video.src === lease.url; }
+      finally { lease.release(); }
+    }"""), "湘江渡口没有使用验收的短片资源"
+
+
+def check_page_join(page, entry):
     expect(page.locator(".scene-head h1")).to_have_text("湘江留下的启示")
     expect(page.locator(".outgoing-image")).to_have_count(0)
     exit_image = page.locator(".scene-camera > img").first.element_handle()
-    first, last = video_frame_errors(page, video, entry, exit_image)
+    first, last = video_frame_errors(page, "xiang-tour-video", entry, exit_image)
     print(f"湘江河谷 → 湘江渡口 → 湘江留下的启示，首尾 RGB 差 {first:.2f}、{last:.2f}/255", flush=True)
-    assert max(first, last) <= MAX_JOIN_RGB_ERROR, (
+    assert max(first, last) < MAX_JOIN_RGB_ERROR, (
         f"湘江短片与实际前后课页的首尾 RGB 差为 {first:.2f}、{last:.2f}/255，超过 {MAX_JOIN_RGB_ERROR}/255。"
         "请按实际前后课页校正 OpenMotion 的首尾帧，并用 make-xiang-crossing-tour.py 装入验收过的原始导出。"
     )
@@ -122,9 +131,9 @@ def crossing_page(html, viewport, output):
 def exercise_joins(html, output):
     with crossing_page(html, {"width": 1920, "height": 1080}, output) as (page, url, _):
         entry = open_crossing(page, url)
-        video = page.locator(".xiang-tour video").element_handle()
+        assert_scene_source(page.locator(".xiang-tour video"))
         lesson_action(page, "next").click()
-        return check_page_join(page, video, entry)
+        return check_page_join(page, entry)
 
 
 def exercise(html, viewport, output):
@@ -164,6 +173,7 @@ def exercise(html, viewport, output):
         }""")
         play.click()
         wait_for_playing(video, 0.25)
+        assert_scene_source(video)
         expect(caption).to_have_text(CAPTIONS[0])
         layout = check_layout(video, caption, viewport)
         play.click()
@@ -191,7 +201,8 @@ def exercise(html, viewport, output):
             middle = handoff["cropIntermediateWidth"]
             assert middle and viewport["width"] * 1.05 < middle < cover_width * .95, handoff
         page.screenshot(path=output / "片尾自动接入下一页.png")
-        page_join = check_page_join(page, source, entry)
+        assert source.evaluate("video => video.paused && !video.hasAttribute('src')")
+        page_join = check_page_join(page, entry)
 
         lesson_action(page, "previous").click()
         expect(page.locator(".scene-head h1")).to_have_text("湘江渡口")
