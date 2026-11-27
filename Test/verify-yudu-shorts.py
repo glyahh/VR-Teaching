@@ -211,17 +211,21 @@ def exercise(html, viewport, output):
         assert 18.4 <= duration <= 18.7, duration
         readings = page.evaluate("window.riverCaptions")
         captions = [text for text, _ in readings]
-        assert captions == [
+        expected_captions = [
             "乡亲卸下家里的门板，铺成桥面。", "一列渔船，托住桥下的纵梁。",
             "队伍抵达渡口，等候过河。", "借着夜色，队伍分批踏上浮桥。",
             "拂晓前撤桥，掩护大队转移。",
-        ], captions
+        ]
+        observed = [expected_captions.index(text) for text in captions]
+        assert observed and observed == sorted(set(observed)), captions
+        assert observed[0] == 0 and observed[-1] == len(expected_captions) - 1, captions
         cue_times = [time for _, time in readings[1:]]
         cuts = [4, 172 / 24, 261 / 24, 349 / 24]
         frames = page.evaluate("window.riverCaptionFrames")
-        assert frames and frames[-1][0] >= cuts[-1], frames[-3:]
+        assert frames, "河岸短片未提交可检查的画面"
         for media_time, text in frames:
-            assert text == captions[sum(media_time >= cut for cut in cuts)], (media_time, text)
+            assert text == expected_captions[sum(media_time >= cut for cut in cuts)], (media_time, text)
+        expect(caption).to_have_text(expected_captions[-1])
         expect(entry).to_be_visible()
         finished_layout = film_layout(page)
         for edge_name in ("pictureTop", "pictureBottom", "captionBottomInset"):
@@ -256,6 +260,11 @@ def exercise(html, viewport, output):
         expect(stage).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
         assert page.evaluate(pose) == after
         entry.click()
+        # Inspect each decoded segment even if the software renderer dropped the preceding frames.
+        for second, text in zip([.2, *(cut + .2 for cut in cuts)], expected_captions, strict=True):
+            video.evaluate("(film, second) => { film.currentTime = second; }", second)
+            expect(video).to_have_js_property("seeking", False)
+            expect(caption).to_have_text(text)
         next_page.click()
         expect(page.locator("h1")).to_have_text("夜渡于都河")
         assert not requests, requests

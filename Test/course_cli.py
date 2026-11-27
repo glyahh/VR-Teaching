@@ -69,6 +69,9 @@ def launch(html, viewport, reduced='no-preference', video_dir=None):
             video = {'record_video_dir': video_dir, 'record_video_size': viewport} if video_dir else {}
             with browser.new_context(offline=True, service_workers='block', viewport=viewport,
                     reduced_motion=reduced, **options, **video) as context:
+                if scale:
+                    context.set_default_timeout(60000)
+                    expect.set_options(timeout=15000)
                 errors = []
                 context.on('weberror', lambda event: errors.append(str(event.error)))
                 yield context, standalone.as_uri(), browser.version, errors

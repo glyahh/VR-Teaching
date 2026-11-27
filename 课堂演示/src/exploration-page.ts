@@ -161,8 +161,10 @@ function mountSceneTour({ id, scene, stage, tools, signal, onEnded }: {
   } else {
     video.addEventListener('timeupdate', () => updateCaption(video.currentTime), { signal });
   }
+  video.addEventListener('seeked', () => updateCaption(video.currentTime), { signal });
   video.addEventListener('ended', () => {
     if (state !== 'playing' || !video.ended) return;
+    updateCaption(video.duration);
     render('finished');
     if (!onEnded) return;
     let frame: SceneTourEnd['frame'] = video;
