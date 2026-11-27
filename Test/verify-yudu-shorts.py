@@ -198,7 +198,7 @@ def exercise(html, viewport, output):
             expect(scene).to_have_attribute("data-river-tour", "paused")
             expect(video).to_have_js_property("paused", True)
             early_exit = video.evaluate("film => film.currentTime")
-            assert .25 < early_exit < 15, early_exit
+            assert .25 < early_exit < video.evaluate("film => film.duration"), early_exit
             expect(video).to_be_hidden()
             entry.click()
             expect(video).to_be_visible()

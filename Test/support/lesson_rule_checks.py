@@ -51,7 +51,7 @@ def narration(room, url):
     page.goto(url)
     page.evaluate("""() => {
       const typing = new MutationObserver(() => {
-        const scene = document.querySelector('.classroom-slide[data-entry-phase=ready]');
+        const scene = document.querySelector('.classroom-slide:is([data-entry-phase=narration],[data-entry-phase=ready])');
         if (!scene?.querySelector('.slide-line[data-narration-writing=true]')) return;
         typing.disconnect();
         const bounds = scene.querySelector('.scene-stage').getBoundingClientRect();

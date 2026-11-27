@@ -7,6 +7,11 @@ on:
   pull_request:
     paths-ignore: ['**/*.md']
   workflow_dispatch:
+    inputs:
+      check:
+        description: 单项检查名，例如 desk-live。留空运行全量。
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -18,14 +23,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '[1,2,3,4]' || '[1]') }}
+        shard: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.check == '' && '[1,2,3,4]' || '[1]') }}
     defaults:
       run:
         shell: pwsh
     env:
       PYTHONUTF8: "1"
       COURSE_EDGE_RENDER_SCALE: "0.5"
-      COURSE_CI_FULL: ${{ github.event_name == 'workflow_dispatch' }}
+      COURSE_CI_FULL: ${{ github.event_name == 'workflow_dispatch' && inputs.check == '' }}
+      COURSE_CI_CHECK: ${{ inputs.check }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,6 +58,10 @@ jobs:
         env:
           COURSE_CI_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
+          if ($env:COURSE_CI_CHECK) {
+            python -B "Test/run-course-ci.py" plan "--check=$env:COURSE_CI_CHECK"
+            exit $LASTEXITCODE
+          }
           if ($env:COURSE_CI_FULL -eq 'true') {
             python -B "Test/run-course-ci.py" plan --full
             exit $LASTEXITCODE

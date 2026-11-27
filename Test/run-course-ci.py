@@ -85,15 +85,16 @@ def write_report(path, report):
     path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def plan(output, base, full):
+def plan(output, base, full, check):
     tracked = subprocess.check_output(["git", "ls-files", "-z", "--", *RELEASE_ARTIFACTS], cwd=ROOT)
     if tracked:
         names = tracked.decode("utf-8").rstrip("\0").replace("\0", "\n")
         raise SystemExit("以下发布成品应放入 GitHub Release：\n" + names)
-    paths = None if full else changed_paths(base)
-    checks, reasons = select(paths, full)
+    paths = None if full or check else changed_paths(base)
+    checks, reasons = ([check], {"手动单项": [check]}) if check else select(paths, full)
+    mode = "targeted" if check else "full" if full else "quick"
     report = {"base": base, "sha256": html_sha256(), "changedPaths": paths,
-              "mode": "full" if full else "quick", "checks": checks, "reasons": reasons}
+              "mode": mode, "checks": checks, "reasons": reasons}
     output.mkdir(parents=True, exist_ok=True)
     write_report(output / "selection.json", report)
     print("断网 Edge 检查 " + ", ".join(checks), flush=True)
@@ -145,12 +146,14 @@ def main():
     modes = parser.add_subparsers(dest="mode", required=True)
     planning = modes.add_parser("plan")
     planning.add_argument("--base", default="")
-    planning.add_argument("--full", action="store_true")
+    mode = planning.add_mutually_exclusive_group()
+    mode.add_argument("--full", action="store_true")
+    mode.add_argument("--check", choices=CHECKS)
     modes.add_parser("run").add_argument("--shard", type=int, choices=range(1, EDGE_SHARDS + 1))
     args = parser.parse_args()
     output = args.output.resolve()
     if args.mode == "plan":
-        plan(output, args.base, args.full)
+        plan(output, args.base, args.full, args.check)
     else:
         run(output, args.shard)
 
