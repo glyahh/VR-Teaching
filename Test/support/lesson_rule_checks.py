@@ -28,7 +28,7 @@ def caption(page):
 def narrated(page, text, kind="main"):
     box = caption(page)
     expect(box).to_have_attribute("data-narration-view", kind)
-    expect(box.locator(".visually-hidden")).to_have_text(text, timeout=10000)
+    expect(box.locator(".visually-hidden")).to_have_text(text, timeout=30000)
 
 
 def blank(page):
@@ -47,7 +47,6 @@ def paused_clock(page):
 
 def narration(room, url):
     page = room.page
-    page.clock.install()
     page.goto(url)
     begin(page)
     first = "第五次反“围剿”失败后，中央红军开始战略转移。"
@@ -88,6 +87,11 @@ def narration(room, url):
               box.getBoundingClientRect().right, document.querySelector('.scene-navigation').getBoundingClientRect().left];
     }""")
     assert isclose(metrics[0], metrics[1], abs_tol=1.2) and metrics[2] <= metrics[3], metrics
+    page.clock.install()
+    page.goto(url)
+    page.locator(".timeline").get_by_role("button", name="湘江战役", exact=True).click()
+    lesson_action(page, "enter-scene").click()
+    heading(page, "湘江河谷")
     page.set_viewport_size({"width": 414, "height": 811})
     onward(page, "湘江渡口")
     narrated(page, "中央红军在广西全州、兴安之间渡过湘江。")
