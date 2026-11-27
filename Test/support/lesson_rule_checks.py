@@ -49,25 +49,7 @@ def narration(room, url):
     page = room.page
     page.clock.install()
     page.goto(url)
-    page.evaluate("""() => {
-      const typing = new MutationObserver(() => {
-        const scene = document.querySelector('.classroom-slide:is([data-entry-phase=narration],[data-entry-phase=ready])');
-        if (!scene?.querySelector('.slide-line[data-narration-writing=true]')) return;
-        typing.disconnect();
-        const bounds = scene.querySelector('.scene-stage').getBoundingClientRect();
-        const clientX = bounds.left + bounds.width * .56;
-        const clientY = bounds.top + bounds.height * .30;
-        const target = document.elementFromPoint(clientX, clientY);
-        const pointer = {bubbles:true, isPrimary:true, pointerId:1, pointerType:'mouse', button:0, clientX, clientY};
-        target.dispatchEvent(new PointerEvent('pointerdown', {...pointer, buttons:1}));
-        target.dispatchEvent(new PointerEvent('pointerup', pointer));
-        window.finishedTypingClick = true;
-      });
-      typing.observe(document.querySelector('main'), {subtree:true, attributes:true,
-        attributeFilter:['data-narration-writing','data-entry-phase']});
-    }""")
     begin(page)
-    page.wait_for_function("window.finishedTypingClick")
     first = "第五次反“围剿”失败后，中央红军开始战略转移。"
     narrated(page, first)
     expect(caption(page).locator(".visually-hidden")).to_have_text(first)
