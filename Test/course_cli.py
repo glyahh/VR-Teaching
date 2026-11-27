@@ -11,7 +11,7 @@ from shutil import copyfile
 from tempfile import TemporaryDirectory
 from traceback import format_exc
 
-from playwright.sync_api import expect, sync_playwright
+from playwright.sync_api import TimeoutError, expect, sync_playwright
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -51,7 +51,14 @@ class Classroom:
             raise ValueError('截图名须使用单个文件名')
         page = page or self.page
         target = self.output / (name + '.png')
-        page.screenshot(path=target, timeout=SCREENSHOT_TIMEOUT)
+        software_runner = environ.get('COURSE_EDGE_RENDER_SCALE')
+        try:
+            page.screenshot(path=target, timeout=15000 if software_runner else SCREENSHOT_TIMEOUT)
+        except TimeoutError:
+            if not software_runner:
+                raise
+            self.steps.append(f'截图超时 {target.name}')
+            return
         self.steps.append(f'截图 {target.name}')
 
 
