@@ -126,6 +126,7 @@ export async function startWalk(ui, assets) {
 
   const markers = Object.entries(spots).map(([id, site]) => {
     const button = ui.marker(site.label);
+    button.dataset.hallSpot = id;
     ui.on(button, 'click', () => approach(id));
     return { id, button, anchor: new THREE.Vector3(...site.anchor) };
   });

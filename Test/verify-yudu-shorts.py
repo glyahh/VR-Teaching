@@ -172,17 +172,20 @@ def exercise(html, viewport, output):
           const film = document.querySelector('.river-tour video');
           return film.currentTime > .25 && film.webkitAudioDecodedByteCount > 0 && !film.muted;
         }""")
+        check_pause = viewport["width"] == 1366
+        if check_pause:
+            playback.click()
+            expect(scene).to_have_attribute("data-river-tour", "paused")
+            expect(video).to_have_js_property("paused", True)
+            frozen = video.evaluate("film => film.currentTime")
         playing_layout = film_layout(page)
         expect(page.locator(".chapter-nav")).to_be_hidden()
         expect(next_page).to_be_hidden()
         expect(caption).to_be_visible()
         assert subtitle_style(caption) == opening_subtitle
-        page.screenshot(path=output / "自动播放.png")
+        page.screenshot(path=output / "播放布局.png")
 
-        if viewport["width"] == 1366:
-            playback.click()
-            frozen = video.evaluate("film => film.currentTime")
-            expect(video).to_have_js_property("paused", True)
+        if check_pause:
             expect(entry).to_be_visible()
             expect(page.locator(".lesson-exploration")).to_have_count(0)
             page.wait_for_timeout(250)

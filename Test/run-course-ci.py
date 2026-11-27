@@ -21,7 +21,7 @@ RELEASE_ARTIFACTS = (
     "展示材料/成果展示/沉浸式VR课程-从于都到遵义-成果展示包.zip",
 )
 CORE = {"single_screen", "opening", "entry", "desk", "recap"}
-EDGE_SHARDS = 3
+EDGE_SHARDS = 4
 SPECIAL = {
     "xiang-crossing": ("verify-xiang-crossing.py", False),
     "yudu-shorts": ("verify-yudu-shorts.py", False),

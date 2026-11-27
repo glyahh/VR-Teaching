@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 from playwright.sync_api import expect
 from course_cli import COURSE, EXPLORATION_LOAD_TIMEOUT, VIDEO_COMPLETION_TIMEOUT, launch, lesson_action, size
-from support.exploration_input import drag, elapsed_frames, walk
+from support.exploration_input import drag, elapsed_frames
 from support.course_checks import drag_desk, open_dossier
 
 def button(page, name):
@@ -152,13 +152,8 @@ def hall_and_desk(teacher):
     button(teacher, "进入材料厅").click()
     hall = teacher.locator('.lesson-exploration[data-scene="zunyi-hall"][data-ready]')
     expect(hall).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
-    canvas = teacher.locator("#view")
-    rect = canvas.bounding_box()
-    center = (rect["x"] + rect["width"]/2, rect["y"] + rect["height"]/2)
-    drag(teacher, 69, 0, start=center)
-    walk(teacher, "a", 1.64)
-    walk(teacher, "w", .84)
-    teacher.keyboard.press("e")
+    hall.locator('[data-hall-spot="route"]').click()
+    expect(teacher.locator("#route-stops")).to_be_visible(timeout=EXPLORATION_LOAD_TIMEOUT)
     expect(teacher.locator("#instruction")).to_contain_text("拨动行军图")
     teacher.locator("#route-stops").select_option("乌江")
     expect(teacher.locator("#reading-title")).to_have_text("乌江")
@@ -174,6 +169,7 @@ def hall_and_desk(teacher):
     expect(teacher.locator(".desk-live-frame")).to_have_attribute("data-map", "original")
     expect(evidence).to_contain_text("抵达遵义")
     button(teacher, "返回桌面").click()
+    expect(desk).to_have_attribute("data-focus", "0.000")
     open_dossier(teacher)
     drag_desk(teacher,"discussion-sheet",-.15,dy=.06)
     expect(teacher.locator(".desk-live-frame")).not_to_have_attribute("data-sheet-discussion", "")

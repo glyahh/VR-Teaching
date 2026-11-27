@@ -16,7 +16,8 @@ def button(page, name):
 def object_point(page, target):
     handle = page.locator(f'[data-desk-target="{target}"]')
     expect(handle).to_be_visible(timeout=16000)
-    bounds = handle.bounding_box()
+    bounds = handle.bounding_box(timeout=EXPLORATION_LOAD_TIMEOUT)
+    assert bounds, f"会议桌操作点不可见：{target}"
     return bounds['x'] + bounds['width']/2, bounds['y'] + bounds['height']/2
 
 

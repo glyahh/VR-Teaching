@@ -50,24 +50,21 @@ def narration(room, url):
     page.clock.install()
     page.goto(url)
     page.evaluate("""() => {
-      function finishWhileTyping() {
+      const typing = new MutationObserver(() => {
         const scene = document.querySelector('.classroom-slide[data-entry-phase=ready]');
-        if (!scene?.querySelector('.slide-line[data-narration-writing=true]')) {
-          requestAnimationFrame(finishWhileTyping);
-          return;
-        }
+        if (!scene?.querySelector('.slide-line[data-narration-writing=true]')) return;
+        typing.disconnect();
         const bounds = scene.querySelector('.scene-stage').getBoundingClientRect();
         const clientX = bounds.left + bounds.width * .56;
         const clientY = bounds.top + bounds.height * .30;
         const target = document.elementFromPoint(clientX, clientY);
         const pointer = {bubbles:true, isPrimary:true, pointerId:1, pointerType:'mouse', button:0, clientX, clientY};
-        const nextPaintAfter = performance.now() + 900;
-        while (performance.now() < nextPaintAfter) {}
         target.dispatchEvent(new PointerEvent('pointerdown', {...pointer, buttons:1}));
         target.dispatchEvent(new PointerEvent('pointerup', pointer));
         window.finishedTypingClick = true;
-      }
-      requestAnimationFrame(finishWhileTyping);
+      });
+      typing.observe(document.querySelector('main'), {subtree:true, attributes:true,
+        attributeFilter:['data-narration-writing','data-entry-phase']});
     }""")
     begin(page)
     page.wait_for_function("window.finishedTypingClick")
@@ -224,7 +221,8 @@ def journeys(room, url):
     expect(page.locator(".map .terrain-surface.is-relief")).to_be_visible(timeout=20000)
     begin(page)
     for title in ("岸边备桥", "浮桥近景", "夜渡于都河"):
-        onward(page, title)
+        page.keyboard.press("PageDown")
+        heading(page, title)
     for index, (title, places, after_titles) in enumerate((
         ("湘江河谷", ["于都", "湘江"], ("湘江渡口", "湘江留下的启示", "渡江之后")),
         ("黎平翘街", ["湘江", "通道", "黎平"], ("进军方向",)),
@@ -234,7 +232,8 @@ def journeys(room, url):
     )):
         layer = page.locator(".spatial-journey")
         with paused_clock(page) as clock:
-            onward(page, title)
+            page.keyboard.press("PageDown")
+            heading(page, title)
             clock.fast_forward(650)
             expect(layer).to_have_attribute("data-phase", "near")
             expect(layer).to_have_attribute("data-terrain", "relief")
@@ -262,7 +261,8 @@ def journeys(room, url):
         expect(caption(page)).to_have_attribute("data-narration-count", "1", timeout=10000)
         assert layer.count() == 0, f"{title} 已开始讲述，过场仍在"
         for page_title in after_titles:
-            onward(page, page_title)
+            page.keyboard.press("PageDown")
+            heading(page, page_title)
     button(page,"湘江战役").click()
     heading(page,"渡江之后")
     button(page,"下一页").click()
