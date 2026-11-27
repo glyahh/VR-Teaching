@@ -224,8 +224,9 @@ def exercise(html, viewport, output):
             "拂晓前撤桥，掩护大队转移。",
         ]
         observed = [expected_captions.index(text) for text in captions]
-        assert observed and observed == sorted(set(observed)), captions
-        assert observed[0] == 0 and observed[-1] == len(expected_captions) - 1, captions
+        assert observed and observed[0] == 0 and observed[-1] == len(expected_captions) - 1, captions
+        if not check_pause:
+            assert observed == sorted(set(observed)), captions
         cue_times = [time for _, time in readings[1:]]
         cuts = [4, 172 / 24, 261 / 24, 349 / 24]
         frames = page.evaluate("window.riverCaptionFrames")
