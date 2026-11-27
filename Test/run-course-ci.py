@@ -4,6 +4,7 @@ import argparse
 from fnmatch import fnmatchcase
 from hashlib import file_digest
 import json
+from os import environ
 from pathlib import Path
 import subprocess
 import sys
@@ -104,7 +105,8 @@ def command(check, output):
     if check in SPECIAL:
         script, named_html = SPECIAL[check]
         html_args = ["--html", HTML] if named_html else [HTML]
-        return [sys.executable, "-B", f"Test/{script}", *html_args, "--output", str(output)]
+        viewport = ["--viewport", "1366x768"] if check == "desk-live" and environ.get("COURSE_EDGE_RENDER_SCALE") else []
+        return [sys.executable, "-B", f"Test/{script}", *html_args, "--output", str(output), *viewport]
     options = ["--reduced-motion"] if check == "reduced-motion" else []
     feature = "entry" if options else check
     return [sys.executable, "-B", "Test/course_cli.py", "--html", HTML, "--output",
