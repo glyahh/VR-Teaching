@@ -204,6 +204,7 @@ function position([lon,lat]: Point): Point {
 }
 let pageButtons: {previous?: HTMLButtonElement; next?: HTMLButtonElement} = {};
 let openingKeyAction: ((event: KeyboardEvent) => void) | undefined;
+let releaseSandboxPage: (() => void) | undefined;
 document.addEventListener('keydown', event => {
   if (event.defaultPrevented || dialog.open || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
   if (event.key === 'Escape' && currentPractice?.close()) {
@@ -292,6 +293,7 @@ function beginLesson() {
   completedPractices.clear();
   courseHarness.resetTrace();
   courseHarness.resetDirectorSession();
+  clearSandboxStorage();
   courseDeskMaterials.clear();
   visitedExplorations.clear();
   lastViewed.clear();
@@ -308,6 +310,23 @@ function openChapter(index: number, variant: LessonMode = 'lesson', returnToRevi
 function openDeskPage() {
   const position = chapterPages.findIndex(entry=>entry.page.activity==='materials');
   if (position>=0) openScene(position);
+}
+
+function openSandbox(returnPosition: number, variant: LessonMode = 'lesson') {
+  if (!Number.isInteger(returnPosition) || returnPosition < 0 || returnPosition >= chapterPages.length) {
+    renderMap(true);
+    return;
+  }
+  releaseCurrentPage();
+  soundscape.setScene('map', 0.78);
+  const returnToReview = variant === 'revisit' ? () => openReview(reviewConclusion) : undefined;
+  const sandbox = mountSandboxPage({
+    root: app,
+    onBack: () => openScene(returnPosition, variant, returnToReview),
+  });
+  releaseSandboxPage = sandbox.dispose;
+  pageButtons = {};
+  displayView({kind: 'sandbox', returnPosition, variant});
 }
 
 function renderOpening(autoplay = true) {

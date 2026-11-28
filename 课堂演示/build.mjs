@@ -17,7 +17,7 @@ const assets = await readCourseAssets();
 // The standalone HTML runs these classic scripts in order. lesson-session starts the course.
 const scriptNames = [
   'course-media', 'soundscape', 'content', 'terrain', 'cinemagraph', 'desk-state', 'desk-live-session',
-  'desk-reader', 'desk-player', 'harness-bridge', 'course-developer', 'practice', 'exploration-page', 'page-entry', 'narration',
+  'desk-reader', 'desk-player', 'harness-bridge', 'sandbox-stage', 'sandbox-page', 'course-developer', 'practice', 'exploration-page', 'page-entry', 'narration',
   'scene-lesson', 'story-scenes', 'map-card', 'recap-stage', 'opening-overlay',
   'lesson-map', 'lesson-page', 'scene-video', 'app', 'route-scenes', 'lesson-session',
 ];
@@ -28,7 +28,7 @@ const scripts = await Promise.all(scriptNames.map(async name => {
 const [exploration, explorationCss, pageCss] = await Promise.all([
   buildExplorationStage(), readExplorationStyle(), read('./src/exploration-page.css', 'utf8'),
 ]);
-const css = [(await read('./src/style.css','utf8')), (await read('./src/recap-finale.css','utf8')),
+const css = [(await read('./src/style.css','utf8')), (await read('./src/sandbox-page.css','utf8')), (await read('./src/recap-finale.css','utf8')),
   (await read('./src/story-scenes.css','utf8')), (await read('./src/desk-player.css','utf8')), explorationCss, pageCss].join('\n');
 const template = await read('./src/index.html','utf8');
 assertDemoTemplate(template);

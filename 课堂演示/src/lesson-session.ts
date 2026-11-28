@@ -1,5 +1,6 @@
 type LessonView = {kind:'map'} | {kind:'opening'} | {kind:'review'; conclusionPage:boolean}
-  | {kind:'scene'; position:number; variant:LessonMode};
+  | {kind:'scene'; position:number; variant:LessonMode}
+  | {kind:'sandbox'; returnPosition:number; variant:LessonMode};
 let currentView: LessonView = {kind:'map'};
 let activeSceneCue: string | undefined;
 let currentVideo: ReturnType<typeof attachVideo> | undefined;
@@ -11,6 +12,29 @@ let releasePageSound: (() => void) | undefined;
 let pageResize: ResizeObserver | undefined;
 let reviewConclusion = false;
 const lessonProgressKey = 'long-march-lesson';
+const sandboxStageKey = 'long-march-sandbox-stage';
+const sandboxChatKey = 'long-march-sandbox-chat';
+
+function loadSandboxStageSnapshot() {
+  try {
+    return sessionStorage.getItem(sandboxStageKey);
+  } catch {
+    return null;
+  }
+}
+
+function saveSandboxStageSnapshot(serialized: string) {
+  try {
+    sessionStorage.setItem(sandboxStageKey, serialized);
+  } catch {}
+}
+
+function clearSandboxStorage() {
+  try {
+    sessionStorage.removeItem(sandboxStageKey);
+    sessionStorage.removeItem(sandboxChatKey);
+  } catch {}
+}
 
 function releaseCurrentPage({keepDeskPrewarm = false} = {}) {
   releaseSceneLesson();
@@ -18,6 +42,8 @@ function releaseCurrentPage({keepDeskPrewarm = false} = {}) {
   releaseLessonMap?.();
   releaseLessonMap = undefined;
   captureLessonMap = undefined;
+  releaseSandboxPage?.();
+  releaseSandboxPage = undefined;
   releasePageSound?.();
   releasePageSound = undefined;
   releaseExplorationPage();
@@ -91,7 +117,8 @@ function restoreLessonProgress() {
 
   const view = data.view;
   const scene = view.kind === 'scene' && index(view.position, chapterPages.length);
-  const valid = scene || view.kind === 'map' || view.kind === 'opening' || view.kind === 'review';
+  const sandbox = view.kind === 'sandbox' && index(view.returnPosition, chapterPages.length);
+  const valid = scene || sandbox || view.kind === 'map' || view.kind === 'opening' || view.kind === 'review';
   if (!valid) { renderMap(); return; }
 
   if (index(data.selectedChapter, events.length)) selectedChapter = data.selectedChapter;
@@ -125,6 +152,8 @@ function restoreLessonProgress() {
   else if (view.kind === 'scene' && index(view.position, chapterPages.length)) {
     if (view.variant === 'revisit') openScene(view.position,'revisit',() => openReview(reviewConclusion));
     else openScene(view.position);
+  } else if (view.kind === 'sandbox' && index(view.returnPosition, chapterPages.length)) {
+    openSandbox(view.returnPosition, view.variant === 'revisit' ? 'revisit' : 'lesson');
   } else renderMap();
 }
 

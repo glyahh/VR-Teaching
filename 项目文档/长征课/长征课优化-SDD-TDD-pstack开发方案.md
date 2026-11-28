@@ -43,7 +43,7 @@
 | **R-18** | P1 渲染性能与触控手感 | 首页地图桌面端**保持“默认左键旋转、Shift 平移”不变**，补齐触控端双指捏合缩放和平移；`pointermove` 改 `rAF` 合帧与合成层定位；`cinemagraph` 与 `desk-live-session` 后台标签页彻底挂起 `rAF`；`page-entry` 收缩全局 `MutationObserver`；地形改为按需初始化并关闭常驻 `preserveDrawingBuffer`。 | PR-03 |
 | **R-19** | 极简前提的教室投影可读性 | **不增说明文字、不改 `.copy-panel` 10% 底色规范**；在亮背景场景增强底部微托暗角渐变（`--scene-edge-shade`）；为 13px 无文字场内圆点增加极轻周期微光呼吸与高对比描边（`prefers-reduced-motion` 下静默保留清晰环边）；补全跨浏览器进度条伪元素样式。 | PR-04 |
 | **R-20** | 衔接契约分级与薄弱课页深化 | 将视频首尾帧契约分为 **A 级无缝同机位硬切（RGB `< 3/255`）** 与 **B 级跨景别叙事转场（200–250ms 柔和叠化 + 视觉连贯核验）**；深化猴场、乌江、遵义军事与组织四页的史料对照与操作反馈，使其脱离“纯静图+逐项列表”单一模式。 | PR-05 |
-| **R-21** | 离线优先、多级自适应课堂 AI 赋能 | 1）将 5 处常识二选一升级为面向 30 岁国网员工的**史料证据链判读 + 决策权衡实训**；2）**L1 离线蒸馏 AI 底座（零 GPU / 零网络 / 全设备必可用）**：内置构建期 AI 蒸馏的语义意图匹配与史料证据图谱诊断引擎（支持选项 + 自由短句口述输入，10ms 内识别真实立场与证据缺口并给出带出处的定向反证与追问），同时基于全课探查与作答轨迹在课尾动态生成**个体/班级决策复盘画像**；3）**L2 可选远程/内网 API 增强（默认关闭）**：可直连公司主机自部署模型或赛场内网/热点 OpenAI-compatible 接口，严格经史料出处白名单校验，超时 `3s` 或异常自动无感回落 L1。 | PR-06 |
+| **R-21** | 离线优先、多级自适应课堂 AI 赋能 | 1）将 5 处常识二选一升级为面向 30 岁国网员工的**史料证据链判读 + 决策权衡实训**；2）**L1 离线蒸馏 AI 底座（零 GPU / 零网络 / 全设备必可用）**：内置构建期 AI 蒸馏的语义意图匹配与史料证据图谱诊断引擎（支持选项 + 自由短句口述输入，10ms 内识别真实立场与证据缺口并给出针对判断的反证与追问），同时基于全课探查与作答轨迹在课尾动态生成**个体/班级决策复盘画像**；3）**L2 可选远程/内网 API 增强（默认关闭）**：可直连公司主机自部署模型或赛场内网/热点 OpenAI-compatible 接口，严格经课程事实库校验，超时 `3s` 或异常自动无感回落 L1。 | PR-06 |
 
 ### 1.2 白话验收项（M-07 至 M-12）
 
@@ -54,7 +54,7 @@
 | **M-09** | R-18 | 桌面端左键拖拽仍为 3D 旋转、`Shift` 仍为平移且连续拖拽 5 秒顺滑不掉帧；触控仿真下支持双指捏合缩放与移动地图；切至后台标签页后 `cinemagraph` 与会议桌停止空转；以 `#desk` 直进会议桌不触发地形解码；首页点「开始授课」退场过渡无黑帧。 | 桌面端默认旋转行为被破坏、拖拽出现 Forced Reflow、触控无法双指缩放、后台仍空跑 `rAF`、或离图切片头闪黑帧。 |
 | **M-10** | R-19 | 在湘江水面、遵义破晓等亮背景课页与 1366×768 / 1920×1080 / 718×811 三种窗口下，检查左下讲述框后排辨识度与 13px 场内圆点可发现性；开启 `prefers-reduced-motion` 后呼吸动效停止但圆点边界仍清晰；界面不出现任何新增说明性文案。 | 违反 `page-policy.mjs` 或 UI 底色规范、亮背景下文字发虚难读、或圆点淹没在画面暗部/杂色中难以发现。 |
 | **M-11** | R-20 | 依次实走猴场会议、渡过乌江、遵义军事问题与组织问题四页：操作对应地图/机位/史料对照元件后画面产生明确视觉与因果联动反馈；运行媒体衔接校验确认 A 级硬切仍 `< 3/255`，B 级转场无跳帧黑帧。 | 四页仍只剩静态文字折叠展开、操作不可逆或与讲述断层、或已有 A 级硬切衔接退化。 |
-| **M-12** | R-21 | 1）断网且无 GPU 的普通电脑实走 5 处实训页：选定立场或输入学员原话短句（如“兵力少了一半不能再硬拼”），系统毫秒级识别论证角度与漏看证据，输出带权威出处的定向追问与反证；走到课尾可按需打开本轮过程性「决策复盘画像」并一键回跳补证页；2）配置公司主机/mock API 端点后可获得实时大模型追问，断网或超时 3 秒时零报错无感退回 L1 离线引擎，任何模式不出现无出处编造史实。 | 仍为常识二选一、自由口述短句无法识别只能死板点选项、课尾复盘千篇一律无过程性诊断、断网报错或未配置端点发起外部请求、或出现常驻聊天浮窗破坏极简画面。 |
+| **M-12** | R-21 | 1）断网且无 GPU 的普通电脑实走 5 处实训页：选定立场或输入学员原话短句（如“兵力少了一半不能再硬拼”），系统毫秒级识别论证角度与漏看证据，输出针对判断的追问与反证；走到课尾可按需打开本轮过程性「决策复盘画像」并一键回跳补证页；2）配置公司主机/mock API 端点后可获得实时大模型追问，断网或超时 3 秒时零报错无感退回 L1 离线引擎，任何模式不出现编造史实。 | 仍为常识二选一、自由口述短句无法识别只能死板点选项、课尾复盘千篇一律无过程性诊断、断网报错或未配置端点发起外部请求、或出现常驻聊天浮窗破坏极简画面。 |
 
 ---
 
@@ -128,7 +128,7 @@ type MediaJoinTier =
   - **课堂运行态推理**：学员既可直接选定立场+配对证据，也可通过单行输入框（或 Edge 联网时可选原生语音转写）输入真实口述观点；引擎在浏览器本地做中文分词/意图簇匹配 + 证据缺口图谱比对，即时指出**“说对了哪条史实、漏看了哪个约束、哪条权威史料可反证或补强”**，并抛出定向苏格拉底追问。
   - **过程性决策画像与课尾个性复盘**：持续记录本堂课的实际探查顺序、证据查证覆盖率、首次判断盲区与修正轨迹；课尾「课堂回顾」按需展开一张极简诊断卡，总结本组最强论证点与待补证盲点，并一键跳回对应课页复查。
 - **L2 可选标准 API 增强（默认关闭，有公司主机/内网/热点时即插即用）**：
-  - 支持标准 OpenAI-compatible 端点（可填公司主机部署的模型服务、企业内网大模型或临时云端 API），仅由教师经隐藏入口显式开启；所有输出强制走 JSON 结构化解析 + `verifiedSources` 出处白名单校验，任何越界引用、网络异常或 `> 3000 ms` 超时均自动无感回落 L1 底座。
+  - 支持标准 OpenAI-compatible 端点（可填公司主机部署的模型服务、企业内网大模型或临时云端 API），仅由教师经隐藏入口显式开启；所有输出强制走 JSON 结构化解析 + 课程事实核验，任何超出课程口径的叙述、网络异常或 `> 3000 ms` 超时均自动无感回落 L1 底座。
 
 ```ts
 // 课堂演示/src/ai-coach.ts
@@ -142,7 +142,7 @@ type IntentCluster = {
   readonly diagnosis: string;                // 针对该论证角度的精准诊断（<= 48 字）
   readonly followUpQuestion: string;         // 激发成人讨论的定向追问
   readonly counterEvidence: string;          // 补证或反证要点
-  readonly citedSourceIds: readonly string[];
+
 };
 
 type TrainingChallenge = {
@@ -156,9 +156,9 @@ type TrainingChallenge = {
   }[];
   readonly intentClusters: readonly IntentCluster[];
   readonly realityBridge?: string;           // 一句话克制映射国网/组织实事求是决策反思
-  readonly verifiedSources: readonly {
+  readonly courseFacts: readonly {
     readonly id: string;
-    readonly cite: string;
+
     readonly fact: string;
   }[];
 };
@@ -176,8 +176,8 @@ type AiCoachingResponse = {
   readonly feedback: string;                 // <= 60 字，保障教室后排可读
   readonly followUp: string;
   readonly missingEvidenceIds: readonly string[];
-  readonly citedSourceIds: readonly string[];// 强制为 verifiedSources 子集（拦截幻觉）
-  readonly fallbackReason?: 'offline' | 'timeout' | 'invalid-citation';
+
+  readonly fallbackReason?: 'offline' | 'timeout' | 'invalid-response';
 };
 
 type SessionDecisionProfile = {
@@ -186,7 +186,7 @@ type SessionDecisionProfile = {
     readonly label: string;
     readonly chapterIndex: number;
     readonly pagePosition: number;
-    readonly sourceCite: string;
+
   }[];
   readonly evidenceCoverage: number;         // 0..1 史料查证覆盖度
 };
@@ -201,7 +201,7 @@ interface AiCoachRuntimeConfig {
 
 - **极简 UI 挂载规则**：
   - 绝不新增悬浮 AI 球或常驻右侧聊天栏。
-  - 复用现有 `practice` 面板（点击底栏「展开练习」呼出），在原有核对区集成立场选择、可选单行短句输入与带出处的定向追问；课尾「决策复盘画像」作为回顾页按需展开的轻透入口，默认收起不遮挡破晓画面。
+  - 复用现有 `practice` 面板（点击底栏「展开练习」呼出），在原有核对区集成立场选择、可选单行短句输入与针对判断的追问；课尾「决策复盘画像」作为回顾页按需展开的轻透入口，默认收起不遮挡破晓画面。
 
 ### 2.5 状态所有权表（消除隐式耦合）
 
@@ -226,7 +226,7 @@ interface AiCoachRuntimeConfig {
 | **AC-M09** | 地图连续拖拽每帧最多 1 次 `moveCamera`；双指捏合缩放生效；`visibilitychange` 隐藏后 `cinemagraph` 与 `desk-live` `rAF` 归零；`#desk` 不初始化地形；`captureMapExit` 首帧非纯色黑屏。 | 新增 `Test/verify-map-touch-perf.py` + `Test/verify-visibility-pause.py` + `Test/course_cli.py run controls` / `run desk` | 在现有 HTML 上模拟隐藏标签页测 1 秒内 `rAF` 次数 > 0（必红）；模拟 20 次连发 `pointermove` 测同帧重复调用 > 1（必红）。 | 连续拖拽 5 秒零 Forced Reflow，地图帧率稳定 `>= 55 fps`（本机 Edge 实测），后台 `rAF` = `0 次/秒`。 |
 | **AC-M10** | 亮背景课页底部托底阴影提升文字可读性；13px 圆点在不加文字的前提下具备可见环边/微光（`reduced-motion` 下静止）；`page-policy.mjs` 与 UI 底色规范全过。 | `node "Test/verify-presentation-policy.mjs"` + `Test/course_cli.py run entry` / `run narration`（1366×768、1920×1080、718×811 三尺寸截图对比） | 新增亮背景对比度/圆点轮廓采样脚本，对照旧图给出前后对比截图并人工肉眼复核。 | 严禁新增说明性文案，`.copy-panel` 底色仍为 `rgb(24 24 19 / .1)`。 |
 | **AC-M11** | `verify-course-media.py` 识别 A/B 两级衔接；猴场、乌江、遵义军事与组织四页可完成新增强交互并触发可见画面联动与可逆切换。 | 扩展 `Test/verify-course-media.py` + `Test/course_cli.py run disclosures` / `run journeys` / `run single_screen` | 先写四页交互联动与状态断言（对旧版纯列表页必红）。 | 四页操作首帧反馈 `< 100 ms`，A 级硬切 RGB 差仍 `< 3/255`。 |
-| **AC-M12** | 离线模式零网络请求下完整跑通 5 处新实训决策与追问闭环；本地 mock LLM 端点返回合法 JSON 时正常呈现 AI 追问；超时（`>3s`）、500 错、或引用越界出处 ID 时 100% 降级回离线引擎且零报错。 | 新增 `Test/verify-ai-coach.mjs`（纯规则与边界单测）+ `Test/verify-ai-training-e2e.py`（Edge 断网 + 本机 mock HTTP 服务端到端回归） | 先写 `verify-ai-coach.mjs`（针对幻觉引用拦截、超时降级、离线零请求）与 5 题实训断言，未实现前全红。 | 离线引擎响应 `< 20 ms`；本地 LLM 硬超时上限 `3000 ms`；断网模式网络请求数严格为 `0`。 |
+| **AC-M12** | 离线模式零网络请求下完整跑通 5 处新实训决策与追问闭环；本地 mock LLM 端点返回合法 JSON 时正常呈现 AI 追问；超时（`>3s`）、500 错、或偏离课程事实 时 100% 降级回离线引擎且零报错。 | 新增 `Test/verify-ai-coach.mjs`（纯规则与边界单测）+ `Test/verify-ai-training-e2e.py`（Edge 断网 + 本机 mock HTTP 服务端到端回归） | 先写 `verify-ai-coach.mjs`（针对编造史实拦截、超时降级、离线零请求）与 5 题实训断言，未实现前全红。 | 离线引擎响应 `< 20 ms`；本地 LLM 硬超时上限 `3000 ms`；断网模式网络请求数严格为 `0`。 |
 
 ---
 
@@ -310,12 +310,12 @@ flowchart LR
 - [ ] **Perf 验证**：四页操作视觉响应 `< 100 ms`，A 级既有硬切误差无退化（`< 3/255`）。
 
 #### PR-06｜离线优先多级 AI 实训助教、过程性决策画像与成人决策题升级
-- **pstack 编排**：Playbook `prototype`（先验证构建期 AI 蒸馏意图矩阵 + 自由短句诊断 + 课尾画像闭环）→ `/architect`（冻结 `AiCoachProvider`、`IntentCluster` 与 `SessionDecisionProfile`）→ `/unslop`（审校全部实训题干、追问、反证与复盘文案）→ `/tdd` → `poteto-agent` 实现 → `/interrogate`（对抗审查：口述短句错配、越界幻觉引用、断网、超时、极简破坏）→ `comment-sicko`
+- **pstack 编排**：Playbook `prototype`（先验证构建期 AI 蒸馏意图矩阵 + 自由短句诊断 + 课尾画像闭环）→ `/architect`（冻结 `AiCoachProvider`、`IntentCluster` 与 `SessionDecisionProfile`）→ `/unslop`（审校全部实训题干、追问、反证与复盘文案）→ `/tdd` → `poteto-agent` 实现 → `/interrogate`（对抗审查：口述短句错配、越界表述、断网、超时、极简破坏）→ `comment-sicko`
 - [ ] **依赖**：`PR-02`、`PR-05`
 - [ ] **允许触碰文件**：`课堂演示/src/ai-coach.ts`（新增）、`课堂演示/src/ai-knowledge.ts`（新增，存放构建期 AI 蒸馏的意图-证据矩阵）、`课堂演示/src/practice.ts`、`课堂演示/src/recap-stage.ts`、`课堂演示/src/content.ts`、`课堂演示/src/style.css`、`课堂演示/build.mjs`、`Test/verify-ai-coach.mjs`（新增）、`Test/verify-ai-training-e2e.py`（新增）、`Test/support/course_checks.py`
 - [ ] **唯一变更目标**：将 5 处常识二选一重构为面向 30 岁国网员工的“史料证据链判读 + 决策权衡”实训；落地 **L1 离线蒸馏语义诊断引擎**（零 GPU、零网络，支持立场选答 + 自由短句口述识别与史料反证追问）+ **课尾按需展开的过程性决策复盘画像**（一键回跳补证页）；并保留 **L2 可选标准 API 增强接口**（兼容公司主机/内网/云端 OpenAI-compatible 端点，默认关闭，白名单防幻觉、`<= 3s` 超时无感回落 L1），不增加常驻聊天浮窗。
 - [ ] **可见结果**：在任何无 GPU 断网电脑上都能跑出有成人思辨深度、能听懂口语短句、能生成专属复盘画像的真实 AI 实训体验；在公司主机或有网赛场还能无缝接入实时大模型增强。
-- [ ] **Unit 验证**：`node "Test/verify-ai-coach.mjs"` 覆盖 5 题全部意图簇、自由短句语义匹配、证据缺口诊断、过程性画像生成、L2 合法 JSON 解析、越界出处 ID 拦截、超时 3s 自动降级与异常容错，先红后绿。
+- [ ] **Unit 验证**：`node "Test/verify-ai-coach.mjs"` 覆盖 5 题全部意图簇、自由短句语义匹配、证据缺口诊断、过程性画像生成、L2 合法 JSON 解析、超出课程口径的内容检查、超时 3s 自动降级与异常容错，先红后绿。
 - [ ] **Live 验证**：`Test/verify-ai-training-e2e.py` 在空目录断网模式（断言 0 网络请求，完整走通 L1 + 课尾画像回跳）与本机 mock API 模式下双路通过，同时全量复跑 `Test/run-course-ci.py`。
 - [ ] **Perf 验证**：L1 离线引擎反馈 `< 20 ms`，L2 硬超时 `<= 3000 ms`，蒸馏索引体积 `< 100 KB`，新增文案经 `/unslop` 审校且每条大屏反馈 `<= 60` 字。
 - [ ] **操作者交互评审门禁（Review-Gated）**：实训题深度、国网工作映射克制度与课尾复盘画像呈现须由操作者与党史审读人确认。

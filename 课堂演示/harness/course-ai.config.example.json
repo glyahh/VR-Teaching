@@ -12,6 +12,7 @@
     "summaryEnabled": true,
     "summaryThreshold": 16000,
     "summaryTarget": 12000,
-    "summaryTimeoutMs": 5000
+    "summaryTimeoutMs": 5000,
+    "sandboxSummaryTimeoutMs": 26000
   }
 }

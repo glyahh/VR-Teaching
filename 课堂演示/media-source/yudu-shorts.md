@@ -16,7 +16,7 @@
 
 配乐沿用 Scott Buckley 的 [Hiraeth](https://www.scottbuckley.com.au/library/hiraeth/)，以现有课尾弦乐节选 `recap-cello.mp3` 连续铺底，随旁白自动压低。署名：'Hiraeth' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au。[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 
-史料用于约束场景和旁白：[于都纪念馆：门板、渔船与竹篙](https://www.ydczcfmuseum.cn/article/1005)，[国防部：夜架拂晓前拆桥](https://www.mod.gov.cn/gfbw/gfjy_index/16476460.html)。镜头内人数、视点、服装、灯光及工序细节是教学复原，不是独立的史实证据。
+镜头内人数、视点、服装、灯光及工序细节是教学复原，不是独立的史实证据。
 
 参考图哈希、原片哈希、解码源帧区间和五个单镜头哈希见 [yudu-shorts-qa.json](yudu-shorts-qa.json)。帧号从零开始，区间右端不含。
 

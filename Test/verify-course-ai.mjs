@@ -22,8 +22,15 @@ const replies = {
     actions: [{ type: 'compare_liping_routes', side: 'both' }, { type: 'other' }],
   },
   sandbox: {
-    trajectory: 'west-breakthrough', riskLevel: 'viable', chokeLabel: '方向节点', telegramTitle: '比较路线',
-    battlefieldOutcome: '比较当时条件。', historicalContrast: '黎平会议决定转向贵州北部。',
+    mode: 'simulate', title: '比较路线', riskLevel: 'viable', analysis: '比较当时条件。',
+    historicalContrast: '黎平会议决定转向贵州北部。',
+    camera: { center: [109.14, 26.23], zoom: 1.2, azimuth: 0, tilt: 35 },
+    phases: [{
+      durationMs: 1000,
+      redForces: [{ id: 'main', role: 'main', label: '主力', waypoints: [[109.14, 26.23], [107.56, 27.18]],
+        phase: 0, style: 'solid-gold', outcome: 'advance' }],
+      enemyForces: [], zones: [], pins: [],
+    }],
   },
   recap: {
     title: '课堂复盘', subtitle: '课堂笔记', executiveSummary: '按实际轨迹查证。', journeyHighlights: [],
@@ -112,8 +119,8 @@ try {
   assert.equal(Object.hasOwn(director, 'citedSources'), false);
   const sandbox = await (await post('sandbox', { proposal: '比较历史约束' })).json();
   assert.equal(sandbox.hypothesisTag, '假设推演 · 非真实史实');
-  assert.equal(sandbox.historicalContrast, replies.sandbox.historicalContrast);
-  assert.ok(sandbox.mapPath.length >= 2);
+  assert.equal(sandbox.plan.historicalContrast, replies.sandbox.historicalContrast);
+  assert.deepEqual(sandbox.plan.phases[0].redForces[0].waypoints, replies.sandbox.phases[0].redForces[0].waypoints);
   assert.equal((await post('zunyi-debate', {})).status, 410);
   const report = await (await post('recap-report', {
     roleTrack: '特高压运维', trace: { visitedPages: ['于都集结'] },

@@ -298,16 +298,7 @@ function openScene(position: number, variant: LessonMode = 'lesson', returnToRev
     btnWest.setAttribute('aria-pressed', String(routeOffset < 0));
     deck.append(btnEast,btnWest);
     stage.append(deck);
-    disposeSandbox = courseHarness.mountLipingSandbox({
-      stage,
-      paper,
-      svg,
-      deck,
-      onRestoreRealRoute: () => {
-        btnWest.click();
-        return btnWest.getAttribute('aria-pressed') === 'true';
-      },
-    });
+    disposeSandbox = courseHarness.mountLipingSandboxEntry(deck, btnWest, () => openSandbox(position, variant));
     compareLipingRoutes = side => {
       if (side === 'east') { btnEast.click(); return btnEast.getAttribute('aria-pressed') === 'true'; }
       if (side === 'west') { btnWest.click(); return btnWest.getAttribute('aria-pressed') === 'true'; }

@@ -43,6 +43,33 @@ type SandboxResponse = {
   telegramTitle: string;
   battlefieldOutcome: string;
   historicalContrast: string;
+  sourceIds?: string[];
+};
+
+type SandboxAttachment = { name: string; text: string };
+type SandboxHistoryExchange = {
+  id?: string;
+  proposal: string;
+  narration: string;
+  plan: SandboxScenePlan;
+  sourceIds?: string[];
+};
+type SandboxHistoryState = {
+  turns: SandboxHistoryExchange[];
+  compressionVersion: number;
+  compressionTurnCount: number;
+};
+type SandboxTurnRequestPayload = {
+  sessionId: string;
+  proposal: string;
+  attachments?: SandboxAttachment[];
+  mapContext: SandboxTurnContext;
+};
+type SandboxTurnReply = {
+  plan: SandboxScenePlan;
+  narration: string;
+  sourceIds: string[];
+  interactionId: string;
 };
 
 type RecapReportPayload = {
@@ -102,7 +129,9 @@ const courseHarness = (() => {
   let syncInFlight: Promise<'conflict' | void> | undefined;
   let pendingClear: { sessionId: string; task: Promise<void> } | undefined;
   const backgroundCompaction = new Map<string, Promise<void>>();
+  const sandboxCompaction = new Map<string, Promise<void>>();
   const directorEpochs = new WeakMap<CourseLedger, number>();
+  const sandboxEpochs = new WeakMap<CourseLedger, number>();
 
   const object = (value: unknown): value is Record<string, unknown> =>
     value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -229,6 +258,18 @@ const courseHarness = (() => {
     return result;
   }
 
+  function buildClassroomState() {
+    const page = activeScene?.pageTitle ?? (currentView.kind === 'sandbox' ? '黎平战地沙盘' : currentView.kind);
+    return {
+      page,
+      revealed: [...revealed],
+      seen: [...lessonItemsSeen],
+      visitedPages: [...trace.visitedPages],
+      completedPractices: [...completedPractices],
+      deskMaterials: [...courseDeskMaterials],
+    };
+  }
+
   async function courseRequest<T extends object>(route: CourseRoute, payload: Record<string, unknown>,
     signal: AbortSignal, interactionId: string = crypto.randomUUID(),
     onProgress?: (event: DirectorProgress) => void): Promise<T> {
@@ -236,14 +277,7 @@ const courseHarness = (() => {
     const epoch = directorEpochs.get(current) ?? 0;
     const sameTurn = () => ledger === current && (route !== 'director' || (directorEpochs.get(current) ?? 0) === epoch);
     const previous = current.events.slice().reverse().find(event => event.route === route && event.kind === 'feedback');
-    const state = {
-      page: activeScene?.pageTitle ?? currentView.kind,
-      revealed: [...revealed],
-      seen: [...lessonItemsSeen],
-      visitedPages: [...trace.visitedPages],
-      completedPractices: [...completedPractices],
-      deskMaterials: [...courseDeskMaterials],
-    };
+    const state = buildClassroomState();
     const { attachments: _attachments, ...recorded } = payload;
     recordEvent(current, route, interactionId, 'input', { ...recorded, page: state.page, previousInteractionId: previous?.interactionId });
     try {
@@ -383,23 +417,8 @@ const courseHarness = (() => {
     return data as T;
   }
 
-  async function* courseStream(path: string, payload: Record<string, unknown>, signal: AbortSignal) {
-    const response = await fetch(`${gatewayBase}${path}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json', Accept: 'application/x-ndjson',
-        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
-      },
-      body: JSON.stringify(payload),
-      signal,
-    });
-    if (!response.ok) {
-      const data = await response.json().catch(() => null);
-      throw new Error(data?.message || `课堂服务请求失败 (${response.status})`);
-    }
-    if (!response.body || !response.headers.get('Content-Type')?.includes('application/x-ndjson')) {
-      throw new Error('请重启本机课堂网关，以启用新版副导。');
-    }
+  async function* readNdjsonResponse(response: Response) {
+    if (!response.body) throw new Error('课堂服务的回复提前中断。');
     const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
     let buffered = '';
     try {
@@ -425,6 +444,26 @@ const courseHarness = (() => {
       await reader.cancel().catch(() => {});
       reader.releaseLock();
     }
+  }
+
+  async function* courseStream(path: string, payload: Record<string, unknown>, signal: AbortSignal) {
+    const response = await fetch(`${gatewayBase}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json', Accept: 'application/x-ndjson',
+        ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+      },
+      body: JSON.stringify(payload),
+      signal,
+    });
+    if (!response.ok) {
+      const data = await response.json().catch(() => null);
+      throw new Error(data?.message || `课堂服务请求失败 (${response.status})`);
+    }
+    if (!response.body || !response.headers.get('Content-Type')?.includes('application/x-ndjson')) {
+      throw new Error('请重启本机课堂网关，以启用新版副导。');
+    }
+    yield* readNdjsonResponse(response);
   }
 
   async function streamDirector<T extends object>(path: string, body: Record<string, unknown>, signal: AbortSignal,
@@ -957,180 +996,861 @@ const courseHarness = (() => {
   }
 
   /**
-   * ② 黎平「进军方向」：1934 战地推演沙盘（叠加 SVG 假设路径 + 敌军阻击红区 + 密电简报）
+   * ② 黎平「进军方向」居中沙盘入口与前向兼容三维沙盘 AI 客户端
    */
-  function mountLipingSandbox(opts: {
-    stage: HTMLElement;
-    paper: HTMLElement;
-    svg: SVGSVGElement;
-    deck: HTMLElement;
-    onRestoreRealRoute: () => boolean;
-  }) {
-    const simGroup = document.createElementNS(svgNamespace, 'g');
-    simGroup.setAttribute('class', 'sandbox-svg-layer');
-    opts.svg.append(simGroup);
+  const sandboxChatStorageKey = 'long-march-sandbox-chat';
+  const sandboxLipingOrigin: GeoPoint = [109.14, 26.23];
+  const sandboxLandmarkCatalog: readonly { keys: readonly string[]; name: string; point: GeoPoint; risk: 'blockade' | 'weak' | 'neutral' }[] = [
+    { keys: ['遵义南翼', '遵义南'], name: '遵义南翼', point: [106.95, 27.48], risk: 'weak' },
+    { keys: ['遵义'], name: '遵义', point: [106.93, 27.69], risk: 'weak' },
+    { keys: ['乌江'], name: '乌江', point: [107.47, 27.32], risk: 'weak' },
+    { keys: ['猴场', '瓮安'], name: '猴场', point: [107.47, 27.07], risk: 'weak' },
+    { keys: ['黔北', '贵州北部', '贵州'], name: '黔北', point: [107.68, 27.15], risk: 'weak' },
+    { keys: ['施秉'], name: '施秉', point: [108.12, 27.03], risk: 'weak' },
+    { keys: ['黄平'], name: '黄平', point: [107.90, 26.90], risk: 'weak' },
+    { keys: ['镇远'], name: '镇远', point: [108.42, 27.05], risk: 'weak' },
+    { keys: ['凯里'], name: '凯里', point: [107.98, 26.58], risk: 'weak' },
+    { keys: ['独山'], name: '独山', point: [107.54, 25.83], risk: 'weak' },
+    { keys: ['榕江'], name: '榕江', point: [108.52, 25.93], risk: 'weak' },
+    { keys: ['从江'], name: '从江', point: [108.91, 25.75], risk: 'weak' },
+    { keys: ['锦屏'], name: '锦屏', point: [109.20, 26.67], risk: 'neutral' },
+    { keys: ['清水江'], name: '清水江', point: [108.95, 26.78], risk: 'neutral' },
+    { keys: ['通道'], name: '通道', point: [109.63, 26.32], risk: 'blockade' },
+    { keys: ['靖县'], name: '靖县', point: [109.69, 26.58], risk: 'blockade' },
+    { keys: ['怀化'], name: '怀化', point: [110.00, 27.56], risk: 'blockade' },
+    { keys: ['沅陵'], name: '沅陵', point: [110.39, 28.45], risk: 'blockade' },
+    { keys: ['永顺'], name: '永顺', point: [109.85, 29.00], risk: 'blockade' },
+    { keys: ['桑植'], name: '桑植', point: [110.16, 29.40], risk: 'blockade' },
+    { keys: ['湘西北', '湘西', '湖南', '二六军团', '会合'], name: '湘西北', point: [110.18, 28.28], risk: 'blockade' },
+    { keys: ['湘江', '全州', '兴安'], name: '湘江', point: [110.73, 25.83], risk: 'blockade' },
+    { keys: ['桂林', '桂北', '广西'], name: '桂林', point: [110.29, 25.27], risk: 'blockade' },
+    { keys: ['黎平'], name: '黎平', point: [109.14, 26.23], risk: 'neutral' },
+  ];
+  const sandboxOobCatalog: readonly { pattern: RegExp; target: GeoPoint; title: string; note: string }[] = [
+    {
+      pattern: /印度|西藏|缅甸|拉萨|喜马拉雅/,
+      target: [84.0, 27.2],
+      title: '向西南方向超图幅远征推演',
+      note: '所指方向超出湘桂黔战区西界，西侧横断山脉与高山深谷阻隔、缺乏补给与根据地依托，推演截停于战区西缘。',
+    },
+    {
+      pattern: /新疆|青海|甘肃|宁夏/,
+      target: [94.0, 35.5],
+      title: '向西北方向超图幅机动推演',
+      note: '所指方向超出战区西北边界，远距穿插缺乏前沿粮弹接应与立足依托，推演截停于西北缘边界。',
+    },
+    {
+      pattern: /北京|华北|东北|沈阳|哈尔滨/,
+      target: [116.4, 38.0],
+      title: '向正北方向超图幅远征推演',
+      note: '所指方向超出战区北界，沿途需强穿多道敌军封锁防线且补给线过长，推演截停于战区北缘。',
+    },
+    {
+      pattern: /太平洋|上海|南京|东海|浙江|福建/,
+      target: [124.5, 29.5],
+      title: '向正东方向超图幅突进推演',
+      note: '所指方向超出战区东界，东向直入敌军重兵腹地与沿海防线，兵力悬殊，推演截停于战区东缘。',
+    },
+    {
+      pattern: /南海|广东|广州|海南/,
+      target: [113.5, 20.5],
+      title: '向正南方向超图幅机动推演',
+      note: '所指方向超出战区南界，南下回旋空间受限且直面粤桂重兵堵截，推演截停于战区南缘。',
+    },
+  ];
 
-    const chokeBadge = element('span', 'sandbox-choke-badge');
-    chokeBadge.hidden = true;
-    opts.paper.append(chokeBadge);
+  function roundGeo3(value: number) {
+    return Math.round(value * 1000) / 1000;
+  }
 
-    const panel = element('section', 'sandbox-panel');
-    panel.hidden = true;
-    const panelHead = element('div', 'sandbox-head');
-    panelHead.append(element('strong', '', '1934 战地推演沙盘'));
-    const closeBtn = control('收起', closePanel, 'harness-mini-btn');
-    panelHead.append(closeBtn);
-
-    const presets = element('div', 'harness-presets');
-    const form = element('form', 'harness-director-form');
-    const input = element('input', 'harness-input');
-    input.type = 'text';
-    input.maxLength = 220;
-    input.placeholder = '提出假设方案（如：强攻湘西北与二六军团会合）';
-    input.setAttribute('aria-label', '黎平战地沙盘推演方案');
-    const runBtn = element('button', 'primary harness-submit', '推演');
-    runBtn.type = 'submit';
-    const resultBox = element('div', 'sandbox-result');
-    resultBox.hidden = true;
-    let pending: AbortController | undefined;
-    let lastSimulation: { response: SandboxResponse; interactionId: string } | undefined;
-
-    function closePanel() {
-      pending?.abort();
-      pending = undefined;
-      runBtn.disabled = false;
-      panel.hidden = true;
-      clearOverlay();
+  function sampleCompactWaypoints(points: GeoPoint[], maxPoints = 6): GeoPoint[] {
+    if (points.length <= maxPoints) return points.map(([lon, lat]) => [roundGeo3(lon), roundGeo3(lat)]);
+    const sampled: GeoPoint[] = [];
+    for (let i = 0; i < maxPoints; i++) {
+      const idx = i === maxPoints - 1 ? points.length - 1 : Math.floor(i * (points.length - 1) / (maxPoints - 1));
+      sampled.push([roundGeo3(points[idx][0]), roundGeo3(points[idx][1])]);
     }
+    return sampled;
+  }
 
-    function clearOverlay() {
-      simGroup.replaceChildren();
-      chokeBadge.hidden = true;
+  function compactSandboxMapContext(ctx: SandboxTurnContext): SandboxTurnContext {
+    const trim = (s: string, max: number) => s.trim().slice(0, max);
+    const compacted: SandboxTurnContext = {
+      revision: Number.isSafeInteger(ctx.revision) ? ctx.revision : 0,
+      isInitial: Boolean(ctx.isInitial),
+      actionSinceLastTurn: ctx.actionSinceLastTurn === 'rolled_back' || ctx.actionSinceLastTurn === 'restored'
+        ? ctx.actionSinceLastTurn : 'continue',
+      activeSummary: trim(ctx.activeSummary || '', 220),
+      activeRoutes: (Array.isArray(ctx.activeRoutes) ? ctx.activeRoutes : []).slice(0, 4).map(route => ({
+        label: trim(String(route.label || ''), 18),
+        role: trim(String(route.role || ''), 16),
+        waypoints: sampleCompactWaypoints(Array.isArray(route.waypoints) ? route.waypoints : [], 6),
+      })),
+      activeZones: (Array.isArray(ctx.activeZones) ? ctx.activeZones : []).slice(0, 4).map(zone => ({
+        label: trim(String(zone.label || ''), 18),
+        center: [roundGeo3(zone.center?.[0] ?? sandboxLipingOrigin[0]), roundGeo3(zone.center?.[1] ?? sandboxLipingOrigin[1])],
+        kind: trim(String(zone.kind || ''), 16),
+      })),
+    };
+    const encoder = new TextEncoder();
+    while (encoder.encode(JSON.stringify(compacted)).length > 2500
+      && (compacted.activeRoutes.length > 0 || compacted.activeZones.length > 0)) {
+      if (compacted.activeZones.length > 0) compacted.activeZones.pop();
+      else compacted.activeRoutes.pop();
     }
+    return compacted;
+  }
 
-    function paintSimulation(res: SandboxResponse) {
-      clearOverlay();
-      if (res.mapPath.length >= 2) {
-        const d = 'M ' + res.mapPath.map(([x, y]) => `${x} ${y}`).join(' L ');
-        const pathEl = diagramPath(d, `sandbox-sim-path is-${res.riskLevel}`);
-        simGroup.append(pathEl);
-        drawLine(pathEl, 0, 560);
+  function readSandboxChatMirror(sessionId: string): SandboxHistoryState {
+    const empty: SandboxHistoryState = { turns: [], compressionVersion: 0, compressionTurnCount: 0 };
+    try {
+      const raw = sessionStorage.getItem(sandboxChatStorageKey);
+      if (!raw) return empty;
+      const parsed = JSON.parse(raw) as unknown;
+      if (!object(parsed) || parsed.version !== 1 || parsed.sessionId !== sessionId || !Array.isArray(parsed.turns)) {
+        return empty;
       }
-      const ring = document.createElementNS(svgNamespace, 'circle');
-      ring.setAttribute('cx', String(res.chokePoint.x));
-      ring.setAttribute('cy', String(res.chokePoint.y));
-      ring.setAttribute('r', '5.5');
-      ring.setAttribute('class', `sandbox-choke-ring is-${res.riskLevel}`);
-      simGroup.append(ring);
-
-      chokeBadge.textContent = res.chokePoint.label;
-      chokeBadge.style.left = res.chokePoint.x + '%';
-      chokeBadge.style.top = Math.max(10, res.chokePoint.y - 8) + '%';
-      chokeBadge.dataset.risk = res.riskLevel;
-      chokeBadge.hidden = false;
-      appear(chokeBadge, 240, 240);
-
-      resultBox.hidden = false;
-      resultBox.replaceChildren();
-      const tag = element('span', 'sandbox-hypothesis-tag', res.hypothesisTag);
-      const title = element('h3', 'sandbox-telegram-title', res.telegramTitle);
-      const outcome = element('p', 'sandbox-outcome', res.battlefieldOutcome);
-      const contrast = element('p', 'sandbox-contrast', `历史对照：${res.historicalContrast}`);
-      const restoreBtn = control('对照真实历史抉择 · 转向黔北', () => {
-        const simulation = lastSimulation;
-        lastSimulation = undefined;
-        resultBox.hidden = true;
-        closePanel();
-        const succeeded = opts.onRestoreRealRoute();
-        if (simulation) {
-          const current = getLedger();
-          recordEvent(current, 'sandbox', simulation.interactionId, 'operations',
-            { results: [{ action: { type: 'compare_liping_routes', side: 'west' }, outcome: succeeded ? 'succeeded' : 'failed' }] });
-          void syncEvents(current);
-        }
-      }, 'primary sandbox-restore-btn', 'compass');
-      resultBox.append(tag, title, outcome, contrast);
-      resultBox.append(restoreBtn);
+      const turns: SandboxHistoryExchange[] = [];
+      for (const entry of parsed.turns) {
+        if (!object(entry) || typeof entry.proposal !== 'string' || typeof entry.narration !== 'string') continue;
+        turns.push({
+          ...(typeof entry.id === 'string' && uuid.test(entry.id) ? { id: entry.id } : {}),
+          proposal: entry.proposal,
+          narration: entry.narration,
+          plan: sanitizeSandboxScenePlan(entry.plan),
+          ...(Array.isArray(entry.sourceIds) ? { sourceIds: entry.sourceIds.filter((s): s is string => typeof s === 'string') } : {}),
+        });
+      }
+      return {
+        turns: turns.slice(-24),
+        compressionVersion: typeof parsed.compressionVersion === 'number' && Number.isSafeInteger(parsed.compressionVersion)
+          ? parsed.compressionVersion : 0,
+        compressionTurnCount: typeof parsed.compressionTurnCount === 'number' && Number.isSafeInteger(parsed.compressionTurnCount)
+          ? parsed.compressionTurnCount : 0,
+      };
+    } catch {
+      return empty;
     }
+  }
 
-    async function runProposal(proposal: string) {
-      const clean = proposal.trim();
-      if (!clean || pending || panel.hidden) return;
-      const request = pending = new AbortController();
-      const interactionId = crypto.randomUUID();
-      runBtn.disabled = true;
-      clearOverlay();
-      lastSimulation = undefined;
-      resultBox.hidden = false;
-      resultBox.replaceChildren(element('p', 'sandbox-loading', '正在结合 1934 年敌我态势进行沙盘推演…'));
-      try {
-        const res = await courseRequest<SandboxResponse>('sandbox', {
-          theater: 'liping',
-          proposal: clean,
-          classification: 'hypothesis',
-        }, request.signal, interactionId);
-        if (request.signal.aborted) return;
-        saveLessonProgress();
-        soundscape.playSfx('route');
-        lastSimulation = { response: res, interactionId };
-        paintSimulation(res);
-      } catch (err) {
-        if (request.signal.aborted) return;
-        resultBox.replaceChildren(element('p', 'sandbox-error', err instanceof Error ? err.message : '推演服务暂不可用'));
-      } finally {
-        if (pending === request) {
-          pending = undefined;
-          runBtn.disabled = false;
-        }
+  function writeSandboxChatMirror(sessionId: string, state: SandboxHistoryState) {
+    try {
+      sessionStorage.setItem(sandboxChatStorageKey, JSON.stringify({
+        version: 1,
+        sessionId,
+        turns: state.turns.slice(-24),
+        compressionVersion: state.compressionVersion,
+        compressionTurnCount: state.compressionTurnCount,
+      }));
+    } catch {}
+  }
+
+  function resetSandboxLedgerView(current: CourseLedger) {
+    current.events = current.events.filter(event => event.route !== 'sandbox');
+    synced = 0;
+    persistLedger(current);
+  }
+
+  function matchProposalLandmarks(proposal: string) {
+    const hits: { index: number; name: string; point: GeoPoint; risk: 'blockade' | 'weak' | 'neutral' }[] = [];
+    const seen = new Set<string>();
+    for (const entry of sandboxLandmarkCatalog) {
+      let earliest = -1;
+      for (const key of entry.keys) {
+        const pos = proposal.indexOf(key);
+        if (pos >= 0 && (earliest < 0 || pos < earliest)) earliest = pos;
+      }
+      if (earliest >= 0 && !seen.has(entry.name)) {
+        seen.add(entry.name);
+        hits.push({ index: earliest, name: entry.name, point: entry.point, risk: entry.risk });
       }
     }
+    return hits.sort((a, b) => a.index - b.index);
+  }
 
-    const sampleProposals = [
-      '按原计划强攻湘西北与二六军团会合',
-      '分兵佯攻牵制敌军，主力再尝试北上',
-      '果断放弃原计划，改向敌军薄弱的黔北',
-    ];
-    for (const sample of sampleProposals) {
-      presets.append(control(sample, () => {
-        input.value = sample;
-        void runProposal(sample);
-      }, 'harness-chip'));
+  function computeSandboxCameraForPoints(points: GeoPoint[], defaultTilt = 35): SandboxCameraCue {
+    if (!points.length) return { center: [108.9, 26.75], zoom: 1.55, azimuth: -10, tilt: defaultTilt };
+    let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+    for (const [lon, lat] of points) {
+      if (lon < minLon) minLon = lon;
+      if (lon > maxLon) maxLon = lon;
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+    }
+    const cx = Math.max(105.2, Math.min(117.6, (minLon + maxLon) / 2));
+    const cy = Math.max(24.3, Math.min(30.1, (minLat + maxLat) / 2));
+    const span = Math.max(maxLon - minLon, (maxLat - minLat) * 1.4, 0.7);
+    const zoom = Math.max(1.12, Math.min(2.05, 2.55 - span * 0.32));
+    const azimuth = cx < 108.4 ? -14 : cx > 109.8 ? 10 : -8;
+    return { center: [roundGeo3(cx), roundGeo3(cy)], zoom: Math.round(zoom * 100) / 100, azimuth, tilt: defaultTilt };
+  }
+
+  function adaptLegacySandboxResponse(
+    res: SandboxResponse,
+    proposal: string,
+    mapContext: SandboxTurnContext
+  ): SandboxScenePlan {
+    const clean = proposal.trim();
+    const hits = matchProposalLandmarks(clean);
+    const isFollowUp = !mapContext.isInitial && mapContext.activeRoutes.length > 0
+      && /继续|再|改道|折向|刚才|随后|接着|然后|下一步|延伸/.test(clean)
+      && !/黎平|重新/.test(clean);
+    const priorMainRoute = mapContext.activeRoutes.find(r => r.role === 'main' || r.role === 'flank')
+      ?? mapContext.activeRoutes[0];
+    const priorEnd = priorMainRoute?.waypoints.at(-1);
+    const startPoint: GeoPoint = isFollowUp && priorEnd ? priorEnd : sandboxLipingOrigin;
+    const retainedPriorPhase = (isFollowUp && priorMainRoute && priorMainRoute.waypoints.length >= 2)
+      ? [{
+        id: 'prior-leg',
+        role: (priorMainRoute.role === 'flank' ? 'flank' : 'main') as SandboxForcePath['role'],
+        label: priorMainRoute.label.slice(0, 14) || '前期推进',
+        waypoints: priorMainRoute.waypoints.slice(-6),
+        phase: 0,
+        style: 'solid-gold' as const,
+        outcome: 'advance' as const,
+      }] : [];
+
+    const historicalContrast = (res.historicalContrast || '').trim()
+      || '黎平会议果断放弃北上湘西北原计划，决定转向敌军防备薄弱的贵州北部，为战略转折争取了宝贵空间。';
+    const baseOutcome = (res.battlefieldOutcome || '').trim();
+    const oobMatch = sandboxOobCatalog.find(item => item.pattern.test(clean));
+
+    if (oobMatch) {
+      const mid: GeoPoint = [
+        roundGeo3((startPoint[0] + oobMatch.target[0]) / 2),
+        roundGeo3((startPoint[1] + oobMatch.target[1]) / 2),
+      ];
+      const compatibleOutcome = baseOutcome && !/湘西北|口袋阵/.test(baseOutcome)
+        ? baseOutcome
+        : '远距穿插缺乏前沿粮弹接应与群众根据地依托，孤军拉长战线后极易陷入高山深谷或外围阻击阵地。';
+      return sanitizeSandboxScenePlan({
+        mode: 'simulate',
+        title: oobMatch.title,
+        analysis: compatibleOutcome,
+        riskLevel: 'critical',
+        historicalContrast,
+        outOfBoundsNote: oobMatch.note,
+        camera: computeSandboxCameraForPoints([startPoint, mid], 32),
+        phases: [{
+          caption: '超图幅边际约束',
+          durationMs: 1400,
+          redForces: [{
+            id: 'oob-main', role: 'main', label: oobMatch.title.slice(0, 14),
+            waypoints: [startPoint, oobMatch.target], phase: 0, style: 'dashed-vermilion', outcome: 'blocked',
+          }],
+          enemyForces: [{
+            id: 'oob-enemy', label: '外围重兵阻击', from: [110.15, 27.65], to: startPoint, phase: 0, posture: 'intercept',
+          }],
+          zones: [{ id: 'oob-zone', label: '战区边际受阻', center: startPoint, radiusDeg: 0.45, kind: 'enemy-blockade', phase: 0 }],
+          pins: [{ label: '边界受阻', point: startPoint, tone: 'vermilion', phase: 0 }],
+        }],
+        citedSourceIds: Array.isArray(res.sourceIds) ? res.sourceIds : [],
+      });
     }
 
-    form.append(input, runBtn);
-    form.addEventListener('submit', ev => {
-      ev.preventDefault();
-      void runProposal(input.value);
+    const isHold = /固守|休整|原地|不动|驻扎|待机|防御/.test(clean)
+      && !/西进|北上|绕道|分兵|佯攻|直插|前往/.test(clean);
+    if (isHold) {
+      const holdCenter = hits.find(h => h.name !== '黎平')?.point ?? sandboxLipingOrigin;
+      const analysis = /湘西北/.test(baseOutcome)
+        ? `若在黎平周边原地固守休整，渡过湘江后的疲惫主力将在原地滞留，给湘、桂、黔三路敌军合拢时间窗口，外线机动优势迅速丧失。`
+        : (baseOutcome || '原地固守休整虽可短暂喘息，但将给敌军留出合围布防的时间窗口，主力易在黎平周边陷入被动。');
+      return sanitizeSandboxScenePlan({
+        mode: 'simulate',
+        title: '黎平原地固守待机推演',
+        analysis,
+        riskLevel: 'high',
+        historicalContrast,
+        camera: computeSandboxCameraForPoints([holdCenter, [109.63, 26.32], [108.52, 25.93]], 37),
+        phases: [
+          {
+            caption: '黎平集结布防',
+            durationMs: 1050,
+            redForces: [{
+              id: 'hold-rally', role: 'hold', label: '黎平待机防线',
+              waypoints: [holdCenter, [roundGeo3(holdCenter[0] - 0.14), roundGeo3(holdCenter[1] + 0.08)]],
+              phase: 0, style: 'dotted-slate', outcome: 'stalled',
+            }],
+            enemyForces: [],
+            zones: [{ id: 'hold-zone', label: '原地固守区', center: holdCenter, radiusDeg: 0.34, kind: 'rally', phase: 0 }],
+            pins: [{ label: '原地待机', point: holdCenter, tone: 'neutral', phase: 0 }],
+          },
+          {
+            caption: '敌军合围压缩',
+            durationMs: 1350,
+            redForces: [{
+              id: 'hold-rally-2', role: 'hold', label: '黎平滞留受压',
+              waypoints: [holdCenter, [roundGeo3(holdCenter[0] - 0.14), roundGeo3(holdCenter[1] + 0.08)]],
+              phase: 1, style: 'dotted-slate', outcome: 'stalled',
+            }],
+            enemyForces: [
+              { id: 'enc-ne', label: '湘敌东线压缩', from: [110.00, 27.56], to: [109.32, 26.44], phase: 1, posture: 'encircle' },
+              { id: 'enc-e', label: '通道驻军逼近', from: [109.69, 26.58], to: [109.30, 26.28], phase: 1, posture: 'encircle' },
+              { id: 'enc-se', label: '桂北敌军北堵', from: [110.29, 25.27], to: [109.26, 26.05], phase: 1, posture: 'encircle' },
+            ],
+            zones: [{ id: 'hold-press', label: '周边封锁收紧', center: [109.42, 26.38], radiusDeg: 0.42, kind: 'enemy-blockade', phase: 1 }],
+            pins: [{ label: '窗口收窄', point: [109.42, 26.38], tone: 'vermilion', phase: 1 }],
+          },
+        ],
+        citedSourceIds: Array.isArray(res.sourceIds) ? res.sourceIds : [],
+      });
+    }
+
+    const isSplitFeint = /分兵|佯攻|牵制|诱敌|两路|牵扯/.test(clean);
+    if (isSplitFeint) {
+      const feintTargets = hits.filter(h => h.risk === 'blockade');
+      const mainTargets = hits.filter(h => h.name !== '黎平' && h.risk !== 'blockade');
+      const feintTarget = feintTargets[0]?.point ?? [109.63, 26.32];
+      const feintLabel = feintTargets[0]?.name ? `佯攻${feintTargets[0].name}` : '通道佯攻分队';
+      const defaultMain: GeoPoint[] = /西南|榕江/.test(clean)
+        ? [[108.52, 25.93], [107.98, 26.58]]
+        : [[108.52, 25.93], [107.90, 26.90], [107.47, 27.07]];
+      const mainWaypoints: GeoPoint[] = mainTargets.length
+        ? [startPoint, ...mainTargets.map(t => t.point)]
+        : [startPoint, ...defaultMain];
+      const mainDestName = mainTargets.at(-1)?.name ?? (/西南|榕江/.test(clean) ? '榕江西南' : '黔北猴场');
+      const mainBlocked = !mainTargets.length && feintTargets.length > 1;
+      const allPts = [startPoint, feintTarget, ...mainWaypoints];
+      const analysis = !/贵州|黔北|榕江|猴场|乌江|遵义|镇远/.test(clean) && /北上/.test(clean)
+        ? (baseOutcome || '分兵佯攻牵制通道湘敌后，受限于兵力减员，北上湘西北主力仍面临重兵纵深堵截，难以改变兵力悬殊格局。')
+        : `先遣分队${feintLabel}牵制湘敌重兵，主力随即西向${mainDestName}兵力薄弱区穿插转移，主动避开湘西北重兵口袋阵。`;
+      return sanitizeSandboxScenePlan({
+        mode: 'simulate',
+        title: `分兵牵制与主力${mainBlocked ? '受阻' : '西进'}${mainDestName}`.slice(0, 24),
+        analysis,
+        riskLevel: mainBlocked ? 'high' : 'viable',
+        historicalContrast,
+        camera: computeSandboxCameraForPoints(allPts, 34),
+        phases: [
+          {
+            caption: `${feintLabel}牵制湘敌`,
+            durationMs: 1150,
+            redForces: [{
+              id: 'feint-force', role: 'feint', label: feintLabel.slice(0, 14),
+              waypoints: [startPoint, feintTarget], phase: 0, style: 'dashed-vermilion', outcome: 'blocked',
+            }],
+            enemyForces: [{
+              id: 'enemy-drawn', label: '湘敌被牵制南调', from: [110.00, 27.56], to: feintTarget, phase: 0, posture: 'intercept',
+            }],
+            zones: [{ id: 'feint-zone', label: '牵制交火区', center: feintTarget, radiusDeg: 0.35, kind: 'enemy-blockade', phase: 0 }],
+            pins: [{ label: feintTargets[0]?.name ?? '通道', point: feintTarget, tone: 'vermilion', phase: 0 }],
+          },
+          {
+            caption: `主力转进${mainDestName}`,
+            durationMs: 1400,
+            redForces: [
+              {
+                id: 'feint-hold', role: 'feint', label: feintLabel.slice(0, 14),
+                waypoints: [startPoint, feintTarget], phase: 1, style: 'dashed-vermilion', outcome: 'stalled',
+              },
+              {
+                id: 'main-west', role: 'main', label: `主力转进${mainDestName}`.slice(0, 14),
+                waypoints: mainWaypoints, phase: 1, style: 'solid-gold', outcome: mainBlocked ? 'blocked' : 'breakthrough',
+              },
+            ],
+            enemyForces: [],
+            zones: [{
+              id: 'weak-corridor', label: '黔北薄弱走廊', center: mainWaypoints.at(-1)!,
+              radiusDeg: 0.48, kind: mainBlocked ? 'enemy-blockade' : 'weak-gap', phase: 1,
+            }],
+            pins: [{ label: mainDestName, point: mainWaypoints.at(-1)!, tone: 'gold', phase: 1 }],
+          },
+        ],
+        citedSourceIds: Array.isArray(res.sourceIds) ? res.sourceIds : [],
+      });
+    }
+
+    const targets = hits.filter(h => !(h.name === '黎平' && !isFollowUp && hits.length > 1));
+    if (targets.length > 0) {
+      const dest = targets[targets.length - 1];
+      const touchesBlockade = targets.some(t => t.risk === 'blockade');
+      const waypoints: GeoPoint[] = [startPoint, ...targets.map(t => t.point)];
+      if (waypoints.length === 1) waypoints.push(dest.point);
+      const routeNames = targets.map(t => t.name).join('→');
+      const title = `${isFollowUp ? '续进' : '转向'}${routeNames}`.slice(0, 24);
+      const analysis = touchesBlockade
+        ? (baseOutcome && /湘|重兵|堵截|封锁/.test(baseOutcome)
+          ? baseOutcome
+          : `沿${routeNames}一线推进直接撞入湘西北与通道重兵布防纵深，渡江后主力兵力受限，极易遭到前沿拦截与侧翼合围。`)
+        : (baseOutcome && /黔|贵州|乌江|遵义|薄弱/.test(baseOutcome)
+          ? baseOutcome
+          : `沿${routeNames}一线穿插敌军兵力相对薄弱的黔东南至黔北腹地，避开了湘西北重兵封锁带，为后续展开赢得机动主动。`);
+      const enemyVectors: SandboxEnemyVector[] = touchesBlockade
+        ? [
+          { id: 'blk-1', label: '湘西北主力拦截', from: [110.16, 29.40], to: dest.point, phase: retainedPriorPhase.length ? 1 : 0, posture: 'intercept' },
+          { id: 'blk-2', label: '湘中重兵侧击', from: [110.73, 25.83], to: waypoints[Math.min(1, waypoints.length - 1)], phase: retainedPriorPhase.length ? 1 : 0, posture: 'encircle' },
+        ]
+        : [
+          { id: 'chase-1', label: '湘敌东线尾追', from: [110.00, 27.56], to: [109.25, 26.65], phase: retainedPriorPhase.length ? 1 : 0, posture: 'intercept' },
+        ];
+      const activePhaseIndex = retainedPriorPhase.length ? 1 : 0;
+      const phases: SandboxScenePlan['phases'] = [
+        ...(retainedPriorPhase.length ? [{
+          caption: '承接前序进军态势',
+          durationMs: 950,
+          redForces: retainedPriorPhase,
+          enemyForces: [],
+          zones: [],
+          pins: [],
+        }] : []),
+        {
+          caption: title.slice(0, 20),
+          durationMs: 1450,
+          redForces: [{
+            id: 'directed-main',
+            role: 'main',
+            label: title.slice(0, 14),
+            waypoints,
+            phase: activePhaseIndex,
+            style: touchesBlockade ? 'dashed-vermilion' : 'solid-gold',
+            outcome: touchesBlockade ? 'blocked' : 'breakthrough',
+          }],
+          enemyForces: enemyVectors,
+          zones: [{
+            id: 'directed-zone',
+            label: touchesBlockade ? '敌军重兵拦截区' : '敌军防备薄弱带',
+            center: dest.point,
+            radiusDeg: touchesBlockade ? 0.56 : 0.45,
+            kind: touchesBlockade ? 'enemy-blockade' : 'weak-gap',
+            phase: activePhaseIndex,
+          }],
+          pins: targets.slice(0, 4).map(t => ({
+            label: t.name,
+            point: t.point,
+            tone: (t.risk === 'blockade' ? 'vermilion' : 'gold') as 'vermilion' | 'gold',
+            phase: activePhaseIndex,
+          })),
+        },
+      ];
+      return sanitizeSandboxScenePlan({
+        mode: 'simulate',
+        title,
+        analysis,
+        riskLevel: touchesBlockade ? 'critical' : 'viable',
+        historicalContrast,
+        camera: computeSandboxCameraForPoints(waypoints, 35),
+        phases,
+        citedSourceIds: Array.isArray(res.sourceIds) ? res.sourceIds : [],
+      });
+    }
+
+    const isExplainQuestion = /[？?]|为什么|为何|怎么看|如何评价|敌情|兵力对比|分析一下/.test(clean)
+      && !/去|攻|走|转|进军|渡|突围|固守|分兵|北上|南下|西进|东进/.test(clean);
+    if (isExplainQuestion) {
+      return sanitizeSandboxScenePlan({
+        mode: 'explain',
+        title: (res.telegramTitle || '黎平战前敌我态势解析').slice(0, 24),
+        analysis: baseOutcome || '1934年12月红军抵黎平后，湘西北有敌军重兵堵截，而贵州北部敌军兵力相对薄弱。',
+        riskLevel: res.riskLevel || 'high',
+        historicalContrast,
+        camera: { center: [108.95, 26.95], zoom: 1.48, azimuth: -10, tilt: 34 },
+        phases: [{
+          caption: '战区态势解析',
+          durationMs: 1100,
+          redForces: [],
+          enemyForces: [],
+          zones: [
+            { id: 'exp-blk', label: '湘西北重兵封锁', center: [110.15, 27.65], radiusDeg: 0.72, kind: 'enemy-blockade', phase: 0 },
+            { id: 'exp-gap', label: '黔北兵力薄弱带', center: [107.65, 27.15], radiusDeg: 0.52, kind: 'weak-gap', phase: 0 },
+          ],
+          pins: [
+            { label: '黎平', point: sandboxLipingOrigin, tone: 'gold', phase: 0 },
+            { label: '黔北薄弱', point: [107.47, 27.07], tone: 'gold', phase: 0 },
+          ],
+        }],
+        citedSourceIds: Array.isArray(res.sourceIds) ? res.sourceIds : [],
+      });
+    }
+
+    const goWest = res.trajectory === 'west-breakthrough'
+      || (/西|黔|贵|遵义|猴场|乌江/.test(clean) && !/湘西北|北上|强攻/.test(clean));
+    if (goWest) {
+      const westPts: GeoPoint[] = [startPoint, [108.58, 26.62], [107.90, 26.90], [107.47, 27.07], [106.93, 27.69]];
+      return sanitizeSandboxScenePlan({
+        mode: 'simulate',
+        title: (res.telegramTitle || '转向黔北进军推演').slice(0, 24),
+        analysis: baseOutcome || '主力避开湘西北重兵封锁，西向转入敌军防备薄弱的贵州北部，经猴场、乌江直指遵义地区。',
+        riskLevel: 'viable',
+        historicalContrast,
+        camera: computeSandboxCameraForPoints(westPts, 34),
+        phases: [
+          {
+            caption: '西出黔东经猴场',
+            durationMs: 1150,
+            redForces: [{
+              id: 'west-1', role: 'main', label: '主力西出黔北',
+              waypoints: westPts.slice(0, 4), phase: 0, style: 'solid-gold', outcome: 'advance',
+            }],
+            enemyForces: [],
+            zones: [{ id: 'west-gap', label: '黔北薄弱地带', center: [107.68, 27.15], radiusDeg: 0.55, kind: 'weak-gap', phase: 0 }],
+            pins: [{ label: '猴场', point: [107.47, 27.07], tone: 'gold', phase: 0 }],
+          },
+          {
+            caption: '强渡乌江进逼遵义',
+            durationMs: 1300,
+            redForces: [{
+              id: 'west-2', role: 'main', label: '北渡乌江取遵义',
+              waypoints: westPts, phase: 1, style: 'solid-gold', outcome: 'breakthrough',
+            }],
+            enemyForces: [],
+            zones: [],
+            pins: [{ label: '遵义', point: [106.93, 27.69], tone: 'gold', phase: 1 }],
+          },
+        ],
+        citedSourceIds: Array.isArray(res.sourceIds) ? res.sourceIds : [],
+      });
+    }
+
+    const northPts: GeoPoint[] = [startPoint, [109.20, 26.67], [110.00, 27.56], [110.39, 28.45]];
+    return sanitizeSandboxScenePlan({
+      mode: 'simulate',
+      title: (res.telegramTitle || '北上湘西北风险推演').slice(0, 24),
+      analysis: baseOutcome || '若沿原计划强行北上湘西北，渡江后的主力将直撞国民党军重兵口袋阵，补给受阻且有全线被围风险。',
+      riskLevel: res.riskLevel || 'critical',
+      historicalContrast,
+      camera: computeSandboxCameraForPoints(northPts, 35),
+      phases: [
+        {
+          caption: '北出锦屏试探怀化',
+          durationMs: 1100,
+          redForces: [{
+            id: 'north-1', role: 'main', label: '北上湘西北主力',
+            waypoints: northPts.slice(0, 3), phase: 0, style: 'dashed-vermilion', outcome: 'advance',
+          }],
+          enemyForces: [],
+          zones: [],
+          pins: [{ label: '怀化', point: [110.00, 27.56], tone: 'vermilion', phase: 0 }],
+        },
+        {
+          caption: '湘西北重兵封锁受阻',
+          durationMs: 1350,
+          redForces: [{
+            id: 'north-2', role: 'main', label: '北进受阻于湘西',
+            waypoints: northPts, phase: 1, style: 'dashed-vermilion', outcome: 'blocked',
+          }],
+          enemyForces: [
+            { id: 'n-blk-1', label: '桑植重兵南截', from: [110.16, 29.40], to: [110.39, 28.45], phase: 1, posture: 'intercept' },
+            { id: 'n-blk-2', label: '沅陵东翼合围', from: [110.92, 28.10], to: [110.18, 27.92], phase: 1, posture: 'encircle' },
+          ],
+          zones: [{ id: 'n-blk-zone', label: '湘西北口袋阵', center: [110.22, 28.15], radiusDeg: 0.72, kind: 'enemy-blockade', phase: 1 }],
+          pins: [{ label: '沅陵受阻', point: [110.39, 28.45], tone: 'vermilion', phase: 1 }],
+        },
+      ],
+      citedSourceIds: Array.isArray(res.sourceIds) ? res.sourceIds : [],
     });
+  }
 
-    panel.append(panelHead, presets, form, resultBox);
-    opts.stage.append(panel);
+  async function emitLocalStreamChunks(text: string, signal: AbortSignal, onProgress?: (event: DirectorProgress) => void) {
+    if (!onProgress || !text) return;
+    const chars = Array.from(text);
+    const step = Math.max(5, Math.ceil(chars.length / 10));
+    for (let i = step; i < chars.length; i += step) {
+      await new Promise<void>((resolve, reject) => {
+        if (signal.aborted) { reject(signal.reason); return; }
+        const timer = window.setTimeout(() => {
+          signal.removeEventListener('abort', onAbort);
+          resolve();
+        }, 20);
+        const onAbort = () => {
+          window.clearTimeout(timer);
+          reject(signal.reason);
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+      });
+      onProgress({ type: 'text', text: chars.slice(0, i).join('') });
+    }
+    if (!signal.aborted) onProgress({ type: 'text', text });
+  }
 
-    const trigger = lessonControl('liping-sandbox', '沙盘推演', () => {
-      if (panel.hidden) {
-        panel.hidden = false;
-        if (lastSimulation) paintSimulation(lastSimulation.response);
-        else resultBox.hidden = true;
-        const banner = opts.stage.querySelector<HTMLElement>('.harness-director-banner');
-        if (banner) banner.hidden = true;
-        appear(panel, 0, 220);
-        input.focus({ preventScroll: true });
-      } else {
-        closePanel();
+  async function postSandboxDual(
+    path: string,
+    payload: Record<string, unknown>,
+    signal: AbortSignal,
+    onProgress?: (event: DirectorProgress) => void
+  ): Promise<{ streamed: boolean; data: Record<string, unknown> }> {
+    const timeout = AbortSignal.timeout(62000);
+    const mergedSignal = AbortSignal.any([signal, timeout]);
+    let response: Response;
+    try {
+      response = await fetch(`${gatewayBase}${path}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/x-ndjson, application/json',
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+        },
+        body: JSON.stringify(payload),
+        signal: mergedSignal,
+      });
+    } catch {
+      signal.throwIfAborted();
+      if (timeout.aborted) throw new Error('AI 响应超时，请重试。');
+      throw new Error('教学网关连接中断，请检查一键开课服务后重试。');
+    }
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => null);
+      throw Object.assign(new Error(errData?.message || `推演服务请求失败 (${response.status})`), { status: response.status });
+    }
+
+    const contentType = response.headers.get('Content-Type') ?? '';
+    if (contentType.includes('application/x-ndjson')) {
+      try {
+        let finalResult: Record<string, unknown> | undefined;
+        for await (const event of readNdjsonResponse(response)) {
+          if (event.type === 'text' && typeof event.text === 'string') {
+            onProgress?.({ type: 'text', text: event.text });
+          }
+          if (event.type === 'error' && typeof event.message === 'string') throw new Error(event.message);
+          if (event.type === 'result' && object(event.result) && event.result.ok === true) {
+            finalResult = event.result;
+          }
+        }
+        if (!finalResult) throw new Error('推演结果提前中断，请重试。');
+        return { streamed: true, data: finalResult };
+      } catch (error) {
+        signal.throwIfAborted();
+        if (timeout.aborted) throw new Error('AI 响应超时，请重试。');
+        throw error;
       }
+    }
+
+    const data = await response.json().catch(() => null);
+    if (!object(data) || data.ok !== true) {
+      throw Object.assign(new Error(String(object(data) ? data.message ?? '' : '') || '推演服务响应异常，请重试。'), {
+        status: response.status,
+      });
+    }
+    return { streamed: false, data };
+  }
+
+  function scheduleSandboxCompaction(current: CourseLedger) {
+    const sessionId = current.sessionId;
+    const epoch = sandboxEpochs.get(current) ?? 0;
+    const active = () => ledger === current && (sandboxEpochs.get(current) ?? 0) === epoch;
+    const previous = sandboxCompaction.get(sessionId) ?? Promise.resolve();
+    const task = previous.then(async () => {
+      if (!active() || !online) return;
+      await syncEvents(current);
+      if (!active() || !online) return;
+      const response = await fetch(`${gatewayBase}/api/course-ai/sandbox/compact`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+        },
+        body: JSON.stringify({ sessionId, through: current.sequence }),
+        signal: AbortSignal.timeout(35000),
+      });
+      if (response.status === 404 || !response.ok) return;
+      const result = await response.json().catch(() => null);
+      if (active() && object(result) && result.ok === true && typeof result.version === 'number' && result.version > 0) {
+        const turnCount = typeof result.turnCount === 'number' ? result.turnCount : 0;
+        const mirror = readSandboxChatMirror(sessionId);
+        writeSandboxChatMirror(sessionId, {
+          ...mirror,
+          compressionVersion: result.version,
+          compressionTurnCount: turnCount,
+        });
+        window.dispatchEvent(new CustomEvent('course-sandbox-compressed', {
+          detail: { sessionId, version: result.version, turnCount },
+        }));
+      }
+    }).catch(() => {});
+    sandboxCompaction.set(sessionId, task);
+    void task.finally(() => {
+      if (sandboxCompaction.get(sessionId) === task) sandboxCompaction.delete(sessionId);
+    });
+  }
+
+  async function runSandboxTurn(
+    req: SandboxTurnRequestPayload,
+    signal: AbortSignal,
+    onProgress?: (event: DirectorProgress) => void
+  ): Promise<SandboxTurnReply> {
+    const current = getLedger();
+    const epoch = sandboxEpochs.get(current) ?? 0;
+    const sameTurn = () => ledger === current && (sandboxEpochs.get(current) ?? 0) === epoch;
+    const interactionId = crypto.randomUUID();
+    const state = buildClassroomState();
+    const compactContext = compactSandboxMapContext(req.mapContext);
+    const previous = current.events.slice().reverse().find(event => event.route === 'sandbox' && event.kind === 'feedback');
+    const recordedInput = {
+      theater: 'liping',
+      proposal: req.proposal,
+      classification: 'hypothesis',
+      mapContext: compactContext,
+      ...(req.attachments?.length ? { attachmentNames: req.attachments.map(file => file.name) } : {}),
+      page: state.page,
+      previousInteractionId: previous?.interactionId,
+    };
+    recordEvent(current, 'sandbox', interactionId, 'input', recordedInput);
+
+    try {
+      if (await syncEvents(current) === 'conflict') {
+        throw new Error('本机课堂记录与网关不一致。原记录已保留，请重新开课后继续使用 AI。');
+      }
+      signal.throwIfAborted();
+      if (!sameTurn()) throw new DOMException('课堂或对话已更换', 'AbortError');
+
+      const body = {
+        sessionId: current.sessionId,
+        theater: 'liping',
+        proposal: req.proposal,
+        classification: 'hypothesis',
+        mapContext: compactContext,
+        ...(req.attachments?.length ? {
+          attachments: req.attachments,
+          attachmentNames: req.attachments.map(file => file.name),
+        } : {}),
+        classroom: { sessionId: current.sessionId, interactionId, state },
+      };
+
+      const { streamed, data } = await postSandboxDual('/api/course-ai/sandbox', body, signal, onProgress);
+      signal.throwIfAborted();
+      if (!sameTurn()) throw new DOMException('课堂或对话已更换', 'AbortError');
+
+      let plan: SandboxScenePlan;
+      let narration = '';
+      if (object(data.plan)) {
+        plan = sanitizeSandboxScenePlan(data.plan);
+        narration = typeof data.narration === 'string' && data.narration.trim()
+          ? data.narration.trim() : plan.analysis;
+        if (!streamed && narration) {
+          await emitLocalStreamChunks(narration, signal, onProgress);
+        }
+      } else {
+        const legacyRes = data as unknown as SandboxResponse;
+        plan = adaptLegacySandboxResponse(legacyRes, req.proposal, compactContext);
+        narration = plan.analysis;
+        if (!streamed && narration) {
+          await emitLocalStreamChunks(narration, signal, onProgress);
+        }
+      }
+      signal.throwIfAborted();
+      if (!sameTurn()) throw new DOMException('课堂或对话已更换', 'AbortError');
+
+      const sourceIds = Array.isArray(data.sourceIds)
+        ? data.sourceIds.filter((s): s is string => typeof s === 'string') : plan.citedSourceIds;
+      recordEvent(current, 'sandbox', interactionId, 'feedback', {
+        title: plan.title,
+        riskLevel: plan.riskLevel,
+        battlefieldOutcome: narration.slice(0, 220),
+        historicalContrast: plan.historicalContrast.slice(0, 180),
+        classification: 'hypothesis',
+        sourceIds,
+      });
+
+      const mirror = readSandboxChatMirror(current.sessionId);
+      mirror.turns.push({ id: interactionId, proposal: req.proposal, narration, plan, sourceIds });
+      writeSandboxChatMirror(current.sessionId, mirror);
+
+      if (!signal.aborted) scheduleSandboxCompaction(current);
+      return { plan, narration, sourceIds, interactionId };
+    } catch (error) {
+      if (sameTurn()) {
+        recordEvent(current, 'sandbox', interactionId, signal.aborted ? 'cancelled' : 'failed',
+          { message: signal.aborted ? '请求已取消' : error instanceof Error ? error.message : '推演失败' });
+      }
+      throw error;
+    } finally {
+      void syncEvents(current);
+    }
+  }
+
+  async function loadSandboxHistory(sessionId: string): Promise<SandboxHistoryState> {
+    const localState = readSandboxChatMirror(sessionId);
+    if (!online || !gatewayBase) return localState;
+    try {
+      const response = await fetch(`${gatewayBase}/api/course-ai/sandbox/history`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+        },
+        body: JSON.stringify({ sessionId }),
+        signal: AbortSignal.timeout(4000),
+      });
+      if (response.status === 404 || !response.ok) return localState;
+      const data = await response.json().catch(() => null);
+      if (!object(data) || data.ok !== true || !Array.isArray(data.turns)) return localState;
+      const turns: SandboxHistoryExchange[] = [];
+      for (const item of data.turns) {
+        if (!object(item)) continue;
+        const proposal = typeof item.proposal === 'string' ? item.proposal : '';
+        const plan = sanitizeSandboxScenePlan(item.plan);
+        const narration = typeof item.narration === 'string' && item.narration.trim()
+          ? item.narration.trim() : typeof item.analysis === 'string' ? item.analysis.trim() : plan.analysis;
+        if (!proposal && !narration) continue;
+        turns.push({
+          ...(typeof item.interactionId === 'string' && uuid.test(item.interactionId) ? { id: item.interactionId } : {}),
+          proposal,
+          narration,
+          plan,
+        });
+      }
+      const nextState: SandboxHistoryState = {
+        turns: turns.length ? turns : localState.turns,
+        compressionVersion: typeof data.compressionVersion === 'number' ? data.compressionVersion : localState.compressionVersion,
+        compressionTurnCount: typeof data.compressionTurnCount === 'number' ? data.compressionTurnCount : localState.compressionTurnCount,
+      };
+      writeSandboxChatMirror(sessionId, nextState);
+      return nextState;
+    } catch {
+      return localState;
+    }
+  }
+
+  async function clearSandboxHistory(sessionId: string) {
+    const current = getLedger();
+    sandboxEpochs.set(current, (sandboxEpochs.get(current) ?? 0) + 1);
+    if (online && gatewayBase) {
+      await syncEvents(current);
+      try {
+        const response = await fetch(`${gatewayBase}/api/course-ai/sandbox/clear`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+          },
+          body: JSON.stringify({ sessionId, through: current.sequence }),
+          signal: AbortSignal.timeout(4000),
+        });
+        if (!response.ok && response.status !== 404) {
+          const errData = await response.json().catch(() => null);
+          throw Object.assign(new Error(errData?.message || '清空沙盘记录失败'), { status: response.status });
+        }
+      } catch (error) {
+        if (object(error) && typeof error.status === 'number' && error.status !== 404) {
+          throw error;
+        }
+      }
+    }
+    try { sessionStorage.removeItem(sandboxChatStorageKey); } catch {}
+    if (ledger === current) resetSandboxLedgerView(current);
+  }
+
+  function recordSandboxAction(interactionId: string, actionType: string, outcome: 'succeeded' | 'failed') {
+    const current = getLedger();
+    const id = typeof interactionId === 'string' && uuid.test(interactionId) ? interactionId : crypto.randomUUID();
+    recordEvent(current, 'sandbox', id, 'operations',
+      { results: [{ action: { type: actionType }, outcome }] });
+    void syncEvents(current);
+  }
+
+  function mountLipingSandboxEntry(deck: HTMLElement, beforeNode: HTMLElement, onOpen: () => void) {
+    const trigger = lessonControl('liping-sandbox', '沙盘推演', () => {
+      if (!online) return;
+      soundscape.playSfx('route');
+      onOpen();
     }, 'deck-btn is-harness', 'layers');
     trigger.hidden = !online;
-    opts.deck.append(trigger);
-
+    deck.insertBefore(trigger, beforeNode);
     const sync = () => {
       trigger.hidden = !online;
-      if (!online) closePanel();
     };
     window.addEventListener('course-harness-status', sync);
-    return () => {
-      window.removeEventListener('course-harness-status', sync);
-      closePanel();
-    };
+    return () => window.removeEventListener('course-harness-status', sync);
   }
 
   /**
@@ -1287,7 +2007,7 @@ const courseHarness = (() => {
         dialog.addEventListener('close', cancel, { once: true });
         const role = selectedRole;
         genBtn.disabled = true;
-        output.replaceChildren(element('p', 'sandbox-loading', '正在综合本场探索与推演轨迹生成复盘简报…'));
+        output.replaceChildren(element('p', 'harness-status-line', '正在综合本场探索与推演轨迹生成复盘简报…'));
         try {
           const res = await courseRequest<{ ok: true; report: RecapReportPayload }>('recap-report', {
             roleTrack: role,
@@ -1299,7 +2019,9 @@ const courseHarness = (() => {
           renderReport(res.report, role);
         } catch (err) {
           if (!wrap.isConnected || request.signal.aborted) return;
-          output.replaceChildren(element('p', 'sandbox-error', err instanceof Error ? err.message : '生成简报失败'));
+          const errLine = element('p', 'harness-status-line', err instanceof Error ? err.message : '生成简报失败');
+          errLine.dataset.error = 'true';
+          output.replaceChildren(errLine);
         } finally {
           dialog.removeEventListener('close', cancel);
           genBtn.disabled = false;
@@ -1336,6 +2058,7 @@ const courseHarness = (() => {
 
   return {
     isOnline: () => online,
+    getSessionId: getDirectorSessionId,
     probe,
     recordVisit,
     recordDeskMaterial,
@@ -1346,7 +2069,11 @@ const courseHarness = (() => {
     setActiveScene(bridge?: ActiveSceneBridge) { activeScene = bridge; },
     mountDirectorTrigger,
     mountDirectorBanner,
-    mountLipingSandbox,
+    mountLipingSandboxEntry,
+    runSandboxTurn,
+    loadSandboxHistory,
+    clearSandboxHistory,
+    recordSandboxAction,
     mountRecapReportButton,
   };
 })();

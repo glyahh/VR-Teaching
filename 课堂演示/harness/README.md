@@ -26,6 +26,8 @@
 
 `recentTurns` 默认保留最近两组完整交互。行迹副导完成回复并同步对话后，会在后台检查 `summaryThreshold`。只有压缩结果成功保存后，聊天区才显示「上下文已经完成压缩」。`summaryTarget` 限定摘要模型所读旧事件的输入量，`summaryTimeoutMs` 默认 5000。设置 `context.summaryEnabled: false` 可关闭语义摘要。修改配置后重启网关。
 
+沙盘使用精简的模型响应。网关补齐镜头、计时和路线样式，并校验完整地图剧本。当前轮失败时最多恢复一次，课堂取消会立即中止。网关的沙盘请求总上限为 56 秒。沙盘摘要独立运行，`context.sandboxSummaryTimeoutMs` 默认 26000 毫秒。如配置了共用的 `context.summaryTimeoutMs`，可用沙盘专用项覆盖。后台摘要完成后才显示分隔条，摘要失败时原始记录仍在。
+
 点「清空」删除本堂副导对话和对应的摘要，保留课页进度及其他课堂活动。输入区的加号可选 UTF-8 的 TXT、Markdown、CSV 和 JSON。每条消息最多选 3 份资料，内容合计不超过 4 KB。文件内容仅随本轮问题传给模型。
 
 Windows Edge 中可直接打开工程目录里的正式 HTML。先双击 [注册课堂开发入口](../../启动入口/Windows/注册课堂开发入口.vbs) 完成当前用户的一次性注册。在地图、正课或回顾按 `Ctrl+Alt+Shift+D`，打开「开发者模式」并点「启动后端」。遇到 Edge 确认弹窗时允许打开本机启动器。连接成功后在当前标签页继续授课。工程移动后重新注册。刷新会结束这次手动接入，课堂进度按平时的方式恢复。
@@ -36,8 +38,10 @@ node "课堂演示/harness/launch-course.mjs" --dry-run
 node "Test/verify-course-ai.mjs"
 node "Test/verify-course-context.mjs"
 node "Test/verify-course-context.mjs" --live
+node "Test/verify-sandbox-agent.mjs"
+node "Test/verify-sandbox-agent.mjs" --live
 python -B "Test/verify-harness-e2e.py"
 python -B "Test/verify-harness-e2e.py" --live
 ```
 
-`--dry-run` 会预热网关并显示去除访问凭据的地址。`--live` 使用本机配置真实调用模型。默认 Edge 验收使用本地模拟响应。
+`--dry-run` 会预热网关并显示去除访问凭据的地址。`--live` 使用本机配置真实调用模型。沙盘 `--live` 在同一课堂连续发出五轮，降低该验收会话的摘要触发阈值，并检查 SQLite 中的摘要和原始事件。默认 Edge 验收使用本地模拟响应。

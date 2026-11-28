@@ -13,7 +13,7 @@
 
 四段视频分别从各自首帧取 96、120、96、96 帧。OpenMotion 工程为 `cca11ebf-03c3-4ae7-b2d6-d2215e8f11ba`，导出任务为 `9a38fb71-c5f5-4c3e-89ce-15aa0a52bce2`。原始参考图、提示词、片源哈希、截取区间和审片记录保存在任务目录 `.march-build/xiang-video-remake/`。OpenMotion 导出和课件内嵌 MP4 的 SHA-256 均为 `236732583a1382c2b8cc9730f4c80c61e5eb9ae0a5dcd5ebb2ef9e1a8c24ee22`。
 
-画面、人物和队伍数量为教学情境复原。中央红军在全州、兴安之间渡过湘江，突破第四道封锁线并付出重大代价。界首等处曾使用浮桥。涉水画面用于观察渡江的处境和行动。[中央党史和文献研究院](https://www.dswxyjy.org.cn/n1/2020/0305/c219021-31618260.html) · [国防部资料](https://www.mod.gov.cn/gfbw/gfjy_index/js_214151/4852696.html) · [界首渡口资料](https://m.ccdi.gov.cn/content/ee/10/12201.html)
+画面、人物和队伍数量为教学情境复原。中央红军在全州、兴安之间渡过湘江，突破第四道封锁线并付出重大代价。界首等处曾使用浮桥。涉水画面用于观察渡江的处境和行动。
 
 经审片的 OpenMotion MP4 用 `python -B "课堂演示/media-source/make-xiang-crossing-tour.py" <导出文件>` 转为离线运行资源。脚本对照 [分镜清单](xiang-crossing-tour.json) 验证规格、时长和解码帧数。课件原样打包 MP4，以 Edge 解码生成开场和结尾静图。正课字幕在 4、9、13 秒随镜头切换，烧录字幕的文件另外用于审片。
 

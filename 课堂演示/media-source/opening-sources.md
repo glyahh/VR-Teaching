@@ -37,9 +37,9 @@
 
 ### 正式版史料与素材
 
-- 于都群众提供门板、船只，架浮桥支援红军过河。[中国军网](https://www.81.cn/zt/2019nzt/jzzzczl/jt_201844/9528725.html)
-- 两组兵力数字的时点分别为长征出发时和渡过湘江后，反映沿途减员。路线线条是课堂示意。[中央党史和文献研究院长征专题](https://www.dswxyjy.org.cn/GB/427277/462086/)
-- 黎平会议改向贵州，决定拟在以遵义为中心的川黔边地区建立根据地。猴场重申黎平决定，随后强渡乌江。遵义会议集中解决军事和组织问题。[黎平会议](https://www.dswxyjy.org.cn/n1/2025/0205/c427167-40412848.html) · [猴场到遵义](https://www.12371.cn/2021/04/16/ARTI1618535655307143.shtml) · [遵义会议](https://www.12371.cn/2021/08/12/ARTI1628761880703772.shtml)
+- 于都群众提供门板、船只，架浮桥支援红军过河。
+- 两组兵力数字的时点分别为长征出发时和渡过湘江后，反映沿途减员。路线线条是课堂示意。
+- 黎平会议改向贵州，决定拟在以遵义为中心的川黔边地区建立根据地。猴场重申黎平决定，随后强渡乌江。遵义会议集中解决军事和组织问题。
 - 桂北江谷实拍，Cfq938888 Chen，Pexels License。乌江段急流为空间气氛近景，João Pavese，Pexels License。[桂北江谷](https://www.pexels.com/video/scenic-view-of-karst-mountains-and-river-36932826/) · [急流](https://www.pexels.com/video/a-close-up-shot-of-the-cascading-water-in-the-river-4058993/) · [Pexels License](https://www.pexels.com/license/)
 - 晨雾航拍，Mixkit Stock Video Free License。复用的 95 秒版镜头的出处见下方旧版记录。[晨雾航拍](https://mixkit.co/free-stock-video/forest-covered-in-mist-at-sunrise-from-the-heights-28339/) · [Mixkit Free License](https://mixkit.co/license/#videoFree)
 - 配乐为 Scott Buckley 的 Hiraeth，取原曲 03:35–05:35，分句压低配乐。'Hiraeth' by Scott Buckley - released under CC-BY 4.0. www.scottbuckley.com.au。[原曲](https://www.scottbuckley.com.au/library/hiraeth/) · [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)

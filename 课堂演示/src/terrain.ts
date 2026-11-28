@@ -4,12 +4,14 @@ const terrainRows = 97;
 // The raster covers three map widths and five map heights. The relief uses the central two of each.
 const textureScale: [number,number] = [2/3,2/5];
 type TerrainAngle = [azimuth: number, tilt: number];
+type TerrainTheme = 'overview' | 'sandbox';
 const mapHomeAngle: TerrainAngle = [0, 32];
 type TerrainSurface = {
   element: HTMLDivElement;
   ready: boolean;
   lost?: boolean;
   onChange: () => void;
+  setTheme: (theme: TerrainTheme) => void;
   orient: (angle: TerrainAngle) => void;
   project: (point: Point) => Point;
   captureFrame: () => HTMLCanvasElement | undefined;
@@ -23,15 +25,26 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
   }
   const surface = document.createElement('div');
   surface.className = 'terrain-surface';
+  surface.dataset.theme = 'overview';
   surface.setAttribute('role','img');
   surface.setAttribute('aria-label','长征沿线地形');
   surface.style.backgroundImage = `url(${mediaAssets.terrain})`;
   const elevations = new Float32Array(terrainColumns*terrainRows);
   let angle: TerrainAngle | undefined;
+  let currentTheme: TerrainTheme = 'overview';
   let basis: [number,number,number,number] = [1,0,1,0];
   const terrain: TerrainSurface = {
     element:surface,ready:false,onChange,
     captureFrame: () => terrain.ready && draw() ? canvas : undefined,
+    setTheme: (theme: TerrainTheme) => {
+      if (currentTheme === theme && surface.dataset.theme === theme) return;
+      currentTheme = theme;
+      surface.dataset.theme = theme;
+      if (terrain.ready) {
+        draw();
+        terrain.onChange();
+      }
+    },
     project:([x,y])=>{
       if (!terrain.ready) return [x,y];
       const u = x/200+.25, v = y/200+.25;
@@ -79,6 +92,7 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
     precision highp float;
     uniform sampler2D elevations;
     uniform vec2 sampleStep;
+    uniform float themeMix;
     varying vec2 uv;
     float heightAt(vec2 point) {
       vec2 value = texture2D(elevations, point).rg;
@@ -94,7 +108,38 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
       vec3 highland = vec3(0.40, 0.40, 0.28);
       vec3 earth = mix(lowland, highland, clamp(height / 4600.0, 0.0, 1.0));
       vec3 color = earth * (0.49 + shade * 1.21);
-      gl_FragColor = vec4(mix(vec3(0.081, 0.126, 0.141), color, smoothstep(-2.0, 10.0, height)), 1.0);
+      vec3 overviewColor = mix(vec3(0.081, 0.126, 0.141), color, smoothstep(-2.0, 10.0, height));
+      if (themeMix <= 0.001) {
+        gl_FragColor = vec4(overviewColor, 1.0);
+        return;
+      }
+      float around = (
+        heightAt(uv + vec2(sampleStep.x * 3.0, 0.0)) +
+        heightAt(uv - vec2(sampleStep.x * 3.0, 0.0)) +
+        heightAt(uv + vec2(0.0, sampleStep.y * 3.0)) +
+        heightAt(uv - vec2(0.0, sampleStep.y * 3.0))
+      ) * 0.25;
+      float cavity = clamp((around - height) / 420.0, 0.0, 1.0);
+      float ao = 1.0 - cavity * 0.20;
+      vec3 valleyStone = vec3(0.56, 0.535, 0.495);
+      vec3 ridgeStone = vec3(0.75, 0.72, 0.67);
+      vec3 stone = mix(valleyStone, ridgeStone, clamp(height / 3600.0, 0.0, 1.0));
+      float studioShade = max(0.0, dot(normal, normalize(vec3(-0.44, -0.56, 0.70))));
+      vec3 litStone = stone * (0.78 + studioShade * 0.36) * ao;
+      vec3 waterInk = vec3(0.45, 0.48, 0.465);
+      vec3 modelColor = mix(waterInk, litStone, smoothstep(-2.0, 10.0, height));
+      float grad = max(1.0, length(vec2(dx, dy)) * 0.5);
+      float slopeWeight = smoothstep(1.4, 7.5, grad);
+      float landMask = smoothstep(2.0, 18.0, height);
+      float pMajor = fract(height / 300.0);
+      float distMajor = min(pMajor, 1.0 - pMajor) * 300.0;
+      float lineMajor = 1.0 - smoothstep(0.0, 1.45, distMajor / grad);
+      float pMinor = fract(height / 100.0);
+      float distMinor = min(pMinor, 1.0 - pMinor) * 100.0;
+      float lineMinor = 1.0 - smoothstep(0.0, 1.15, distMinor / grad);
+      float contour = clamp(max(lineMajor * 0.30, lineMinor * 0.14), 0.0, 0.30) * slopeWeight * landMask;
+      vec3 sandboxColor = mix(modelColor, vec3(0.22, 0.20, 0.17), contour);
+      gl_FragColor = vec4(mix(overviewColor, sandboxColor, themeMix), 1.0);
     }`;
   function compile(context:WebGLRenderingContext, type:number, source:string) {
     const shader = context.createShader(type);
@@ -105,7 +150,10 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
     context.deleteShader(shader);
     return null;
   }
-  const programLocation: { orientation: WebGLUniformLocation | null } = { orientation: null };
+  const programLocation: {
+    orientation: WebGLUniformLocation | null;
+    themeMix: WebGLUniformLocation | null;
+  } = { orientation: null, themeMix: null };
   const cells = (terrainColumns-1)*(terrainRows-1);
   let meshVertices: Float32Array | undefined;
   let meshIndices: Uint16Array | undefined;
@@ -131,6 +179,7 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
       return false;
     }
     programLocation.orientation = gl.getUniformLocation(program,'orientation');
+    programLocation.themeMix = gl.getUniformLocation(program,'themeMix');
     canvas.width = 1784;
     canvas.height = 952;
     gl.viewport(0,0,canvas.width,canvas.height);
@@ -151,6 +200,9 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
     gl.uniform2f(gl.getUniformLocation(program,'sampleStep'),1/elevation.width,1/elevation.height);
+    if (programLocation.themeMix) {
+      gl.uniform1f(programLocation.themeMix, currentTheme === 'sandbox' ? 1.0 : 0.0);
+    }
     return gl.getError() === gl.NO_ERROR;
   }
 
@@ -158,6 +210,9 @@ function createTerrainSurface(onChange: () => void): TerrainSurface {
     if (!gl || gl.isContextLost() || !programLocation.orientation) return false;
     gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
     gl.uniform4fv(programLocation.orientation,basis);
+    if (programLocation.themeMix) {
+      gl.uniform1f(programLocation.themeMix, currentTheme === 'sandbox' ? 1.0 : 0.0);
+    }
     gl.drawElements(gl.TRIANGLES,cells*6,gl.UNSIGNED_SHORT,0);
     return true;
   }
